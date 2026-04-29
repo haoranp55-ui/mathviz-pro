@@ -1,9 +1,16 @@
 // src/components/Controls/FunctionList.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const FunctionList: React.FC = () => {
   const { functions, removeFunction, toggleFunctionVisibility } = useAppStore();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (id: string, expression: string) => {
+    navigator.clipboard.writeText(expression);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   if (functions.length === 0) {
     return (
@@ -27,7 +34,7 @@ export const FunctionList: React.FC = () => {
         {functions.map((fn) => (
           <li
             key={fn.id}
-            className="function-item flex items-center gap-3 px-3 py-2.5 rounded-lg list-item group cursor-pointer"
+            className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group cursor-pointer"
           >
             {/* 颜色指示条 */}
             <div
@@ -44,6 +51,17 @@ export const FunctionList: React.FC = () => {
             >
               <span className="text-gray-500">y = </span>
               {fn.expression}
+            </button>
+
+            {/* 复制按钮 */}
+            <button
+              onClick={() => handleCopy(fn.id, fn.expression)}
+              className={`text-gray-500 hover:text-accent-primary w-6 h-6 rounded flex items-center justify-center transition-all ${
+                copiedId === fn.id ? 'text-green-400' : 'opacity-0 group-hover:opacity-100'
+              }`}
+              title="复制表达式"
+            >
+              {copiedId === fn.id ? '✓' : '⎘'}
             </button>
 
             {/* 可见性图标 */}
