@@ -1,11 +1,88 @@
 // src/components/Canvas/KeyPointRenderer.ts
-import type { KeyPoint, ViewPort, CanvasSize } from '../../types';
+import type { KeyPoint, ViewPort, CanvasSize, KeyPointType } from '../../types';
 import { KEY_POINT_STYLES } from '../../types';
 import { createScales } from '../../lib/transformer';
 
-const MARKER_RADIUS = 6;
-const TOOLTIP_PADDING = 8;
-const LINE_HEIGHT = 18;
+const MARKER_SIZE = 8;
+const TOOLTIP_PADDING = 10;
+const LINE_HEIGHT = 20;
+
+// 根据类型绘制不同形状
+function drawMarker(
+  ctx: CanvasRenderingContext2D,
+  type: KeyPointType,
+  x: number,
+  y: number,
+  size: number,
+  color: string
+): void {
+  ctx.save();
+
+  // 发光效果
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2;
+
+  switch (type) {
+    case 'zero':
+      // 圆形
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      break;
+
+    case 'maximum':
+      // 向上三角形 ▲
+      ctx.beginPath();
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x + size, y + size * 0.7);
+      ctx.lineTo(x - size, y + size * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+
+    case 'minimum':
+      // 向下三角形 ▼
+      ctx.beginPath();
+      ctx.moveTo(x, y + size);
+      ctx.lineTo(x + size, y - size * 0.7);
+      ctx.lineTo(x - size, y - size * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+
+    case 'inflection':
+      // 菱形 ◆
+      ctx.beginPath();
+      ctx.moveTo(x, y - size);
+      ctx.lineTo(x + size, y);
+      ctx.lineTo(x, y + size);
+      ctx.lineTo(x - size, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+
+    case 'discontinuity':
+      // 双竖线 ║
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y - size);
+      ctx.lineTo(x - 3, y + size);
+      ctx.moveTo(x + 3, y - size);
+      ctx.lineTo(x + 3, y + size);
+      ctx.stroke();
+      break;
+  }
+
+  ctx.restore();
+}
 
 export function drawKeyPoints(
   ctx: CanvasRenderingContext2D,
@@ -24,27 +101,7 @@ export function drawKeyPoints(
     if (px < -50 || px > canvasSize.width + 50) continue;
     if (py < -50 || py > canvasSize.height + 50) continue;
 
-    ctx.save();
-
-    // 绘制外圈
-    ctx.fillStyle = style.color;
-    ctx.beginPath();
-    ctx.arc(px, py, MARKER_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制白色内圈
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(px, py, MARKER_RADIUS - 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制中心点
-    ctx.fillStyle = style.color;
-    ctx.beginPath();
-    ctx.arc(px, py, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
+    drawMarker(ctx, kp.type, px, py, MARKER_SIZE, style.color);
   }
 }
 
@@ -60,46 +117,63 @@ export function drawKeyPointTooltip(
   const px = xScale(keyPoint.x);
   const py = isFinite(keyPoint.y) ? yScale(keyPoint.y) : yScale(0);
 
-  // 构建文字
-  const lines = [
-    `类型: ${style.label}`,
-    `坐标: (${keyPoint.x.toFixed(3)}, ${isFinite(keyPoint.y) ? keyPoint.y.toFixed(3) : '未定义'})`,
-  ];
-
   ctx.save();
-  ctx.font = '12px sans-serif';
+
+  // 第一行：类型标签
+  ctx.font = 'bold 11px sans-serif';
+  const typeText = style.label;
+  const typeWidth = ctx.measureText(typeText).width;
+
+  // 第二行：坐标
+  ctx.font = '12px monospace';
+  const coordText = `(${keyPoint.x.toFixed(3)}, ${isFinite(keyPoint.y) ? keyPoint.y.toFixed(3) : '—'})`;
+  const coordWidth = ctx.measureText(coordText).width;
 
   const padding = TOOLTIP_PADDING;
-  const maxWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
-  const boxWidth = maxWidth + padding * 2;
-  const boxHeight = lines.length * LINE_HEIGHT + padding * 2;
+  const boxWidth = Math.max(typeWidth, coordWidth) + padding * 2;
+  const boxHeight = LINE_HEIGHT * 2 + padding * 2;
 
   // 计算提示框位置
-  let boxX = px + 15;
+  let boxX = px + 18;
   let boxY = py - boxHeight / 2;
 
-  if (boxX + boxWidth > canvasSize.width - 10) boxX = px - boxWidth - 15;
+  if (boxX + boxWidth > canvasSize.width - 10) boxX = px - boxWidth - 18;
   if (boxY < 10) boxY = 10;
   if (boxY + boxHeight > canvasSize.height - 10) boxY = canvasSize.height - boxHeight - 10;
 
+  // 发光边框
+  ctx.shadowColor = style.color;
+  ctx.shadowBlur = 12;
+
   // 绘制背景
-  ctx.fillStyle = 'rgba(30, 41, 59, 0.95)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
   ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4);
+  ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 6);
   ctx.fill();
 
-  // 绘制边框
+  // 关闭发光绘制边框
+  ctx.shadowBlur = 0;
   ctx.strokeStyle = style.color;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  // 绘制文字
-  ctx.fillStyle = '#F1F5F9';
-  ctx.textBaseline = 'top';
+  // 绘制类型标签（左上角彩色小块）
+  ctx.fillStyle = style.color;
+  ctx.beginPath();
+  ctx.roundRect(boxX + padding, boxY + padding, 4, LINE_HEIGHT - 4, 2);
+  ctx.fill();
+
+  // 绘制类型文字
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = style.color;
+  ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  lines.forEach((line, i) => {
-    ctx.fillText(line, boxX + padding, boxY + padding + i * LINE_HEIGHT);
-  });
+  ctx.fillText(typeText, boxX + padding + 10, boxY + padding + LINE_HEIGHT / 2);
+
+  // 绘制坐标
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#E2E8F0';
+  ctx.fillText(coordText, boxX + padding, boxY + padding + LINE_HEIGHT * 1.5);
 
   ctx.restore();
 }

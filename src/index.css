@@ -13,3 +13,135 @@ html, body, #root {
   height: 100%;
   overflow: hidden;
 }
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
+/* 输入框焦点动画 */
+.input-glow:focus {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  border-color: #6366F1 !important;
+}
+
+/* 按钮渐变背景 */
+.btn-gradient {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  transition: all 0.2s ease;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #818CF8 0%, #A78BFA 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.btn-gradient:active {
+  transform: translateY(0);
+}
+
+/* 列表项动画 */
+.list-item {
+  transition: all 0.2s ease;
+}
+
+.list-item:hover {
+  background: rgba(99, 102, 241, 0.1);
+  transform: translateX(2px);
+}
+
+/* 参数面板分组 */
+.param-group {
+  @apply border-t border-gray-700/50 pt-3 mt-3;
+}
+
+/* 复选框自定义样式 */
+.custom-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #475569;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.custom-checkbox:checked {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  border-color: #6366F1;
+}
+
+.custom-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.custom-checkbox:hover {
+  border-color: #6366F1;
+}
+
+/* 滑块样式 */
+input[type="range"] {
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  height: 4px;
+  background: #334155;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  border-radius: 50%;
+  margin-top: -6px;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
+  transition: transform 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* 函数列表项进入动画 */
+.function-item {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
