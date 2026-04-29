@@ -98,12 +98,10 @@ export const FunctionCanvas: React.FC = () => {
       const selectedFn = functions.find(f => f.id === selectedFunctionId);
       if (selectedFn && selectedFn.visible && !selectedFn.error) {
         const yValue = selectedFn.compiled(evaluateX);
-        console.log('绘制计算点:', { selectedFunctionId, evaluateX, yValue, isFinite: isFinite(yValue) });
         if (isFinite(yValue)) {
           const { xScale, yScale } = createScales(viewPort, canvasSize);
           const px = xScale(evaluateX);
           const py = yScale(yValue);
-          console.log('像素坐标:', { px, py, canvasSize });
 
           // 绘制十字准线
           ctx.save();

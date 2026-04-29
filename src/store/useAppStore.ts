@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
       set({ functions: [...functions, errorFn] });
     } else {
-      set({ functions: [...functions, { ...result, color, visible: true }] });
+      set({ functions: [...functions, { ...result, id: uuidv4(), color, visible: true }] });
     }
   },
 
