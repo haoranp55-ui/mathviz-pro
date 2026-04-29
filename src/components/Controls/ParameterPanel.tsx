@@ -3,7 +3,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const ParameterPanel: React.FC = () => {
-  const { viewPort, showGrid, sampleCount, setViewPort, toggleGrid, setSampleCount, resetView } = useAppStore();
+  const { viewPort, showGrid, showKeyPoints, sampleCount, setViewPort, toggleGrid, toggleKeyPoints, setSampleCount, resetView } = useAppStore();
 
   return (
     <div className="p-3 border-t border-gray-700 space-y-3">
@@ -71,6 +71,20 @@ export const ParameterPanel: React.FC = () => {
         />
         <label htmlFor="showGrid" className="text-xs text-gray-400">
           显示网格
+        </label>
+      </div>
+
+      {/* 显示关键点 */}
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="showKeyPoints"
+          checked={showKeyPoints}
+          onChange={toggleKeyPoints}
+          className="rounded"
+        />
+        <label htmlFor="showKeyPoints" className="text-xs text-gray-400">
+          显示关键点
         </label>
       </div>
 
