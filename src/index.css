@@ -66,7 +66,9 @@ html, body, #root {
 
 /* 参数面板分组 */
 .param-group {
-  @apply border-t border-gray-700/50 pt-3 mt-3;
+  border-top: 1px solid rgba(55, 65, 81, 0.5);
+  padding-top: 12px;
+  margin-top: 12px;
 }
 
 /* 复选框自定义样式 */
