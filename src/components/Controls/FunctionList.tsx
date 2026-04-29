@@ -1,5 +1,5 @@
 // src/components/Controls/FunctionList.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const FunctionList: React.FC = () => {
@@ -13,6 +13,12 @@ export const FunctionList: React.FC = () => {
     setEvaluateX,
   } = useAppStore();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState<string>('1');
+
+  // 同步 inputValue 和 evaluateX
+  useEffect(() => {
+    setInputValue(String(evaluateX));
+  }, [evaluateX]);
 
   const handleCopy = (id: string, expression: string) => {
     navigator.clipboard.writeText(expression);
@@ -25,6 +31,17 @@ export const FunctionList: React.FC = () => {
       setSelectedFunction(null);
     } else {
       setSelectedFunction(id);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(val);
+    if (val !== '' && val !== '-') {
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        setEvaluateX(num);
+      }
     }
   };
 
@@ -114,9 +131,11 @@ export const FunctionList: React.FC = () => {
                   <div className="flex items-center gap-2 mb-2">
                     <label className="text-gray-400 text-xs">x =</label>
                     <input
-                      type="number"
-                      value={evaluateX}
-                      onChange={(e) => setEvaluateX(parseFloat(e.target.value) || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      value={inputValue}
+                      onChange={handleInputChange}
+                      placeholder="输入 x 值"
                       className="w-20 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 input-glow focus:outline-none text-center"
                     />
                     <span className="text-gray-500 text-xs">→</span>

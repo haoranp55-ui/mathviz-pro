@@ -76,7 +76,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   hoverKeyPoint: null,
   showKeyPoints: true,
   selectedFunctionId: null,
-  evaluateX: 0,
+  evaluateX: 1,
 
   addFunction: (expression: string) => {
     const { functions } = get();
