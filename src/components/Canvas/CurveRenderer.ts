@@ -29,8 +29,8 @@ export function drawCurve(
   for (let i = 0; i < n; i++) {
     const yi = y[i];
 
-    // 检查是否在视口范围内且有效
-    if (!isFinite(yi) || yi < viewPort.yMin - 100 || yi > viewPort.yMax + 100) {
+    // 只检查无效值，不再限制 Y 范围（让 Canvas 自己裁剪）
+    if (!isFinite(yi)) {
       // 不连续点：结束当前路径
       if (isDrawing) {
         ctx.stroke();

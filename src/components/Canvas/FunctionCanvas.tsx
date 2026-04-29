@@ -4,7 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCanvas } from '../../hooks/useCanvas';
 import { drawGrid } from './GridRenderer';
 import { drawCurve, drawHoverPoint, drawCoordinateTooltip } from './CurveRenderer';
-import { sampleFunction } from '../../lib/sampler';
+import { adaptiveSample } from '../../lib/sampler';
 import { canvasToMath, createScales } from '../../lib/transformer';
 
 export const FunctionCanvas: React.FC = () => {
@@ -44,7 +44,7 @@ export const FunctionCanvas: React.FC = () => {
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
 
-      const points = sampleFunction(fn.compiled, {
+      const points = adaptiveSample(fn.compiled, {
         xMin: viewPort.xMin,
         xMax: viewPort.xMax,
         sampleCount,
