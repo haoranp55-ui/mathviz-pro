@@ -6,6 +6,8 @@ import { drawGrid } from './GridRenderer';
 import { drawCurve, drawHoverPoint, drawCoordinateTooltip } from './CurveRenderer';
 import { adaptiveSample } from '../../lib/sampler';
 import { canvasToMath, createScales } from '../../lib/transformer';
+import { detectKeyPoints } from '../../lib/keyPointDetector';
+import { drawKeyPoints, drawKeyPointTooltip, findHoveredKeyPoint } from './KeyPointRenderer';
 
 export const FunctionCanvas: React.FC = () => {
   const {
@@ -14,9 +16,14 @@ export const FunctionCanvas: React.FC = () => {
     interaction,
     showGrid,
     sampleCount,
+    keyPoints,
+    hoverKeyPoint,
+    showKeyPoints,
     setHoverPoint,
     setDragging,
     setViewPort,
+    setKeyPoints,
+    setHoverKeyPoint,
   } = useAppStore();
 
   const { canvasRef, containerRef, canvasSize, getContext, clearCanvas } = useCanvas();
@@ -40,7 +47,7 @@ export const FunctionCanvas: React.FC = () => {
       drawGrid(ctx, viewPort, canvasSize);
     }
 
-    // 绘制函数曲线
+    // 绘制函数曲线并检测关键点
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
 
@@ -51,6 +58,24 @@ export const FunctionCanvas: React.FC = () => {
       });
 
       drawCurve(ctx, points, fn.color, viewPort, canvasSize);
+
+      // 检测关键点
+      const kps = detectKeyPoints(fn.compiled, points, fn.id);
+      setKeyPoints(fn.id, kps);
+    }
+
+    // 绘制关键点
+    if (showKeyPoints) {
+      const visibleKeyPoints = keyPoints.filter(kp => {
+        const fn = functions.find(f => f.id === kp.functionId);
+        return fn?.visible;
+      });
+      drawKeyPoints(ctx, visibleKeyPoints, viewPort, canvasSize);
+    }
+
+    // 绘制悬停的关键点提示框
+    if (hoverKeyPoint) {
+      drawKeyPointTooltip(ctx, hoverKeyPoint, viewPort, canvasSize);
     }
 
     // 绘制悬停点
@@ -61,7 +86,7 @@ export const FunctionCanvas: React.FC = () => {
         drawCoordinateTooltip(ctx, interaction.hoverPoint, viewPort, canvasSize);
       }
     }
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, showGrid, sampleCount, interaction.hoverPoint]);
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, showGrid, sampleCount, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, setKeyPoints]);
 
   // 使用 requestAnimationFrame 渲染
   useEffect(() => {
@@ -105,6 +130,22 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     // 悬停检测
+    // 检测关键点悬停（优先于曲线悬停）
+    if (showKeyPoints) {
+      const hoveredKP = findHoveredKeyPoint(px, py, keyPoints, viewPort, canvasSize);
+      if (hoveredKP) {
+        setHoverKeyPoint(hoveredKP);
+        setHoverPoint(null);
+        return;
+      }
+    }
+
+    // 如果之前悬停在关键点上，现在移开了
+    if (hoverKeyPoint) {
+      setHoverKeyPoint(null);
+    }
+
+    // 曲线悬停检测
     const mathCoord = canvasToMath(px, py, createScales(viewPort, canvasSize));
 
     // 查找最近的函数点
@@ -139,7 +180,7 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     setHoverPoint(closestPoint ? { x: closestPoint.x, y: closestPoint.y, functionId: closestPoint.functionId } : null);
-  }, [canvasRef, canvasSize, viewPort, functions, interaction.isDragging, setHoverPoint, setViewPort]);
+  }, [canvasRef, canvasSize, viewPort, functions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint]);
 
   // 鼠标按下
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -163,9 +204,10 @@ export const FunctionCanvas: React.FC = () => {
   // 鼠标离开
   const handleMouseLeave = useCallback(() => {
     setHoverPoint(null);
+    setHoverKeyPoint(null);
     setDragging(false);
     lastMousePosRef.current = null;
-  }, [setHoverPoint, setDragging]);
+  }, [setHoverPoint, setHoverKeyPoint, setDragging]);
 
   // 滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
