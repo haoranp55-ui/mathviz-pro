@@ -6,6 +6,7 @@ import type {
   ParsedFunction,
   HoverPoint,
   InteractionState,
+  KeyPoint,
 } from '../types';
 import {
   DEFAULT_VIEWPORT,
@@ -27,6 +28,15 @@ interface AppState {
   showGrid: boolean;
   sampleCount: number;
 
+  // 关键点列表
+  keyPoints: KeyPoint[];
+
+  // 悬停的关键点
+  hoverKeyPoint: KeyPoint | null;
+
+  // 显示关键点开关
+  showKeyPoints: boolean;
+
   // Actions
   addFunction: (expression: string) => void;
   removeFunction: (id: string) => void;
@@ -38,6 +48,10 @@ interface AppState {
   resetView: () => void;
   toggleGrid: () => void;
   setSampleCount: (count: number) => void;
+  setKeyPoints: (functionId: string, points: KeyPoint[]) => void;
+  clearKeyPoints: (functionId: string) => void;
+  setHoverKeyPoint: (kp: KeyPoint | null) => void;
+  toggleKeyPoints: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -50,6 +64,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   showGrid: true,
   sampleCount: 1000,
+  keyPoints: [],
+  hoverKeyPoint: null,
+  showKeyPoints: true,
 
   addFunction: (expression: string) => {
     const { functions } = get();
@@ -75,7 +92,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeFunction: (id: string) => {
-    set({ functions: get().functions.filter(f => f.id !== id) });
+    const { functions, keyPoints } = get();
+    set({
+      functions: functions.filter(f => f.id !== id),
+      keyPoints: keyPoints.filter(kp => kp.functionId !== id),
+    });
   },
 
   toggleFunctionVisibility: (id: string) => {
@@ -136,5 +157,23 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSampleCount: (count: number) => {
     set({ sampleCount: count });
+  },
+
+  setKeyPoints: (functionId: string, points: KeyPoint[]) => {
+    const { keyPoints } = get();
+    const filtered = keyPoints.filter(kp => kp.functionId !== functionId);
+    set({ keyPoints: [...filtered, ...points] });
+  },
+
+  clearKeyPoints: (functionId: string) => {
+    set({ keyPoints: get().keyPoints.filter(kp => kp.functionId !== functionId) });
+  },
+
+  setHoverKeyPoint: (kp: KeyPoint | null) => {
+    set({ hoverKeyPoint: kp });
+  },
+
+  toggleKeyPoints: () => {
+    set({ showKeyPoints: !get().showKeyPoints });
   },
 }));
