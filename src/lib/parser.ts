@@ -7,14 +7,39 @@ const math = create(all);
 
 // 配置 mathjs 支持的函数和常量
 const ALLOWED_FUNCTIONS = [
+  // 三角函数
   'sin', 'cos', 'tan', 'asin', 'acos', 'atan',
+  'cot', 'sec', 'csc',
   'sinh', 'cosh', 'tanh',
-  'exp', 'log', 'log10', 'log2', 'sqrt', 'cbrt',
-  'abs', 'floor', 'ceil', 'round', 'sign',
-  'pow', 'mod',
+  'coth', 'sech', 'csch',
+  'asinh', 'acosh', 'atanh',
+  'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',
+  'atan2',
+
+  // 指数对数
+  'exp', 'log', 'log10', 'log2',
+  'expm1', 'log1p',
+  'sqrt', 'cbrt', 'nthRoot',
+  'pow', 'cube', 'square',
+
+  // 取整/符号
+  'abs', 'floor', 'ceil', 'round', 'sign', 'fix',
+
+  // 组合/排列/阶乘
+  'factorial', 'combinations', 'permutations',
+
+  // 特殊函数
+  'gamma', 'erf',
+
+  // 其他
+  'hypot', 'gcd', 'lcm', 'mod',
 ];
 
-const ALLOWED_CONSTANTS = ['pi', 'e', 'PI', 'E'];
+const ALLOWED_CONSTANTS = [
+  'pi', 'e', 'PI', 'E',
+  'tau', 'phi',
+  'LN2', 'LN10', 'LOG2E', 'LOG10E', 'SQRT2', 'SQRT1_2',
+];
 
 export function parseExpression(expression: string): ParsedFunction | Error {
   try {
