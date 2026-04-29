@@ -37,6 +37,12 @@ interface AppState {
   // 显示关键点开关
   showKeyPoints: boolean;
 
+  // 选中计算的函数 ID
+  selectedFunctionId: string | null;
+
+  // 输入的 x 值
+  evaluateX: number;
+
   // Actions
   addFunction: (expression: string) => void;
   removeFunction: (id: string) => void;
@@ -52,6 +58,8 @@ interface AppState {
   clearKeyPoints: (functionId: string) => void;
   setHoverKeyPoint: (kp: KeyPoint | null) => void;
   toggleKeyPoints: () => void;
+  setSelectedFunction: (id: string | null) => void;
+  setEvaluateX: (x: number) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -67,6 +75,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   keyPoints: [],
   hoverKeyPoint: null,
   showKeyPoints: true,
+  selectedFunctionId: null,
+  evaluateX: 0,
 
   addFunction: (expression: string) => {
     const { functions } = get();
@@ -92,10 +102,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeFunction: (id: string) => {
-    const { functions, keyPoints } = get();
+    const { functions, keyPoints, selectedFunctionId } = get();
     set({
       functions: functions.filter(f => f.id !== id),
       keyPoints: keyPoints.filter(kp => kp.functionId !== id),
+      selectedFunctionId: selectedFunctionId === id ? null : selectedFunctionId,
     });
   },
 
@@ -175,5 +186,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleKeyPoints: () => {
     set({ showKeyPoints: !get().showKeyPoints });
+  },
+
+  setSelectedFunction: (id: string | null) => {
+    set({ selectedFunctionId: id });
+  },
+
+  setEvaluateX: (x: number) => {
+    set({ evaluateX: x });
   },
 }));

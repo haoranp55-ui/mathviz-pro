@@ -19,6 +19,8 @@ export const FunctionCanvas: React.FC = () => {
     keyPoints,
     hoverKeyPoint,
     showKeyPoints,
+    selectedFunctionId,
+    evaluateX,
     setHoverPoint,
     setDragging,
     setViewPort,
@@ -90,7 +92,58 @@ export const FunctionCanvas: React.FC = () => {
         drawCoordinateTooltip(ctx, interaction.hoverPoint, viewPort, canvasSize);
       }
     }
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, showGrid, sampleCount, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, setKeyPoints]);
+
+    // 绘制选中函数的计算点
+    if (selectedFunctionId) {
+      const selectedFn = functions.find(f => f.id === selectedFunctionId);
+      if (selectedFn && selectedFn.visible && !selectedFn.error) {
+        const yValue = selectedFn.compiled(evaluateX);
+        if (isFinite(yValue)) {
+          const { xScale, yScale } = createScales(viewPort, canvasSize);
+          const px = xScale(evaluateX);
+          const py = yScale(yValue);
+
+          // 绘制十字准线
+          ctx.save();
+          ctx.strokeStyle = selectedFn.color;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([6, 4]);
+          ctx.globalAlpha = 0.6;
+
+          // 水平线
+          ctx.beginPath();
+          ctx.moveTo(0, py);
+          ctx.lineTo(canvasSize.width, py);
+          ctx.stroke();
+
+          // 垂直线
+          ctx.beginPath();
+          ctx.moveTo(px, 0);
+          ctx.lineTo(px, canvasSize.height);
+          ctx.stroke();
+
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+
+          // 绘制点
+          ctx.fillStyle = selectedFn.color;
+          ctx.shadowColor = selectedFn.color;
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(px, py, 8, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+      }
+    }
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, showGrid, sampleCount, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, setKeyPoints]);
 
   // 使用 requestAnimationFrame 渲染
   useEffect(() => {
