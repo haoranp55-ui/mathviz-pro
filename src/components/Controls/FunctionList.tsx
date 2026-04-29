@@ -45,7 +45,7 @@ export const FunctionList: React.FC = () => {
             {/* 函数表达式 */}
             <button
               onClick={() => toggleFunctionVisibility(fn.id)}
-              className={`text-sm flex-1 text-left font-mono ${
+              className={`text-sm flex-1 text-left font-mono truncate ${
                 fn.visible ? 'text-white' : 'text-gray-500 line-through'
               }`}
             >
@@ -53,32 +53,35 @@ export const FunctionList: React.FC = () => {
               {fn.expression}
             </button>
 
-            {/* 复制按钮 */}
-            <button
-              onClick={() => handleCopy(fn.id, fn.expression)}
-              className={`text-gray-500 hover:text-accent-primary w-6 h-6 rounded flex items-center justify-center transition-all ${
-                copiedId === fn.id ? 'text-green-400' : 'opacity-0 group-hover:opacity-100'
-              }`}
-              title="复制表达式"
-            >
-              {copiedId === fn.id ? '✓' : '⎘'}
-            </button>
+            {/* 操作按钮组 */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* 错误提示 */}
+              {fn.error && (
+                <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded" title={fn.error}>
+                  错误
+                </span>
+              )}
 
-            {/* 错误提示 */}
-            {fn.error && (
-              <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded" title={fn.error}>
-                错误
-              </span>
-            )}
+              {/* 复制按钮 */}
+              <button
+                onClick={() => handleCopy(fn.id, fn.expression)}
+                className={`text-gray-500 hover:text-accent-primary w-6 h-6 rounded flex items-center justify-center transition-all ${
+                  copiedId === fn.id ? 'text-green-400' : 'opacity-0 group-hover:opacity-100'
+                }`}
+                title="复制表达式"
+              >
+                {copiedId === fn.id ? '✓' : '⎘'}
+              </button>
 
-            {/* 删除按钮 */}
-            <button
-              onClick={() => removeFunction(fn.id)}
-              className="text-gray-500 hover:text-red-400 hover:bg-red-400/10 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-              title="删除"
-            >
-              ✕
-            </button>
+              {/* 删除按钮 */}
+              <button
+                onClick={() => removeFunction(fn.id)}
+                className="text-gray-500 hover:text-red-400 hover:bg-red-400/10 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                title="删除"
+              >
+                ✕
+              </button>
+            </div>
           </li>
         ))}
       </ul>
