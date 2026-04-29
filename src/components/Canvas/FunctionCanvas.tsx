@@ -48,13 +48,17 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     // 绘制函数曲线并检测关键点
+    // 动态计算采样点密度
+    const xRange = viewPort.xMax - viewPort.xMin;
+    const dynamicSampleCount = Math.max(sampleCount, Math.floor(xRange * 50));
+
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
 
       const points = adaptiveSample(fn.compiled, {
         xMin: viewPort.xMin,
         xMax: viewPort.xMax,
-        sampleCount,
+        sampleCount: dynamicSampleCount,
       });
 
       drawCurve(ctx, points, fn.color, viewPort, canvasSize);
