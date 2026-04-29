@@ -17,7 +17,7 @@ const ALLOWED_FUNCTIONS = [
   'atan2',
 
   // 指数对数
-  'exp', 'log', 'log10', 'log2',
+  'exp', 'log', 'ln', 'log10', 'log2',
   'expm1', 'log1p',
   'sqrt', 'cbrt', 'nthRoot',
   'pow', 'cube', 'square',
@@ -43,8 +43,11 @@ const ALLOWED_CONSTANTS = [
 
 export function parseExpression(expression: string): ParsedFunction | Error {
   try {
-    // 预处理：清理输入
-    const cleaned = expression.trim();
+    // 预处理：清理输入并转换别名
+    let cleaned = expression.trim();
+
+    // 将 ln 替换为 log（mathjs 用 log 表示自然对数）
+    cleaned = cleaned.replace(/\bln\b/g, 'log');
 
     if (!cleaned) {
       return new Error('表达式不能为空');

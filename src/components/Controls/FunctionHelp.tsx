@@ -47,7 +47,7 @@ const FUNCTION_CATEGORIES = [
     name: '指数与对数',
     functions: [
       { name: 'exp(x)', desc: 'e^x' },
-      { name: 'log(x)', desc: '自然对数 ln(x)' },
+      { name: 'ln(x)', desc: '自然对数' },
       { name: 'log10(x)', desc: '常用对数 lg(x)' },
       { name: 'log2(x)', desc: '二进制对数' },
       { name: 'pow(x, y)', desc: 'x^y' },
@@ -100,7 +100,7 @@ const EXAMPLES = [
   { desc: '复合函数', expr: 'sin(x^2)' },
   { desc: '指数衰减', expr: 'exp(-x^2)' },
   { desc: '隐式乘法', expr: '2x + 3(x+1)' },
-  { desc: '对数函数', expr: 'log(x) / log(2)' },
+  { desc: '对数函数', expr: 'ln(x)' },
 ];
 
 export const FunctionHelp: React.FC<FunctionHelpProps> = ({ isOpen, onClose }) => {

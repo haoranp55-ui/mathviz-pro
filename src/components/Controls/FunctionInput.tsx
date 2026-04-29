@@ -19,15 +19,13 @@ export const FunctionInput: React.FC = () => {
   return (
     <>
       <div className="p-4 border-b border-gray-700/50">
-        <div className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent-primary"></span>
-            函数输入
-          </div>
+        <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-accent-primary"></span>
+          函数输入
           <button
             type="button"
             onClick={() => setShowHelp(true)}
-            className="text-gray-500 hover:text-accent-primary transition-colors"
+            className="text-accent-primary hover:text-accent-primaryHover transition-colors ml-1"
             title="查看帮助"
           >
             ?
@@ -38,7 +36,7 @@ export const FunctionInput: React.FC = () => {
             type="text"
             value={expression}
             onChange={(e) => setExpression(e.target.value)}
-            placeholder="sin(x), x^2, exp(x)..."
+            placeholder="sin(x), x^2, ln(x)..."
             className="flex-1 px-3 py-2.5 bg-canvas-panelLight text-white rounded-lg border border-gray-600 input-glow focus:outline-none text-sm placeholder-gray-500"
           />
           <button
