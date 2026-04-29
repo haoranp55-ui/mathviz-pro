@@ -61,7 +61,7 @@ export const ParameterPanel: React.FC = () => {
         <input
           type="range"
           min={100}
-          max={2000}
+          max={5000}
           step={100}
           value={sampleCount}
           onChange={(e) => setSampleCount(parseInt(e.target.value))}

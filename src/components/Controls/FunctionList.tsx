@@ -64,17 +64,6 @@ export const FunctionList: React.FC = () => {
               {copiedId === fn.id ? '✓' : '⎘'}
             </button>
 
-            {/* 可见性图标 */}
-            <button
-              onClick={() => toggleFunctionVisibility(fn.id)}
-              className={`text-lg transition-all ${
-                fn.visible ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-400'
-              }`}
-              title={fn.visible ? '隐藏' : '显示'}
-            >
-              {fn.visible ? '👁' : '👁‍🗨'}
-            </button>
-
             {/* 错误提示 */}
             {fn.error && (
               <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded" title={fn.error}>
