@@ -121,8 +121,8 @@ export const FunctionCanvas: React.FC = () => {
       setViewPort({
         xMin: viewPort.xMin - dx,
         xMax: viewPort.xMax - dx,
-        yMin: viewPort.yMin + dy,
-        yMax: viewPort.yMax + dy,
+        yMin: viewPort.yMin - dy,
+        yMax: viewPort.yMax - dy,
       });
 
       lastMousePosRef.current = { x: px, y: py };
