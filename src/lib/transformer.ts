@@ -1,10 +1,10 @@
 // src/lib/transformer.ts
-import { scaleLinear } from 'd3-scale';
-import { ViewPort, CanvasSize } from '../types';
+import { scaleLinear, type ScaleLinear } from 'd3-scale';
+import type { ViewPort, CanvasSize } from '../types';
 
 export interface Scales {
-  xScale: ReturnType<typeof scaleLinear>;
-  yScale: ReturnType<typeof scaleLinear>;
+  xScale: ScaleLinear<number, number>;
+  yScale: ScaleLinear<number, number>;
 }
 
 export function createScales(viewPort: ViewPort, canvasSize: CanvasSize): Scales {
@@ -26,8 +26,8 @@ export function mathToCanvas(
   scales: Scales
 ): { px: number; py: number } {
   return {
-    px: scales.xScale(x),
-    py: scales.yScale(y),
+    px: scales.xScale(x) as number,
+    py: scales.yScale(y) as number,
   };
 }
 

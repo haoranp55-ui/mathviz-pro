@@ -1,5 +1,5 @@
 // src/lib/sampler.ts
-import { SampleOptions, SampledPoints } from '../types';
+import type { SampleOptions, SampledPoints } from '../types';
 
 export function sampleFunction(
   fn: (x: number) => number,
@@ -26,7 +26,7 @@ export function adaptiveSample(
   options: SampleOptions,
   threshold: number = 100
 ): SampledPoints {
-  const { xMin, xMax, sampleCount } = options;
+  const { sampleCount } = options;
 
   // 先进行基础采样
   const baseResult = sampleFunction(fn, options);

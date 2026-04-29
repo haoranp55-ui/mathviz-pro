@@ -20,7 +20,7 @@ export const FunctionCanvas: React.FC = () => {
   } = useAppStore();
 
   const { canvasRef, containerRef, canvasSize, getContext, clearCanvas } = useCanvas();
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
 
   // 渲染函数

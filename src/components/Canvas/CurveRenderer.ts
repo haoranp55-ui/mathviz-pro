@@ -1,5 +1,5 @@
 // src/components/Canvas/CurveRenderer.ts
-import { SampledPoints, ViewPort, CanvasSize, HoverPoint } from '../../types';
+import type { SampledPoints, ViewPort, CanvasSize, HoverPoint } from '../../types';
 import { createScales } from '../../lib/transformer';
 
 const CURVE_LINE_WIDTH = 2;

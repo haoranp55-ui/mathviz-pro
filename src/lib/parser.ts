@@ -1,6 +1,7 @@
 // src/lib/parser.ts
-import { create, all, MathNode } from 'mathjs';
-import { ParsedFunction } from '../types';
+import { create, all } from 'mathjs';
+import type { MathNode } from 'mathjs';
+import type { ParsedFunction } from '../types';
 
 const math = create(all);
 

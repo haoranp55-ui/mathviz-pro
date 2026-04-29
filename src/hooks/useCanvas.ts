@@ -1,6 +1,6 @@
 // src/hooks/useCanvas.ts
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { CanvasSize } from '../types';
+import type { CanvasSize } from '../types';
 
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

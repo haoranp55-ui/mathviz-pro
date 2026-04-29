@@ -1,11 +1,13 @@
 // src/store/useAppStore.ts
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import {
+import type {
   ViewPort,
   ParsedFunction,
   HoverPoint,
   InteractionState,
+} from '../types';
+import {
   DEFAULT_VIEWPORT,
   FUNCTION_COLORS,
 } from '../types';

@@ -1,5 +1,5 @@
 // src/components/Canvas/GridRenderer.ts
-import { ViewPort, CanvasSize } from '../../types';
+import type { ViewPort, CanvasSize } from '../../types';
 import { createScales, calculateTickInterval, generateTicks } from '../../lib/transformer';
 
 const GRID_COLOR = '#475569';
