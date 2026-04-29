@@ -57,3 +57,27 @@ export const FUNCTION_COLORS = [
 ] as const;
 
 export type FunctionColor = typeof FUNCTION_COLORS[number];
+
+// 关键点类型
+export type KeyPointType = 'zero' | 'maximum' | 'minimum' | 'inflection' | 'discontinuity';
+
+export interface KeyPoint {
+  type: KeyPointType;
+  x: number;
+  y: number;          // NaN 表示不连续点
+  functionId: string;
+}
+
+export interface KeyPointStyle {
+  color: string;
+  marker: string;
+  label: string;
+}
+
+export const KEY_POINT_STYLES: Record<KeyPointType, KeyPointStyle> = {
+  zero:          { color: '#EF4444', marker: '●', label: '零点' },
+  maximum:       { color: '#3B82F6', marker: '▲', label: '极大值' },
+  minimum:       { color: '#10B981', marker: '▼', label: '极小值' },
+  inflection:    { color: '#F59E0B', marker: '◆', label: '拐点' },
+  discontinuity: { color: '#8B5CF6', marker: '║', label: '不连续点' },
+};
