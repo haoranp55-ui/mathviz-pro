@@ -21,6 +21,7 @@ export const FunctionList: React.FC = () => {
   };
 
   const handleSelect = (id: string) => {
+    console.log('选择函数:', id, '当前选中:', selectedFunctionId);
     if (selectedFunctionId === id) {
       setSelectedFunction(null);
     } else {

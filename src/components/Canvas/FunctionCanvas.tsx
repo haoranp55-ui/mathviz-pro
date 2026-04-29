@@ -98,10 +98,12 @@ export const FunctionCanvas: React.FC = () => {
       const selectedFn = functions.find(f => f.id === selectedFunctionId);
       if (selectedFn && selectedFn.visible && !selectedFn.error) {
         const yValue = selectedFn.compiled(evaluateX);
+        console.log('绘制计算点:', { selectedFunctionId, evaluateX, yValue, isFinite: isFinite(yValue) });
         if (isFinite(yValue)) {
           const { xScale, yScale } = createScales(viewPort, canvasSize);
           const px = xScale(evaluateX);
           const py = yScale(yValue);
+          console.log('像素坐标:', { px, py, canvasSize });
 
           // 绘制十字准线
           ctx.save();
@@ -268,7 +270,7 @@ export const FunctionCanvas: React.FC = () => {
 
   // 滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    // 注意：不使用 e.preventDefault() 因为 wheel 事件是 passive
 
     const canvas = canvasRef.current;
     if (!canvas) return;
