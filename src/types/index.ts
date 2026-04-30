@@ -13,6 +13,7 @@ export interface ParsedFunction {
   compiled: (x: number) => number;
   color: string;
   visible: boolean;
+  showDerivative?: boolean; // 是否显示导数曲线
   error?: string;
 }
 

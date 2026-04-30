@@ -75,10 +75,11 @@ export const FunctionInput: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPicker(!showPicker)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors px-2 py-1"
+              className={`absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors px-2 py-1 flex items-center gap-0.5 ${showPicker ? 'text-white' : ''}`}
               title="函数选择器"
             >
-              ƒ
+              <span>ƒ</span>
+              <span className={`text-xs transition-transform ${showPicker ? 'rotate-180' : ''}`}>▼</span>
             </button>
 
             {/* 函数选择器下拉 */}

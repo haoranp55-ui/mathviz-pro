@@ -68,6 +68,69 @@ export function drawCurve(
   ctx.restore();
 }
 
+// 绘制导数曲线（虚线样式）
+export function drawDerivativeCurve(
+  ctx: CanvasRenderingContext2D,
+  points: SampledPoints,
+  color: string,
+  viewPort: ViewPort,
+  canvasSize: CanvasSize
+): void {
+  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { x, y } = points;
+  const n = x.length;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([6, 4]); // 虚线样式
+  ctx.globalAlpha = 0.7; // 半透明
+
+  let isDrawing = false;
+
+  ctx.beginPath();
+
+  for (let i = 0; i < n; i++) {
+    const yi = y[i];
+
+    if (!isFinite(yi)) {
+      if (isDrawing) {
+        ctx.stroke();
+        ctx.beginPath();
+        isDrawing = false;
+      }
+      continue;
+    }
+
+    const px = xScale(x[i]);
+    const py = yScale(yi);
+
+    if (px < -100 || px > canvasSize.width + 100) {
+      if (isDrawing) {
+        ctx.stroke();
+        ctx.beginPath();
+        isDrawing = false;
+      }
+      continue;
+    }
+
+    if (!isDrawing) {
+      ctx.moveTo(px, py);
+      isDrawing = true;
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+
+  if (isDrawing) {
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 export function drawHoverPoint(
   ctx: CanvasRenderingContext2D,
   hoverPoint: HoverPoint,

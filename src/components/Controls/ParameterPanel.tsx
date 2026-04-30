@@ -3,7 +3,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const ParameterPanel: React.FC = () => {
-  const { viewPort, showGrid, showKeyPoints, sampleCount, setViewPort, toggleGrid, toggleKeyPoints, setSampleCount, resetView } = useAppStore();
+  const { viewPort, showGrid, showKeyPoints, sampleCount, setViewPort, toggleGrid, toggleKeyPoints, setSampleCount, resetView, exportImage } = useAppStore();
 
   return (
     <div className="p-4 border-t border-gray-700/50 space-y-4">
@@ -61,7 +61,7 @@ export const ParameterPanel: React.FC = () => {
         <input
           type="range"
           min={100}
-          max={5000}
+          max={20000}
           step={100}
           value={sampleCount}
           onChange={(e) => setSampleCount(parseInt(e.target.value))}
@@ -108,6 +108,14 @@ export const ParameterPanel: React.FC = () => {
         className="w-full py-2.5 text-xs text-gray-300 border border-gray-600 rounded-lg hover:bg-canvas-panelLight hover:border-gray-500 transition-all active:scale-[0.98]"
       >
         ↻ 重置视图
+      </button>
+
+      {/* 导出图片按钮 */}
+      <button
+        onClick={() => exportImage()}
+        className="w-full py-2.5 text-xs text-white bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg hover:from-purple-500 hover:to-blue-500 transition-all active:scale-[0.98] shadow-lg shadow-purple-500/20"
+      >
+        📷 导出图片
       </button>
     </div>
   );

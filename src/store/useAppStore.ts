@@ -43,10 +43,14 @@ interface AppState {
   // 输入的 x 值
   evaluateX: number;
 
+  // Canvas 引用（用于导出）
+  canvasRef: HTMLCanvasElement | null;
+
   // Actions
   addFunction: (expression: string) => void;
   removeFunction: (id: string) => void;
   toggleFunctionVisibility: (id: string) => void;
+  toggleFunctionDerivative: (id: string) => void;
   updateFunctionExpression: (id: string, expression: string) => void;
   setViewPort: (vp: Partial<ViewPort>) => void;
   setHoverPoint: (point: HoverPoint | null) => void;
@@ -60,6 +64,8 @@ interface AppState {
   toggleKeyPoints: () => void;
   setSelectedFunction: (id: string | null) => void;
   setEvaluateX: (x: number) => void;
+  setCanvasRef: (canvas: HTMLCanvasElement | null) => void;
+  exportImage: (filename?: string) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -77,6 +83,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showKeyPoints: true,
   selectedFunctionId: null,
   evaluateX: 1,
+  canvasRef: null,
 
   addFunction: (expression: string) => {
     const { functions } = get();
@@ -114,6 +121,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       functions: get().functions.map(f =>
         f.id === id ? { ...f, visible: !f.visible } : f
+      ),
+    });
+  },
+
+  toggleFunctionDerivative: (id: string) => {
+    set({
+      functions: get().functions.map(f =>
+        f.id === id ? { ...f, showDerivative: !f.showDerivative } : f
       ),
     });
   },
@@ -194,5 +209,24 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setEvaluateX: (x: number) => {
     set({ evaluateX: x });
+  },
+
+  setCanvasRef: (canvas: HTMLCanvasElement | null) => {
+    set({ canvasRef: canvas });
+  },
+
+  exportImage: (filename: string = 'mathviz-export.png') => {
+    const { canvasRef } = get();
+    if (!canvasRef) {
+      console.error('Canvas ref not set');
+      return;
+    }
+
+    // 创建下载链接
+    const dataUrl = canvasRef.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    link.click();
   },
 }));

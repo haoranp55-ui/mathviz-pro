@@ -3,11 +3,12 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useCanvas } from '../../hooks/useCanvas';
 import { drawGrid } from './GridRenderer';
-import { drawCurve, drawHoverPoint, drawCoordinateTooltip } from './CurveRenderer';
+import { drawCurve, drawHoverPoint, drawCoordinateTooltip, drawDerivativeCurve } from './CurveRenderer';
 import { adaptiveSample } from '../../lib/sampler';
 import { canvasToMath, createScales } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { drawKeyPoints, drawKeyPointTooltip, findHoveredKeyPoint } from './KeyPointRenderer';
+import { createDerivativeFunction } from '../../lib/derivative';
 
 export const FunctionCanvas: React.FC = () => {
   const {
@@ -26,11 +27,20 @@ export const FunctionCanvas: React.FC = () => {
     setViewPort,
     setKeyPoints,
     setHoverKeyPoint,
+    setCanvasRef,
   } = useAppStore();
 
   const { canvasRef, containerRef, canvasSize, getContext, clearCanvas } = useCanvas();
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // 注册 canvas 引用到 store（用于导出）
+  useEffect(() => {
+    if (canvasRef.current) {
+      setCanvasRef(canvasRef.current);
+    }
+    return () => setCanvasRef(null);
+  }, [canvasRef, setCanvasRef]);
 
   // 渲染函数
   const render = useCallback(() => {
@@ -50,9 +60,10 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     // 绘制函数曲线并检测关键点
-    // 动态计算采样点密度
+    // 采样点数由用户控制，视口范围大时自动加密
     const xRange = viewPort.xMax - viewPort.xMin;
-    const dynamicSampleCount = Math.max(sampleCount, Math.floor(xRange * 50));
+    const densityFactor = Math.max(1, Math.floor(xRange / 20)); // 每20单位范围加密1倍
+    const dynamicSampleCount = sampleCount * densityFactor;
 
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
@@ -64,6 +75,17 @@ export const FunctionCanvas: React.FC = () => {
       });
 
       drawCurve(ctx, points, fn.color, viewPort, canvasSize);
+
+      // 绘制导数曲线（每个函数单独控制）
+      if (fn.showDerivative) {
+        const derivativeFn = createDerivativeFunction(fn.compiled);
+        const derivativePoints = adaptiveSample(derivativeFn, {
+          xMin: viewPort.xMin,
+          xMax: viewPort.xMax,
+          sampleCount: dynamicSampleCount,
+        });
+        drawDerivativeCurve(ctx, derivativePoints, fn.color, viewPort, canvasSize);
+      }
 
       // 检测关键点
       const kps = detectKeyPoints(fn.compiled, points, fn.id);
@@ -207,7 +229,7 @@ export const FunctionCanvas: React.FC = () => {
 
     // 查找最近的函数点
     let closestPoint: { x: number; y: number; functionId: string; distance: number } | null = null;
-    const threshold = 10; // 像素阈值
+    const threshold = 12; // 像素阈值（放宽20%便于悬停）
 
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;

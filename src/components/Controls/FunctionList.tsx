@@ -7,6 +7,7 @@ export const FunctionList: React.FC = () => {
     functions,
     removeFunction,
     toggleFunctionVisibility,
+    toggleFunctionDerivative,
     selectedFunctionId,
     evaluateX,
     setSelectedFunction,
@@ -103,22 +104,50 @@ export const FunctionList: React.FC = () => {
                     </span>
                   )}
 
+                  {/* 显示/隐藏按钮 */}
+                  <button
+                    onClick={() => toggleFunctionVisibility(fn.id)}
+                    className={`w-6 h-6 rounded flex items-center justify-center transition-all ${
+                      fn.visible
+                        ? 'text-green-400 hover:text-green-300'
+                        : 'text-gray-500 bg-gray-500/20 hover:bg-gray-500/30'
+                    } opacity-0 group-hover:opacity-100`}
+                    title={fn.visible ? '隐藏函数' : '显示函数'}
+                  >
+                    {fn.visible ? '◉' : '○'}
+                  </button>
+
+                  {/* 导数按钮 */}
+                  {!fn.error && (
+                    <button
+                      onClick={() => toggleFunctionDerivative(fn.id)}
+                      className={`w-6 h-6 rounded flex items-center justify-center transition-all text-xs font-bold ${
+                        fn.showDerivative
+                          ? 'text-purple-400 bg-purple-400/20 hover:bg-purple-400/30'
+                          : 'text-gray-500 hover:text-purple-400 hover:bg-purple-400/10 opacity-0 group-hover:opacity-100'
+                      }`}
+                      title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
+                    >
+                      d
+                    </button>
+                  )}
+
                   {/* 复制按钮 */}
                   <button
                     onClick={() => handleCopy(fn.id, fn.expression)}
-                    className={`text-gray-500 hover:text-accent-primary w-6 h-6 rounded flex items-center justify-center transition-all ${
-                      copiedId === fn.id ? 'text-green-400' : 'opacity-0 group-hover:opacity-100'
+                    className={`text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 w-6 h-6 rounded flex items-center justify-center transition-all ${
+                      copiedId === fn.id ? 'text-green-400 bg-green-400/20' : 'opacity-0 group-hover:opacity-100'
                     }`}
                     title="复制表达式"
                   >
-                    {copiedId === fn.id ? '✓' : '⎘'}
+                    {copiedId === fn.id ? '✓' : '⧉'}
                   </button>
 
                   {/* 删除按钮 */}
                   <button
                     onClick={() => removeFunction(fn.id)}
-                    className="text-gray-500 hover:text-red-400 hover:bg-red-400/10 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                    title="删除"
+                    className="text-gray-500 hover:text-red-400 hover:bg-red-400/20 w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                    title="删除函数"
                   >
                     ✕
                   </button>
