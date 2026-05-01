@@ -47,6 +47,9 @@ interface AppState {
   samplePreset: SamplePreset;
   aspectRatioMode: AspectRatioMode;
 
+  // 渲染模式
+  useGPURendering: boolean;
+
   // 关键点列表
   keyPoints: KeyPoint[];
 
@@ -105,6 +108,9 @@ interface AppState {
   toggleImplicitKeyPoints: (id: string) => void;
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => void;
 
+  // GPU 渲染
+  toggleGPURendering: () => void;
+
   // 滑钮状态（用于优化隐函数渲染性能）
   isSliderActive: boolean;
   setSliderActive: (active: boolean) => void;
@@ -136,6 +142,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   evaluateX: 1,
   canvasRef: null,
   isSliderActive: false,
+  useGPURendering: false,  // 默认关闭，需要用户手动开启
 
   addFunction: (expression: string) => {
     const { functions } = get();
@@ -596,6 +603,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         };
       }),
     });
+  },
+
+  toggleGPURendering: () => {
+    set({ useGPURendering: !get().useGPURendering });
   },
 
   setSliderActive: (active: boolean) => {

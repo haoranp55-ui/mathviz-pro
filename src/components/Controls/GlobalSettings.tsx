@@ -1,8 +1,9 @@
 // src/components/Controls/GlobalSettings.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
 import type { SamplePreset } from '../../types';
+import { isWebGPUAvailable } from '../../lib/webgpu/implicitRendererGPU';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
 
@@ -11,12 +12,20 @@ export const GlobalSettings: React.FC = () => {
     viewPort,
     showGrid,
     samplePreset,
+    useGPURendering,
     setViewPort,
     toggleGrid,
     setSamplePreset,
+    toggleGPURendering,
     resetView,
     exportImage,
   } = useAppStore();
+
+  const [webGPUAvailable, setWebGPUAvailable] = useState(false);
+
+  useEffect(() => {
+    setWebGPUAvailable(isWebGPUAvailable());
+  }, []);
 
   return (
     <div className="p-4 border-t border-gray-700/50 space-y-4">
@@ -104,6 +113,30 @@ export const GlobalSettings: React.FC = () => {
             显示网格
           </label>
         </div>
+
+        {/* GPU 渲染开关 */}
+        <div className="flex items-center gap-3 py-1">
+          <input
+            type="checkbox"
+            id="useGPU"
+            checked={useGPURendering}
+            onChange={toggleGPURendering}
+            disabled={!webGPUAvailable}
+            className="custom-checkbox"
+          />
+          <label
+            htmlFor="useGPU"
+            className={`text-xs cursor-pointer ${webGPUAvailable ? 'text-gray-300' : 'text-gray-500'}`}
+          >
+            GPU 加速渲染
+            {!webGPUAvailable && <span className="ml-1 text-gray-600">(不可用)</span>}
+          </label>
+        </div>
+        {webGPUAvailable && useGPURendering && (
+          <div className="text-xs text-green-400 ml-6">
+            ✓ 使用 WebGPU 加速隐函数渲染
+          </div>
+        )}
       </div>
 
       {/* 重置按钮 */}
