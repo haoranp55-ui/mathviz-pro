@@ -6,8 +6,8 @@ import { drawGrid } from './GridRenderer';
 import { drawCurve, drawHoverPoint, drawDerivativeCurve } from './CurveRenderer';
 import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
-import { cachedIntervalMarchingSquares } from '../../lib/implicitSamplerInterval';
-import { getGPURenderer, isWebGPUAvailable } from '../../lib/webgpu/implicitRendererGPU';
+import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
+import { isWebGPUAvailable } from '../../lib/webgpu/implicitRendererGPU';
 import { canvasToMath, createScales, createRenderContext } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { detectImplicitKeyPoints } from '../../lib/implicitKeyPointDetector';
@@ -86,18 +86,6 @@ export const FunctionCanvas: React.FC = () => {
 
   // 缓存隐函数线段数据，用于悬停检测
   const implicitSegmentsRef = useRef<Map<string, ContourSegment[]>>(new Map());
-
-  // GPU 渲染器引用
-  const gpuRendererRef = useRef<Awaited<ReturnType<typeof getGPURenderer>>>(null);
-
-  // 初始化 GPU 渲染器
-  useEffect(() => {
-    if (useGPURendering && isWebGPUAvailable()) {
-      getGPURenderer(256).then(renderer => {
-        gpuRendererRef.current = renderer;
-      });
-    }
-  }, [useGPURendering]);
 
   // 注册 canvas 引用到 store（用于导出）
   useEffect(() => {
@@ -222,30 +210,33 @@ export const FunctionCanvas: React.FC = () => {
         yMax: renderCtx.sampleYMax,
       };
 
-      // 计算实际渲染区域的像素数（考虑 equal 模式的偏移）
-      const actualPixelWidth = renderCtx.actualWidth;
-      const actualPixelHeight = renderCtx.actualHeight;
-
-      // 选择渲染方式：GPU 或 CPU
+      // 选择渲染方式
+      // 统一使用 fastRenderWithCache，保证缓存一致性
       let segments: ContourSegment[];
 
-      if (useGPURendering && gpuRendererRef.current) {
-        // GPU 加速渲染
-        segments = gpuRendererRef.current.render(boundFn, sampleViewPort);
-      } else {
-        // CPU 渲染（带缓存）
-        // 使用基于区间算术的 Marching Squares 算法采样隐函数
-        // 滑钮滑动时使用 fast 挡位以提升性能
-        const effectivePreset = isSliderActive ? 'fast' : samplePreset;
-        segments = cachedIntervalMarchingSquares(
-          boundFn,
-          sampleViewPort,
-          actualPixelWidth,
-          actualPixelHeight,
-          `implicit-interval-${fn.id}`,
-          effectivePreset
-        );
-      }
+      // 根据精度预设确定网格大小
+      const gridSizes: Record<string, { slider: number; normal: number }> = {
+        'fast': { slider: 32, normal: 64 },
+        'normal': { slider: 48, normal: 96 },
+        'fine': { slider: 64, normal: 128 },
+        'ultra': { slider: 80, normal: 160 },
+      };
+
+      const sizes = gridSizes[samplePreset] || gridSizes['normal'];
+      const gridSize = isSliderActive ? sizes.slider : sizes.normal;
+
+      // GPU 模式使用更高分辨率
+      const finalGridSize = useGPURendering && isWebGPUAvailable()
+        ? Math.floor(gridSize * 1.5)
+        : gridSize;
+
+      segments = fastRenderWithCache(
+        boundFn,
+        sampleViewPort,
+        finalGridSize,
+        `implicit-${useGPURendering ? 'gpu' : 'cpu'}-${fn.id}`,
+        currentParams
+      );
 
       // 缓存线段数据用于悬停检测
       implicitSegmentsRef.current.set(fn.id, segments);

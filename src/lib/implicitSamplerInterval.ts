@@ -7,11 +7,193 @@
  * 2. 早期退出：同符号单元格直接跳过
  * 3. TypedArrays 存储中间结果
  * 4. 内联计算减少函数调用开销
+ * 5. 网格值缓存：预计算网格值，分离函数计算和线段提取
  */
 
 import Interval from 'interval-arithmetic';
 import type { ViewPort, ContourSegment, SamplePreset } from '../types';
 import { IMPLICIT_SAMPLE_PRESETS } from '../types';
+
+// ============================================
+// 网格值缓存系统（核心优化）
+// ============================================
+
+interface GridCache {
+  values: Float32Array;
+  gridSize: number;
+  viewPort: ViewPort;
+  params: Record<string, number>;
+  lastAccess: number;
+}
+
+const gridCacheMap = new Map<string, GridCache>();
+
+// 缓存过期时间（毫秒）
+const CACHE_EXPIRE_TIME = 2000;
+
+/**
+ * 预计算网格值（可缓存）
+ * 这是最耗时的部分，分离出来便于优化
+ */
+export function computeGridValues(
+  fn: (x: number, y: number) => number,
+  viewPort: ViewPort,
+  gridSize: number = 128
+): Float32Array {
+  const values = new Float32Array(gridSize * gridSize);
+  const { xMin, xMax, yMin, yMax } = viewPort;
+  const dx = (xMax - xMin) / (gridSize - 1);
+  const dy = (yMax - yMin) / (gridSize - 1);
+
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      const x = xMin + gx * dx;
+      const y = yMin + gy * dy;
+      values[gy * gridSize + gx] = fn(x, y);
+    }
+  }
+
+  return values;
+}
+
+/**
+ * 从预计算的网格值提取线段（极快）
+ */
+export function extractSegmentsFromGrid(
+  values: Float32Array,
+  viewPort: ViewPort,
+  gridSize: number
+): ContourSegment[] {
+  const segments: ContourSegment[] = [];
+  const { xMin, xMax, yMin, yMax } = viewPort;
+  const dx = (xMax - xMin) / (gridSize - 1);
+  const dy = (yMax - yMin) / (gridSize - 1);
+
+  for (let gy = 0; gy < gridSize - 1; gy++) {
+    for (let gx = 0; gx < gridSize - 1; gx++) {
+      const idx = gy * gridSize + gx;
+      const v0 = values[idx];
+      const v1 = values[idx + 1];
+      const v2 = values[idx + gridSize + 1];
+      const v3 = values[idx + gridSize];
+
+      // 跳过无效值
+      if (!isFinite(v0) || !isFinite(v1) || !isFinite(v2) || !isFinite(v3)) continue;
+
+      // 同符号跳过
+      const sign0 = v0 >= 0;
+      if (sign0 === (v1 >= 0) && sign0 === (v2 >= 0) && sign0 === (v3 >= 0)) continue;
+
+      const baseX = xMin + gx * dx;
+      const baseY = yMin + gy * dy;
+
+      const points: Array<{ x: number; y: number }> = [];
+
+      // 底边
+      if (v0 * v1 < 0) {
+        const t = v0 / (v0 - v1);
+        points.push({ x: baseX + t * dx, y: baseY });
+      }
+      // 右边
+      if (v1 * v2 < 0) {
+        const t = v1 / (v1 - v2);
+        points.push({ x: baseX + dx, y: baseY + t * dy });
+      }
+      // 顶边
+      if (v2 * v3 < 0) {
+        const t = v2 / (v2 - v3);
+        points.push({ x: baseX + (1 - t) * dx, y: baseY + dy });
+      }
+      // 左边
+      if (v3 * v0 < 0) {
+        const t = v3 / (v3 - v0);
+        points.push({ x: baseX, y: baseY + (1 - t) * dy });
+      }
+
+      if (points.length >= 2) {
+        segments.push({
+          x1: points[0].x, y1: points[0].y,
+          x2: points[1].x, y2: points[1].y,
+        });
+      }
+      if (points.length === 4) {
+        segments.push({
+          x1: points[2].x, y1: points[2].y,
+          x2: points[3].x, y2: points[3].y,
+        });
+      }
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * 检查参数是否在容差范围内相同
+ */
+function paramsApproxEqual(
+  p1: Record<string, number>,
+  p2: Record<string, number>,
+  tolerance: number = 0.01
+): boolean {
+  const keys1 = Object.keys(p1);
+  const keys2 = Object.keys(p2);
+
+  if (keys1.length !== keys2.length) return false;
+  if (keys1.length === 0) return true;
+
+  for (const key of keys1) {
+    if (!(key in p2)) return false;
+    if (Math.abs(p1[key] - p2[key]) > tolerance) return false;
+  }
+
+  return true;
+}
+
+/**
+ * 带网格缓存的快速渲染（滑钮滑动专用）
+ */
+export function fastRenderWithCache(
+  fn: (x: number, y: number) => number,
+  viewPort: ViewPort,
+  gridSize: number,
+  cacheId: string,
+  params: Record<string, number> = {}
+): ContourSegment[] {
+  const cached = gridCacheMap.get(cacheId);
+  const now = Date.now();
+
+  // 清理过期缓存
+  if (cached && now - cached.lastAccess > CACHE_EXPIRE_TIME) {
+    gridCacheMap.delete(cacheId);
+  }
+
+  // 检查缓存是否有效（参数容差匹配）
+  let values: Float32Array;
+  if (cached &&
+      cached.gridSize === gridSize &&
+      paramsApproxEqual(cached.params, params, 0.005) &&
+      Math.abs(cached.viewPort.xMin - viewPort.xMin) < 0.01 &&
+      Math.abs(cached.viewPort.xMax - viewPort.xMax) < 0.01 &&
+      Math.abs(cached.viewPort.yMin - viewPort.yMin) < 0.01 &&
+      Math.abs(cached.viewPort.yMax - viewPort.yMax) < 0.01) {
+    // 缓存命中，直接使用
+    values = cached.values;
+    cached.lastAccess = now;
+  } else {
+    // 缓存未命中，重新计算
+    values = computeGridValues(fn, viewPort, gridSize);
+    gridCacheMap.set(cacheId, {
+      values,
+      gridSize,
+      viewPort: { ...viewPort },
+      params: { ...params },
+      lastAccess: now,
+    });
+  }
+
+  return extractSegmentsFromGrid(values, viewPort, gridSize);
+}
 
 // ============================================
 // 高性能区间采样核心算法

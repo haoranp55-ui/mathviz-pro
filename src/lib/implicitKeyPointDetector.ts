@@ -3,11 +3,10 @@
  * 隐函数关键点检测器
  *
  * 隐函数 F(x,y) = 0 的关键点检测方法：
- * 1. 从采样的线段中提取所有点
- * 2. 检测 y 极值点（垂直切线）
- * 3. 检测 x 极值点（水平切线）
+ * 1. 构建连续路径（保持点在曲线上的顺序）
+ * 2. 检测 y 极值点（水平切线）
+ * 3. 检测 x 极值点（垂直切线）
  * 4. 检测自交点
- * 5. 检测边界点
  */
 
 import type { KeyPoint, ContourSegment } from '../types';
@@ -23,25 +22,24 @@ interface Point {
 export function detectImplicitKeyPoints(
   segments: ContourSegment[],
   functionId: string,
-  viewPort: { xMin: number; xMax: number; yMin: number; yMax: number }
+  _viewPort: { xMin: number; xMax: number; yMin: number; yMax: number }
 ): KeyPoint[] {
   if (segments.length === 0) return [];
 
   const keyPoints: KeyPoint[] = [];
 
-  // 从线段提取所有点
-  const points = extractPointsFromSegments(segments);
+  // 构建连续路径（关键：保持点的顺序！）
+  const paths = buildConnectedPaths(segments);
 
-  if (points.length < 3) return [];
+  for (const path of paths) {
+    if (path.length < 5) continue;
 
-  // 检测 y 极值点（局部最大/最小 y 值）
-  detectYExtrema(points, functionId, keyPoints);
+    // 检测 y 极值点（水平切线，即最高/最低点）
+    detectYExtrema(path, functionId, keyPoints);
 
-  // 检测 x 极值点（局部最大/最小 x 值）
-  detectXExtrema(points, functionId, keyPoints);
-
-  // 检测边界点（曲线与视口边界的交点）
-  detectBoundaryPoints(points, functionId, viewPort, keyPoints);
+    // 检测 x 极值点（垂直切线，即最左/最右点）
+    detectXExtrema(path, functionId, keyPoints);
+  }
 
   // 检测自交点
   detectSelfIntersections(segments, functionId, keyPoints);
@@ -50,51 +48,139 @@ export function detectImplicitKeyPoints(
 }
 
 /**
- * 从线段提取所有点
+ * 从线段构建连续路径
+ * 关键：保持点在曲线上的顺序！
  */
-function extractPointsFromSegments(segments: ContourSegment[]): Point[] {
-  const points: Point[] = [];
-  const seen = new Set<string>();
+function buildConnectedPaths(segments: ContourSegment[]): Point[][] {
+  if (segments.length === 0) return [];
+
+  // 使用邻接表构建点的关系
+  const adjacency = new Map<string, Point[]>();
+  const pointMap = new Map<string, Point>();
 
   for (const seg of segments) {
-    const key1 = `${seg.x1.toFixed(6)},${seg.y1.toFixed(6)}`;
-    const key2 = `${seg.x2.toFixed(6)},${seg.y2.toFixed(6)}`;
+    const p1 = { x: seg.x1, y: seg.y1 };
+    const p2 = { x: seg.x2, y: seg.y2 };
+    const key1 = pointKey(p1);
+    const key2 = pointKey(p2);
 
-    if (!seen.has(key1)) {
-      points.push({ x: seg.x1, y: seg.y1 });
-      seen.add(key1);
-    }
-    if (!seen.has(key2)) {
-      points.push({ x: seg.x2, y: seg.y2 });
-      seen.add(key2);
+    pointMap.set(key1, p1);
+    pointMap.set(key2, p2);
+
+    if (!adjacency.has(key1)) adjacency.set(key1, []);
+    if (!adjacency.has(key2)) adjacency.set(key2, []);
+
+    adjacency.get(key1)!.push(p2);
+    adjacency.get(key2)!.push(p1);
+  }
+
+  // 找到端点（度数为1的点）作为起点
+  const visited = new Set<string>();
+  const paths: Point[][] = [];
+
+  // 优先从端点开始
+  const endpoints: string[] = [];
+  for (const [key, neighbors] of adjacency) {
+    if (neighbors.length === 1) {
+      endpoints.push(key);
     }
   }
 
-  // 按 x 排序（用于后续分析）
-  points.sort((a, b) => a.x - b.x);
+  // 从端点构建路径
+  for (const startKey of endpoints) {
+    if (visited.has(startKey)) continue;
+    const path = tracePath(startKey, adjacency, visited);
+    if (path.length >= 3) paths.push(path);
+  }
 
-  return points;
+  // 处理闭合曲线（没有端点的情况）
+  for (const [key] of adjacency) {
+    if (visited.has(key)) continue;
+    const path = tracePath(key, adjacency, visited);
+    if (path.length >= 3) paths.push(path);
+  }
+
+  return paths;
 }
 
 /**
- * 检测 y 极值点（垂直切线点）
- * 这些点在曲线上 y 值达到局部最大或最小
+ * 生成点的唯一键
+ */
+function pointKey(p: Point, precision: number = 4): string {
+  return `${p.x.toFixed(precision)},${p.y.toFixed(precision)}`;
+}
+
+/**
+ * 从起点追踪路径
+ */
+function tracePath(
+  startKey: string,
+  adjacency: Map<string, Point[]>,
+  visited: Set<string>
+): Point[] {
+  const path: Point[] = [];
+  const stack: string[] = [startKey];
+
+  while (stack.length > 0) {
+    const key = stack.pop()!;
+    if (visited.has(key)) continue;
+
+    visited.add(key);
+    const neighbors = adjacency.get(key) || [];
+
+    // 找到对应的点坐标
+    const [x, y] = key.split(',').map(Number);
+    path.push({ x, y });
+
+    // 添加未访问的邻居
+    for (const neighbor of neighbors) {
+      const neighborKey = pointKey(neighbor);
+      if (!visited.has(neighborKey)) {
+        stack.push(neighborKey);
+      }
+    }
+  }
+
+  return path;
+}
+
+/**
+ * 检测 y 极值点（水平切线点）
+ * 这些点是曲线上 y 值达到局部最大或最小的点
  */
 function detectYExtrema(
-  points: Point[],
+  path: Point[],
   functionId: string,
   keyPoints: KeyPoint[]
 ): void {
-  const tolerance = 0.01;
+  if (path.length < 5) return;
 
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const next = points[i + 1];
+  // 使用较大的容差，避免噪声
+  const tolerance = 0.05;
+  const range = getPathRange(path);
+  const yThreshold = (range.yMax - range.yMin) * 0.1;
 
-    // 检查是否为局部 y 极值
-    const isYMax = curr.y > prev.y + tolerance && curr.y > next.y + tolerance;
-    const isYMin = curr.y < prev.y - tolerance && curr.y < next.y - tolerance;
+  for (let i = 2; i < path.length - 2; i++) {
+    const prev2 = path[i - 2];
+    const prev1 = path[i - 1];
+    const curr = path[i];
+    const next1 = path[i + 1];
+    const next2 = path[i + 2];
+
+    // 使用多点验证，确保是真正的极值点
+    const isYMax =
+      curr.y > prev1.y + tolerance &&
+      curr.y > prev2.y + tolerance &&
+      curr.y > next1.y + tolerance &&
+      curr.y > next2.y + tolerance &&
+      curr.y > range.yMin + yThreshold; // 确保是显著极值
+
+    const isYMin =
+      curr.y < prev1.y - tolerance &&
+      curr.y < prev2.y - tolerance &&
+      curr.y < next1.y - tolerance &&
+      curr.y < next2.y - tolerance &&
+      curr.y < range.yMax - yThreshold;
 
     if (isYMax) {
       keyPoints.push({
@@ -115,37 +201,58 @@ function detectYExtrema(
 }
 
 /**
- * 检测 x 极值点（水平切线点）
- * 这些点在曲线上 x 值达到局部最大或最小
+ * 检测 x 极值点（垂直切线点）
+ * 这些点是曲线上 x 值达到局部最大或最小的点
  */
 function detectXExtrema(
-  points: Point[],
+  path: Point[],
   functionId: string,
   keyPoints: KeyPoint[]
 ): void {
-  const tolerance = 0.01;
+  if (path.length < 5) return;
 
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const next = points[i + 1];
+  const tolerance = 0.05;
+  const range = getPathRange(path);
+  const xThreshold = (range.xMax - range.xMin) * 0.1;
 
-    // 检查是否为局部 x 极值（水平切线点）
-    const isXMax = curr.x > prev.x + tolerance && curr.x > next.x + tolerance;
-    const isXMin = curr.x < prev.x - tolerance && curr.x < next.x - tolerance;
+  for (let i = 2; i < path.length - 2; i++) {
+    const prev2 = path[i - 2];
+    const prev1 = path[i - 1];
+    const curr = path[i];
+    const next1 = path[i + 1];
+    const next2 = path[i + 2];
 
-    // x 极值点对应 y 的极大值或极小值
-    if (isXMax || isXMin) {
-      // 这些点也是特殊的，可以用拐点标记
-      // 但为了避免重复，只在不是 y 极值时添加
-      const isYExtreme = keyPoints.some(
-        kp => kp.type === 'maximum' || kp.type === 'minimum'
-      ) && (Math.abs(curr.y - prev.y) < tolerance || Math.abs(curr.y - next.y) < tolerance);
+    // 检查是否为 x 极值点
+    const isXMax =
+      curr.x > prev1.x + tolerance &&
+      curr.x > prev2.x + tolerance &&
+      curr.x > next1.x + tolerance &&
+      curr.x > next2.x + tolerance &&
+      curr.x > range.xMin + xThreshold;
 
-      if (!isYExtreme && (isXMax || isXMin)) {
-        // 标记为拐点（表示方向改变）
+    const isXMin =
+      curr.x < prev1.x - tolerance &&
+      curr.x < prev2.x - tolerance &&
+      curr.x < next1.x - tolerance &&
+      curr.x < next2.x - tolerance &&
+      curr.x < range.xMax - xThreshold;
+
+    // 避免重复添加
+    const alreadyExists = keyPoints.some(
+      kp => Math.sqrt((kp.x - curr.x) ** 2 + (kp.y - curr.y) ** 2) < 0.1
+    );
+
+    if (!alreadyExists) {
+      if (isXMax) {
         keyPoints.push({
-          type: 'inflection',
+          type: 'maximum',
+          x: curr.x,
+          y: curr.y,
+          functionId,
+        });
+      } else if (isXMin) {
+        keyPoints.push({
+          type: 'minimum',
           x: curr.x,
           y: curr.y,
           functionId,
@@ -156,40 +263,20 @@ function detectXExtrema(
 }
 
 /**
- * 检测边界点（曲线与视口边界的交点）
+ * 获取路径的范围
  */
-function detectBoundaryPoints(
-  points: Point[],
-  functionId: string,
-  viewPort: { xMin: number; xMax: number; yMin: number; yMax: number },
-  keyPoints: KeyPoint[]
-): void {
-  const boundaryTolerance = (viewPort.xMax - viewPort.xMin) * 0.02;
+function getPathRange(path: Point[]): { xMin: number; xMax: number; yMin: number; yMax: number } {
+  let xMin = Infinity, xMax = -Infinity;
+  let yMin = Infinity, yMax = -Infinity;
 
-  for (const p of points) {
-    const isOnBoundary =
-      Math.abs(p.x - viewPort.xMin) < boundaryTolerance ||
-      Math.abs(p.x - viewPort.xMax) < boundaryTolerance ||
-      Math.abs(p.y - viewPort.yMin) < boundaryTolerance ||
-      Math.abs(p.y - viewPort.yMax) < boundaryTolerance;
-
-    if (isOnBoundary) {
-      // 检查是否已经存在关键点
-      const exists = keyPoints.some(
-        kp => Math.abs(kp.x - p.x) < 0.1 && Math.abs(kp.y - p.y) < 0.1
-      );
-
-      if (!exists) {
-        // 边界点用不连续点类型表示（因为它可能不在视口内完整显示）
-        keyPoints.push({
-          type: 'discontinuity',
-          x: p.x,
-          y: p.y,
-          functionId,
-        });
-      }
-    }
+  for (const p of path) {
+    xMin = Math.min(xMin, p.x);
+    xMax = Math.max(xMax, p.x);
+    yMin = Math.min(yMin, p.y);
+    yMax = Math.max(yMax, p.y);
   }
+
+  return { xMin, xMax, yMin, yMax };
 }
 
 /**
@@ -200,11 +287,11 @@ function detectSelfIntersections(
   functionId: string,
   keyPoints: KeyPoint[]
 ): void {
-  const tolerance = 0.05;
+  const tolerance = 0.1;
 
-  // 简单检测：检查非相邻线段是否相交
+  // 只检查非相邻线段的相交
   for (let i = 0; i < segments.length; i++) {
-    for (let j = i + 2; j < segments.length; j++) {
+    for (let j = i + 3; j < segments.length; j++) { // 跳过相邻线段
       const seg1 = segments[i];
       const seg2 = segments[j];
 
@@ -214,14 +301,13 @@ function detectSelfIntersections(
       );
 
       if (intersection) {
-        // 检查是否已经存在附近的关键点
         const exists = keyPoints.some(
-          kp => Math.abs(kp.x - intersection.x) < tolerance && Math.abs(kp.y - intersection.y) < tolerance
+          kp => Math.sqrt((kp.x - intersection.x) ** 2 + (kp.y - intersection.y) ** 2) < tolerance
         );
 
         if (!exists) {
           keyPoints.push({
-            type: 'zero', // 自交点用零点类型表示
+            type: 'zero',
             x: intersection.x,
             y: intersection.y,
             functionId,
@@ -241,7 +327,7 @@ function lineSegmentIntersection(
 ): Point | null {
   const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
 
-  if (Math.abs(denom) < 1e-10) return null; // 平行或重合
+  if (Math.abs(denom) < 1e-10) return null;
 
   const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
   const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
@@ -259,7 +345,7 @@ function lineSegmentIntersection(
 /**
  * 去重：合并距离过近的关键点
  */
-function deduplicateKeyPoints(points: KeyPoint[], minDistance: number = 0.15): KeyPoint[] {
+function deduplicateKeyPoints(points: KeyPoint[], minDistance: number = 0.2): KeyPoint[] {
   if (points.length === 0) return points;
 
   const result: KeyPoint[] = [];
