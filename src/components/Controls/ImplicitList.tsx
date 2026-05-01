@@ -86,6 +86,14 @@ export const ImplicitList: React.FC = () => {
             </div>
           )}
 
+          {/* 自动转换提示 */}
+          {fn.transformedExpression && !fn.error && (
+            <div className="text-xs text-amber-400/80 mb-2 flex items-center gap-1">
+              <span>⚡</span>
+              <span>已转换为稳定形式: <code className="font-mono text-amber-300">{fn.transformedExpression} = 0</code></span>
+            </div>
+          )}
+
           {/* 参数滑钮 */}
           {fn.parameters.length > 0 && !fn.error && (
             <div className="space-y-2 mt-2">

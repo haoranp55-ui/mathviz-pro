@@ -2,6 +2,66 @@
 
 ---
 
+## 第 5 次更新 - 2026-05-01
+
+### WebGL 隐函数渲染器
+
+新增基于 WebGL2 的像素级隐函数渲染器，相比 CPU 渲染具有更高精度：
+
+| 对比项 | CPU 渲染 | WebGL 渲染 |
+|-------|---------|-----------|
+| 精度 | 网格分辨率限制 | ✅ 像素级精确 |
+| 性能 | 较慢（Marching Squares） | ✅ GPU 并行计算 |
+| 渐近线 | 需要特殊处理 | ✅ 自动过滤无穷大 |
+| 兼容性 | ✅ 所有浏览器 | 需要 WebGL2 支持 |
+
+### 核心功能
+
+#### GLSL 着色器编译
+- 将 mathjs AST 自动转换为 GLSL 表达式
+- 支持 47+ 数学函数的 GLSL 等价实现
+- 参数作为 uniform 传入着色器
+
+#### 奇点函数自动转换
+- `tan(x)` → 自动转换为 `sin(x)/cos(x)` 然后乘分母消除除法
+- `cot(x)` → `cos(x)/sin(x)` → 同样处理
+- `sec(x)`, `csc(x)` → 同样处理
+- 最终效果：`y = tan(x)` → `cos(x) * y - sin(x) = 0`（无奇点形式）
+
+#### UI 自动转换提示
+当表达式被自动转换时，显示提示：
+> ⚡ 已转换为稳定形式: `cos(x) * y - sin(x) = 0`
+
+### 新增文件
+
+| 文件 | 说明 |
+|-----|------|
+| `src/lib/webgl/implicitRendererWebGL.ts` | WebGL 隐函数渲染器核心 |
+| `src/lib/webgl/implicitRendererManager.ts` | 多函数渲染管理器 |
+| `src/lib/webgl/glslCompiler.ts` | mathjs AST → GLSL 编译器 |
+
+### 修改文件
+
+| 文件 | 变更 |
+|-----|------|
+| `src/lib/implicitParser.ts` | 奇点函数自动转换逻辑 |
+| `src/lib/implicitSamplerInterval.ts` | 奇点检测与过滤 |
+| `src/components/Controls/GlobalSettings.tsx` | GPU 渲染开关 |
+| `src/components/Controls/ImplicitList.tsx` | 转换提示显示 |
+| `src/types/index.ts` | transformedExpression 字段 |
+
+### 测试用例
+
+| 隐函数 | 测试项 | 结果 |
+|-------|--------|------|
+| `y = tan(x)` | 自动转换，正确渲染 | ✅ |
+| `y = cot(x)` | 自动转换，正确渲染 | ✅ |
+| `y * cos(x) - sin(x) = 0` | 无需转换，正确渲染 | ✅ |
+| `a*y + b = tan(k*x)` | 带参数自动转换 | ✅ |
+| WebGL 切换 | 开关正常，渲染一致 | ✅ |
+
+---
+
 ## 第 4 次更新 - 2026-05-01
 
 ### 隐函数 Interval Arithmetic 采样器
@@ -308,6 +368,8 @@ export interface RenderContext {
 - [x] 导数曲线绘制
 - [x] 参数化函数系统
 - [x] 隐函数绘图（F(x,y) = 0）
+- [x] WebGL 隐函数渲染
+- [x] 奇点函数自动转换
 - [ ] 积分面积显示
 - [ ] 曲线动画演示
 - [ ] 多主题切换
@@ -322,10 +384,10 @@ export interface RenderContext {
 | 指标 | 数值 |
 |-----|------|
 | 开发天数 | 3 天 |
-| 更新次数 | 4 次 |
-| 源码文件 | 25+ 个 |
+| 更新次数 | 5 次 |
+| 源码文件 | 30+ 个 |
 | 支持函数 | 47+ 个 |
-| 经验总结 | 7 条 |
+| 经验总结 | 9 条 |
 
 ---
 

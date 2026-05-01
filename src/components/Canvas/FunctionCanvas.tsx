@@ -7,7 +7,7 @@ import { drawCurve, drawHoverPoint, drawDerivativeCurve } from './CurveRenderer'
 import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
 import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
-import { isWebGPUAvailable } from '../../lib/webgpu/implicitRendererGPU';
+import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 import { canvasToMath, createScales, createRenderContext } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { detectImplicitKeyPoints } from '../../lib/implicitKeyPointDetector';
@@ -191,65 +191,131 @@ export const FunctionCanvas: React.FC = () => {
     // 清空隐函数线段缓存（每次渲染时重新填充）
     implicitSegmentsRef.current.clear();
 
-    for (const fn of implicitFunctions) {
-      if (!fn.visible || fn.error) continue;
+    // 检查是否使用 WebGL 着色器渲染
+    const webglManager = useGPURendering ? getWebGLManager() : null;
+    const useWebGL = webglManager && isWebGLAvailable() && implicitFunctions.some(fn => fn.visible && !fn.error);
 
-      // 绑定当前参数值
-      const currentParams: Record<string, number> = {};
-      for (const p of fn.parameters) {
-        currentParams[p.name] = p.currentValue;
+    if (useWebGL && webglManager) {
+      // WebGL 着色器渲染（像素级精度）
+      webglManager.resize(canvasSize.width, canvasSize.height);
+
+      // 注册所有隐函数
+      for (const fn of implicitFunctions) {
+        if (fn.visible && !fn.error) {
+          webglManager.registerFunction(fn);
+        }
       }
 
-      const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
-
-      // 使用统一的渲染上下文计算采样范围
-      const sampleViewPort = {
-        xMin: renderCtx.sampleXMin,
-        xMax: renderCtx.sampleXMax,
-        yMin: renderCtx.sampleYMin,
-        yMax: renderCtx.sampleYMax,
-      };
-
-      // 选择渲染方式
-      // 统一使用 fastRenderWithCache，保证缓存一致性
-      let segments: ContourSegment[];
-
-      // 根据精度预设确定网格大小
-      const gridSizes: Record<string, { slider: number; normal: number }> = {
-        'fast': { slider: 32, normal: 64 },
-        'normal': { slider: 48, normal: 96 },
-        'fine': { slider: 64, normal: 128 },
-        'ultra': { slider: 80, normal: 160 },
-      };
-
-      const sizes = gridSizes[samplePreset] || gridSizes['normal'];
-      const gridSize = isSliderActive ? sizes.slider : sizes.normal;
-
-      // GPU 模式使用更高分辨率
-      const finalGridSize = useGPURendering && isWebGPUAvailable()
-        ? Math.floor(gridSize * 1.5)
-        : gridSize;
-
-      segments = fastRenderWithCache(
-        boundFn,
-        sampleViewPort,
-        finalGridSize,
-        `implicit-${useGPURendering ? 'gpu' : 'cpu'}-${fn.id}`,
-        currentParams
+      // 渲染到 WebGL canvas（透明背景，只有曲线）
+      // 传入渲染区域信息以处理 equal 模式的偏移
+      const glCanvas = webglManager.renderToCanvas(
+        implicitFunctions,
+        viewPort,
+        {
+          offsetX: renderCtx.offsetX,
+          offsetY: renderCtx.offsetY,
+          actualWidth: renderCtx.actualWidth,
+          actualHeight: renderCtx.actualHeight,
+        }
       );
 
-      // 缓存线段数据用于悬停检测
-      implicitSegmentsRef.current.set(fn.id, segments);
+      if (glCanvas) {
+        // 将 WebGL 结果叠加到主 canvas
+        ctx.drawImage(glCanvas, 0, 0);
+      }
 
-      // 绘制隐函数曲线
-      drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
+      // 仍然需要 CPU 渲染线段用于悬停检测和关键点
+      for (const fn of implicitFunctions) {
+        if (!fn.visible || fn.error) continue;
 
-      // 检测隐函数关键点
-      if (fn.showKeyPoints) {
-        const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-        setKeyPoints(fn.id, implicitKps);
-      } else {
-        setKeyPoints(fn.id, []);
+        const currentParams: Record<string, number> = {};
+        for (const p of fn.parameters) {
+          currentParams[p.name] = p.currentValue;
+        }
+
+        const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
+        const sampleViewPort = {
+          xMin: renderCtx.sampleXMin,
+          xMax: renderCtx.sampleXMax,
+          yMin: renderCtx.sampleYMin,
+          yMax: renderCtx.sampleYMax,
+        };
+
+        // 使用低分辨率网格仅用于悬停检测
+        const segments = fastRenderWithCache(
+          boundFn,
+          sampleViewPort,
+          48,
+          `implicit-hover-${fn.id}`,
+          currentParams
+        );
+
+        implicitSegmentsRef.current.set(fn.id, segments);
+
+        // 检测隐函数关键点
+        if (fn.showKeyPoints) {
+          const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
+          setKeyPoints(fn.id, implicitKps);
+        } else {
+          setKeyPoints(fn.id, []);
+        }
+      }
+    } else {
+      // CPU 渲染（原有逻辑）
+      for (const fn of implicitFunctions) {
+        if (!fn.visible || fn.error) continue;
+
+        // 绑定当前参数值
+        const currentParams: Record<string, number> = {};
+        for (const p of fn.parameters) {
+          currentParams[p.name] = p.currentValue;
+        }
+
+        const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
+
+        // 使用统一的渲染上下文计算采样范围
+        const sampleViewPort = {
+          xMin: renderCtx.sampleXMin,
+          xMax: renderCtx.sampleXMax,
+          yMin: renderCtx.sampleYMin,
+          yMax: renderCtx.sampleYMax,
+        };
+
+        // 选择渲染方式
+        let segments: ContourSegment[];
+
+        // 根据精度预设确定网格大小
+        const gridSizes: Record<string, { slider: number; normal: number }> = {
+          'fast': { slider: 32, normal: 64 },
+          'normal': { slider: 48, normal: 96 },
+          'fine': { slider: 64, normal: 128 },
+          'ultra': { slider: 80, normal: 160 },
+        };
+
+        const sizes = gridSizes[samplePreset] || gridSizes['normal'];
+        const gridSize = isSliderActive ? sizes.slider : sizes.normal;
+
+        segments = fastRenderWithCache(
+          boundFn,
+          sampleViewPort,
+          gridSize,
+          `implicit-cpu-${fn.id}`,
+          currentParams
+        );
+
+        // 缓存线段数据用于悬停检测
+        implicitSegmentsRef.current.set(fn.id, segments);
+
+        // 绘制隐函数曲线
+        drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
+
+        // 检测隐函数关键点
+        if (fn.showKeyPoints) {
+          const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
+          setKeyPoints(fn.id, implicitKps);
+        } else {
+          setKeyPoints(fn.id, []);
+        }
       }
     }
 

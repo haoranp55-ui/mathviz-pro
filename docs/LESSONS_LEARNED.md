@@ -354,3 +354,145 @@ const sampleXMax = viewPort.xMax + padding;
 
 ### 验证日期
 2026-05-01
+
+---
+
+## 第 8 条：奇点函数需要"数学变换"而非"数值处理"
+
+### 问题背景
+隐函数 `y = tan(x)` 在渐近线 x = π/2 附近：
+- CPU 渲染：曲线在渐近线附近消失或产生假曲线
+- WebGL 渲染：整个曲线消失（因为 tan(x) 趋向无穷大）
+
+尝试的方案都失败了：
+- 增大采样密度 → 无论多大都无法捕捉"穿过无穷大"的曲线
+- 检测奇点跳过 → 曲线在渐近线附近消失
+- 梯度检测 → 产生假曲线（渐近线被误认为曲线）
+
+### 根本原因
+**数值方法无法处理"无穷大"**。
+
+`y = tan(x)` 在 x = π/2 处：
+- tan(x) 从 +∞ 突变到 -∞
+- Marching Squares 检测到符号变化，错误地认为这里有曲线
+- 实际上曲线是"穿过无穷大"延伸到视口外的
+
+### 解决方案
+**数学变换**：将奇点函数转换为等价的无奇点形式。
+
+```typescript
+// implicitParser.ts
+// tan(x) → sin(x)/cos(x)
+// 然后：F(x,y) - tan(x) = 0
+//   → F(x,y) - sin(x)/cos(x) = 0
+//   → F(x,y)*cos(x) - sin(x) = 0  （乘分母消去除法）
+
+function convertSingularityFunctions(node: MathNode): MathNode {
+  return node.transform((n) => {
+    if (n.type === 'FunctionNode' && n.fn.name === 'tan') {
+      return divide(sin(n.args), cos(n.args));
+    }
+    return n;
+  });
+}
+
+function eliminateDivision(node: MathNode): MathNode {
+  // 收集所有分母
+  const denominators = collectDenominators(node);
+  // 将所有分母乘到整个表达式上
+  for (const denom of denominators) {
+    node = multiply(node, denom);
+  }
+  return node;
+}
+```
+
+转换效果：
+| 原始表达式 | 转换后 |
+|-----------|--------|
+| `y = tan(x)` | `cos(x)*y - sin(x) = 0` |
+| `y = cot(x)` | `sin(x)*y - cos(x) = 0` |
+| `y = sec(x)` | `y*cos(x) - 1 = 0` |
+| `a*y + b = tan(k*x)` | `cos(k*x)*(a*y + b) - sin(k*x) = 0` |
+
+### 经验教训
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│   数值方法无法处理"无穷大"                          │
+│                                                     │
+│   解决方案：数学变换                                │
+│   → 将奇点函数转换为等价的无奇点形式               │
+│   → tan(x) → sin(x)/cos(x) → 乘分母消去除法        │
+│                                                     │
+│   核心思想：在"表达式层面"解决问题，而非"数值层面" │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+### 相关文件
+- `src/lib/implicitParser.ts` - 自动转换逻辑
+- `src/lib/webgl/glslCompiler.ts` - GLSL 表达式编译
+- `src/lib/implicitSamplerInterval.ts` - 奇点检测
+
+### 验证日期
+2026-05-01
+
+---
+
+## 第 9 条：WebGL 和 CPU 渲染需要统一坐标系
+
+### 问题背景
+WebGL 渲染的隐函数曲线与 CPU 渲染的网格/坐标轴发生"相对运动"：
+- 平移视图时，曲线和网格移动距离不一致
+- 圆形曲线被渲染成椭圆
+
+### 根本原因
+**WebGL 和 Canvas 2D 使用不同的坐标系**：
+
+| 坐标系 | Y 轴方向 | 原点位置 |
+|-------|---------|---------|
+| Canvas 2D | Y 向下（顶部=0） | 左上角 |
+| WebGL | Y 向上（底部=0） | 左下角 |
+
+### 解决方案
+在 WebGL 着色器中进行坐标转换，并正确处理 `aspectRatioMode: 'equal'`：
+
+```glsl
+// implicitRendererWebGL.ts
+void main() {
+  // WebGL 坐标 → Canvas 2D 坐标
+  float canvasY = u_resolution.y - gl_FragCoord.y;
+  vec2 canvasCoord = vec2(gl_FragCoord.x, canvasY);
+  
+  // Canvas 像素 → 数学坐标（考虑 renderRegion 偏移）
+  vec2 localCoord = (canvasCoord - u_renderRegion.xy) / u_renderRegion.zw;
+  float x = u_viewPort.x + localCoord.x * (u_viewPort.y - u_viewPort.x);
+  float y = u_viewPort.z + (1.0 - localCoord.y) * (u_viewPort.w - u_viewPort.z);
+  
+  // 计算函数值...
+}
+```
+
+### 经验教训
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│   不同渲染系统使用不同的坐标系                      │
+│                                                     │
+│   混合使用时必须统一：                              │
+│   → 明确每个系统的坐标系定义                        │
+│   → 在边界处进行正确转换                            │
+│   → 考虑 aspect ratio 模式的影响                   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+### 相关文件
+- `src/lib/webgl/implicitRendererWebGL.ts` - WebGL 着色器
+- `src/components/Canvas/FunctionCanvas.tsx` - renderRegion 传递
+
+### 验证日期
+2026-05-01

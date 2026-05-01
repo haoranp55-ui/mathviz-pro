@@ -159,6 +159,7 @@ export interface ImplicitFunction {
   showKeyPoints?: boolean;      // 是否显示关键点标注
   error?: string;
   parameters: Parameter[];      // 支持参数，如 a, b
+  transformedExpression?: string;  // 自动转换后的表达式（如 tan 转换）
 }
 
 // 等值线段（Marching Squares 输出）

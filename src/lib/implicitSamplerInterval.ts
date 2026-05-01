@@ -58,6 +58,10 @@ export function computeGridValues(
 
 /**
  * 从预计算的网格值提取线段（极快）
+ *
+ * 关键改进：区分"真零点"和"奇点导致的符号变化"
+ * - 真零点：函数值从有限值穿过零点 → 绘制曲线
+ * - 奇点：函数值趋向无穷大 → 不绘制曲线
  */
 export function extractSegmentsFromGrid(
   values: Float32Array,
@@ -69,6 +73,9 @@ export function extractSegmentsFromGrid(
   const dx = (xMax - xMin) / (gridSize - 1);
   const dy = (yMax - yMin) / (gridSize - 1);
 
+  // 阈值：用于检测奇点（当函数值绝对值超过此值时，认为是奇点附近）
+  const SINGULARITY_THRESHOLD = 1e6;
+
   for (let gy = 0; gy < gridSize - 1; gy++) {
     for (let gx = 0; gx < gridSize - 1; gx++) {
       const idx = gy * gridSize + gx;
@@ -77,12 +84,32 @@ export function extractSegmentsFromGrid(
       const v2 = values[idx + gridSize + 1];
       const v3 = values[idx + gridSize];
 
-      // 跳过无效值
-      if (!isFinite(v0) || !isFinite(v1) || !isFinite(v2) || !isFinite(v3)) continue;
+      // 跳过包含 NaN 的单元格
+      if (isNaN(v0) || isNaN(v1) || isNaN(v2) || isNaN(v3)) continue;
+
+      // 检查是否有无穷大值（奇点）
+      const hasInfinity = !isFinite(v0) || !isFinite(v1) || !isFinite(v2) || !isFinite(v3);
+
+      // 如果有无穷大值，跳过这个单元格（奇点区域）
+      if (hasInfinity) continue;
 
       // 同符号跳过
       const sign0 = v0 >= 0;
       if (sign0 === (v1 >= 0) && sign0 === (v2 >= 0) && sign0 === (v3 >= 0)) continue;
+
+      // 检查是否是"假零点"（奇点导致的符号变化）
+      // 如果任意一个角的值绝对值过大，说明接近奇点，可能是假零点
+      const maxAbs = Math.max(Math.abs(v0), Math.abs(v1), Math.abs(v2), Math.abs(v3));
+      if (maxAbs > SINGULARITY_THRESHOLD) {
+        // 检查是否是"穿过无穷大"的符号变化
+        // 真零点：值从正到负（或负到正）穿过零点，值相对较小
+        // 假零点：值从极大正数到极大负数（或反之），通过无穷大
+        const minAbs = Math.min(Math.abs(v0), Math.abs(v1), Math.abs(v2), Math.abs(v3));
+        // 如果最小绝对值也很大，说明整个单元格都在奇点附近，跳过
+        if (minAbs > SINGULARITY_THRESHOLD / 10) {
+          continue;
+        }
+      }
 
       const baseX = xMin + gx * dx;
       const baseY = yMin + gy * dy;

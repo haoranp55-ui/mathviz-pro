@@ -20,6 +20,13 @@
 - **导数曲线**：每个函数可独立显示导数曲线
 - **悬停坐标**：鼠标悬停显示曲线上点的坐标
 - **导出图片**：一键导出 PNG 图片
+- **GPU 渲染**：WebGL2 着色器实现像素级精确的隐函数渲染
+
+### 隐函数智能转换
+当输入包含奇点函数时，自动转换为稳定的无奇点形式：
+- `y = tan(x)` → 自动转换为 `cos(x)*y - sin(x) = 0`
+- `y = cot(x)` → 自动转换为 `sin(x)*y - cos(x) = 0`
+- 支持带参数的表达式：`a*y + b = tan(k*x)` 自动转换
 
 ### 交互功能
 - **拖拽平移**：鼠标拖动移动视图
@@ -51,6 +58,7 @@
 - **状态管理**：Zustand
 - **数学解析**：mathjs 15
 - **坐标变换**：d3-scale
+- **GPU 渲染**：WebGL2 (GLSL 着色器)
 
 ## 项目结构
 
@@ -67,18 +75,23 @@ src/
 │   │   ├── FunctionInput.tsx       # 普通函数输入
 │   │   ├── ParametricInput.tsx     # 参数化函数输入
 │   │   ├── ImplicitInput.tsx       # 隐函数输入
+│   │   ├── ImplicitList.tsx        # 隐函数列表（含转换提示）
 │   │   ├── ParameterSlider.tsx     # 参数滑钮
-│   │   └── GlobalSettings.tsx      # 全局设置
+│   │   └── GlobalSettings.tsx      # 全局设置（含 GPU 开关）
 │   └── Layout/           # 布局组件
 ├── lib/                  # 核心算法
 │   ├── parser.ts         # 表达式解析
 │   ├── paramParser.ts    # 参数化函数解析
-│   ├── implicitParser.ts # 隐函数解析
+│   ├── implicitParser.ts # 隐函数解析（含奇点转换）
 │   ├── sampler.ts        # 自适应采样
 │   ├── implicitSamplerInterval.ts # 隐函数区间采样
 │   ├── implicitKeyPointDetector.ts # 隐函数关键点检测
 │   ├── transformer.ts    # 坐标变换
-│   └── keyPointDetector.ts # 关键点检测
+│   ├── keyPointDetector.ts # 关键点检测
+│   └── webgl/            # WebGL 渲染
+│       ├── implicitRendererWebGL.ts # WebGL 隐函数渲染器
+│       ├── implicitRendererManager.ts # 渲染管理器
+│       └── glslCompiler.ts # mathjs → GLSL 编译器
 ├── store/                # 状态管理
 └── types/                # 类型定义
 ```
@@ -111,6 +124,13 @@ npm run build
 - `x^2 + y^2 = 1` → 圆
 - `x^2/4 + y^2/9 = 1` → 椭圆
 - `sin(x)*cos(y) = 0.5` → 复杂曲线
+- `y = tan(x)` → 自动转换为无奇点形式
+
+### GPU 渲染模式
+在全局设置中开启"GPU 着色器渲染"可获得：
+- 像素级精确的隐函数曲线
+- 更高的渲染性能
+- 自动处理渐近线
 
 ### 图标说明
 

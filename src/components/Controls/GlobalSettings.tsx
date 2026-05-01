@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
 import type { SamplePreset } from '../../types';
-import { isWebGPUAvailable } from '../../lib/webgpu/implicitRendererGPU';
+import { isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
 
@@ -21,10 +21,10 @@ export const GlobalSettings: React.FC = () => {
     exportImage,
   } = useAppStore();
 
-  const [webGPUAvailable, setWebGPUAvailable] = useState(false);
+  const [gpuAvailable, setGpuAvailable] = useState(false);
 
   useEffect(() => {
-    setWebGPUAvailable(isWebGPUAvailable());
+    setGpuAvailable(isWebGLAvailable());
   }, []);
 
   return (
@@ -121,20 +121,20 @@ export const GlobalSettings: React.FC = () => {
             id="useGPU"
             checked={useGPURendering}
             onChange={toggleGPURendering}
-            disabled={!webGPUAvailable}
+            disabled={!gpuAvailable}
             className="custom-checkbox"
           />
           <label
             htmlFor="useGPU"
-            className={`text-xs cursor-pointer ${webGPUAvailable ? 'text-gray-300' : 'text-gray-500'}`}
+            className={`text-xs cursor-pointer ${gpuAvailable ? 'text-gray-300' : 'text-gray-500'}`}
           >
-            GPU 加速渲染
-            {!webGPUAvailable && <span className="ml-1 text-gray-600">(不可用)</span>}
+            GPU 着色器渲染
+            {!gpuAvailable && <span className="ml-1 text-gray-600">(不可用)</span>}
           </label>
         </div>
-        {webGPUAvailable && useGPURendering && (
+        {gpuAvailable && useGPURendering && (
           <div className="text-xs text-green-400 ml-6">
-            ✓ 使用 WebGPU 加速隐函数渲染
+            ✓ 使用 WebGL 着色器（像素级精度）
           </div>
         )}
       </div>
