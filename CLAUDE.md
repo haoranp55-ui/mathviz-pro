@@ -1,0 +1,132 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 常用命令
+
+```bash
+npm run dev      # 启动开发服务器
+npm run build    # TypeScript 编译 + Vite 构建
+npm run lint     # ESLint 检查
+npm run preview  # 预览构建结果
+```
+
+## 架构概览
+
+### 数据流
+
+```
+用户输入表达式
+    ↓
+parser.ts / paramParser.ts  →  解析为 compiled 函数
+    ↓
+useAppStore (Zustand)  →  存储函数状态、视口、交互
+    ↓
+FunctionCanvas.tsx  →  触发渲染循环
+    ↓
+sampler.ts (SmartRender)  →  自适应采样
+    ↓
+CurveRenderer.ts  →  Canvas 绘制曲线
+```
+
+### 核心模块
+
+**状态管理 (useAppStore.ts)**
+- `functions: ParsedFunction[]` - 普通函数列表
+- `parametricFunctions: ParametricFunction[]` - 参数化函数列表（最多3个）
+- `viewPort: ViewPort` - 视口范围
+- `samplePreset: SamplePreset` - 采样精度挡位
+
+**SmartRender 渲染引擎 (sampler.ts)**
+- `PixelAdaptive` - 像素自适应采样，根据画布大小动态调整
+- `SlopeAdaptive` - 斜率自适应加密，平坦稀疏、陡坡紧密
+- `SmartCache` - LRU 缓存复用，最多50个采样结果
+
+**曲线渲染 (CurveRenderer.ts)**
+- `AsymptoteLine` - 渐近线检测，斜率>50000时直接画垂直线
+- 不连续点自动断开路径
+
+**表达式解析 (parser.ts)**
+- 基于 mathjs 解析数学表达式
+- 支持 47+ 函数（三角、指数、对数、特殊函数等）
+- 参数化函数支持最多3个参数
+
+### 类型定义 (types/index.ts)
+
+- `ParsedFunction` - 普通函数：id, expression, compiled, color, visible, showDerivative, showKeyPoints
+- `ParametricFunction` - 参数化函数：额外包含 parameters 数组
+- `SamplePreset` - 采样挡位：'fast' | 'normal' | 'fine' | 'ultra'
+- `KeyPoint` - 关键点：zero, maximum, minimum, inflection, discontinuity
+
+### 组件结构
+
+```
+src/components/
+├── Canvas/
+│   ├── FunctionCanvas.tsx   # 主画布，处理交互和渲染调度
+│   ├── CurveRenderer.ts     # 曲线绘制（含渐近线优化）
+│   ├── GridRenderer.ts      # 网格和坐标轴
+│   └── KeyPointRenderer.ts  # 关键点标注
+├── Controls/
+│   ├── FunctionInput.tsx    # 普通函数输入
+│   ├── FunctionList.tsx     # 普通函数列表
+│   ├── ParametricInput.tsx  # 参数化函数输入
+│   ├── ParametricList.tsx   # 参数化函数列表（含参数滑钮）
+│   ├── GlobalSettings.tsx   # 全局设置（视口、采样精度）
+│   └── SidebarTabs.tsx      # 侧边栏 Tab 切换
+└── Layout/
+    └── MainLayout.tsx       # 主布局
+```
+
+## 开发规范
+
+- **更新日志**：项目更新记录在 `docs/PROJECT_LOG.md`，格式：`## 第 N 次更新 - YYYY-MM-DD`
+- **经验总结**：关键教训记录在 `docs/LESSONS_LEARNED.md`，每次踩坑后追加
+- **更新 README.md**：功能变更时同步更新 README.md 的功能特性、项目结构等章节
+- **函数级属性**：`showDerivative`、`showKeyPoints` 等放在函数对象内，使用 `toggleFunctionXxx(id)` 模式操作
+
+### 经验总结规范
+
+`docs/LESSONS_LEARNED.md` 格式要求：
+
+```markdown
+## 第 N 条：[一句话标题]
+
+### 问题背景
+[描述遇到的具体问题]
+
+### 根本原因
+[分析为什么会出现这个问题]
+
+### 解决方案
+[描述如何解决，附关键代码片段]
+
+### 经验教训
+[用框图总结抽象原则]
+
+### 相关文件
+- `path/to/file.ts` - 说明
+
+### 验证日期
+YYYY-MM-DD
+```
+
+要求：
+- 每条经验一个章节，按序号递增
+- 必须有"根本原因"分析，不能只描述现象
+- 必须有"经验教训"框图，用 ASCII 艺术框
+- 必须列出相关文件路径
+
+### 采样算法参数
+
+- 斜率突变检测阈值：相邻斜率比 > 3倍
+- 函数值跳变阈值：|Δy| > 100
+- 渐近线斜率阈值：50000
+- 递归加密最大深度：4层
+- 缓存容量：50个
+
+### 渲染优化
+
+- 使用 `requestAnimationFrame` 节流
+- 采样范围比视口大 10%（`ViewportPadding`）
+- 参数滑钮使用 RAF 节流

@@ -1,5 +1,5 @@
 // src/components/Canvas/KeyPointRenderer.ts
-import type { KeyPoint, ViewPort, CanvasSize, KeyPointType } from '../../types';
+import type { KeyPoint, ViewPort, CanvasSize, KeyPointType, AspectRatioMode } from '../../types';
 import { KEY_POINT_STYLES } from '../../types';
 import { createScales } from '../../lib/transformer';
 
@@ -88,9 +88,10 @@ export function drawKeyPoints(
   ctx: CanvasRenderingContext2D,
   keyPoints: KeyPoint[],
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
 
   for (const kp of keyPoints) {
     const style = KEY_POINT_STYLES[kp.type];
@@ -109,9 +110,10 @@ export function drawKeyPointTooltip(
   ctx: CanvasRenderingContext2D,
   keyPoint: KeyPoint,
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
   const style = KEY_POINT_STYLES[keyPoint.type];
 
   const px = xScale(keyPoint.x);
@@ -185,9 +187,10 @@ export function findHoveredKeyPoint(
   keyPoints: KeyPoint[],
   viewPort: ViewPort,
   canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal',
   threshold: number = 12
 ): KeyPoint | null {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
 
   for (const kp of keyPoints) {
     const kpx = xScale(kp.x);

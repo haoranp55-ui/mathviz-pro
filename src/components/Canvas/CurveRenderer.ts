@@ -1,18 +1,22 @@
 // src/components/Canvas/CurveRenderer.ts
-import type { SampledPoints, ViewPort, CanvasSize, HoverPoint } from '../../types';
+import type { SampledPoints, ViewPort, CanvasSize, HoverPoint, AspectRatioMode } from '../../types';
 import { createScales } from '../../lib/transformer';
 
 const CURVE_LINE_WIDTH = 2;
 const HOVER_RADIUS = 6;
+
+// 斜率阈值：超过此值视为渐近线，直接画垂直线
+const ASYMPTOTE_SLOPE_THRESHOLD = 50000;
 
 export function drawCurve(
   ctx: CanvasRenderingContext2D,
   points: SampledPoints,
   color: string,
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
   const { x, y } = points;
   const n = x.length;
 
@@ -23,13 +27,15 @@ export function drawCurve(
   ctx.lineJoin = 'round';
 
   let isDrawing = false;
+  let prevPx = 0;
+  let prevPy = 0;
 
   ctx.beginPath();
 
   for (let i = 0; i < n; i++) {
     const yi = y[i];
 
-    // 只检查无效值，不再限制 Y 范围（让 Canvas 自己裁剪）
+    // 跳过无效值
     if (!isFinite(yi)) {
       // 不连续点：结束当前路径
       if (isDrawing) {
@@ -43,8 +49,9 @@ export function drawCurve(
     const px = xScale(x[i]);
     const py = yScale(yi);
 
-    // 检查是否在画布范围内
-    if (px < -100 || px > canvasSize.width + 100) {
+    // 只检查 X 方向是否超出画布太多，Y 方向让 Canvas 自己裁剪
+    // 这样可以正确处理函数值超出视口的情况
+    if (px < -1000 || px > canvasSize.width + 1000) {
       if (isDrawing) {
         ctx.stroke();
         ctx.beginPath();
@@ -53,12 +60,33 @@ export function drawCurve(
       continue;
     }
 
+    // 检测渐近线：斜率过大时断开路径，不画连接线
+    if (isDrawing) {
+      const dx = px - prevPx;
+      const dy = py - prevPy;
+
+      if (Math.abs(dx) > 0.1) {
+        const slope = Math.abs(dy / dx);
+
+        if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
+          // 斜率过大，视为渐近线，断开路径但不画贯穿画布的线
+          ctx.stroke();
+          ctx.beginPath();
+          isDrawing = false;
+          // 继续处理当前点（作为新路径的起点）
+        }
+      }
+    }
+
     if (!isDrawing) {
       ctx.moveTo(px, py);
       isDrawing = true;
     } else {
       ctx.lineTo(px, py);
     }
+
+    prevPx = px;
+    prevPy = py;
   }
 
   if (isDrawing) {
@@ -74,9 +102,10 @@ export function drawDerivativeCurve(
   points: SampledPoints,
   color: string,
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
   const { x, y } = points;
   const n = x.length;
 
@@ -107,7 +136,8 @@ export function drawDerivativeCurve(
     const px = xScale(x[i]);
     const py = yScale(yi);
 
-    if (px < -100 || px > canvasSize.width + 100) {
+    // 只检查 X 方向，Y 方向让 Canvas 自己裁剪
+    if (px < -1000 || px > canvasSize.width + 1000) {
       if (isDrawing) {
         ctx.stroke();
         ctx.beginPath();
@@ -136,9 +166,10 @@ export function drawHoverPoint(
   hoverPoint: HoverPoint,
   color: string,
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
 
   const px = xScale(hoverPoint.x);
   const py = yScale(hoverPoint.y);
@@ -195,9 +226,10 @@ export function drawCoordinateTooltip(
   ctx: CanvasRenderingContext2D,
   hoverPoint: HoverPoint,
   viewPort: ViewPort,
-  canvasSize: CanvasSize
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize);
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
 
   const px = xScale(hoverPoint.x);
   const py = yScale(hoverPoint.y);
