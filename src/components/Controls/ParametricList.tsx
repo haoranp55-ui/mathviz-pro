@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ParameterSlider } from './ParameterSlider';
+import { useLinkedParameters } from '../../hooks/useLinkedParameters';
+import { EmptyState } from '../UI/EmptyState';
 
 export const ParametricList: React.FC = () => {
   const parametricFunctions = useAppStore(state => state.parametricFunctions);
@@ -16,6 +18,7 @@ export const ParametricList: React.FC = () => {
   const updateMarkedPoint = useAppStore(state => state.updateMarkedPoint);
 
   const [newPointX, setNewPointX] = useState<Record<string, string>>({});
+  const linkedParams = useLinkedParameters(parametricFunctions);
 
   const handleAddPoint = (functionId: string) => {
     const xStr = newPointX[functionId] || '0';
@@ -28,32 +31,43 @@ export const ParametricList: React.FC = () => {
 
   if (parametricFunctions.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500 text-sm">
-        暂无参数化函数
-        <br />
-        <span className="text-xs">在上方输入表达式添加</span>
-      </div>
+      <EmptyState
+        title="暂无参数化函数"
+        subtitle="在上方输入表达式添加"
+      />
     );
   }
 
   return (
-    <div className="parametric-list flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto p-3">
+      <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+        参数化函数列表
+        <span className="ml-auto bg-canvas-panelLight px-2 py-0.5 rounded text-xs">
+          {parametricFunctions.length}
+        </span>
+      </div>
+      <ul className="space-y-1.5">
       {parametricFunctions.map((fn) => (
+        <li key={fn.id}>
         <div
-          key={fn.id}
-          className="p-3 border-b border-gray-700/50 hover:bg-canvas-panelLight/30 transition-colors group"
+          className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group"
         >
-          {/* 函数头部 */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: fn.color }}
-              />
-              <span className="text-sm font-mono text-white truncate max-w-[150px]">
-                {fn.expression}
-              </span>
-            </div>
+          {/* 颜色指示条 */}
+          <div
+            className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer"
+            style={{ backgroundColor: fn.color }}
+            onClick={() => toggleParametricVisibility(fn.id)}
+          />
+
+          {/* 函数表达式 */}
+          <button
+            className={`text-sm flex-1 text-left font-mono truncate ${
+              fn.visible ? 'text-white' : 'text-gray-500 line-through'
+            }`}
+          >
+            {fn.expression}
+          </button>
 
             {/* 操作按钮 - 统一样式 */}
             <div className="flex items-center gap-1">
@@ -66,6 +80,7 @@ export const ParametricList: React.FC = () => {
                     : 'text-gray-500 bg-gray-500/20 hover:bg-gray-500/30'
                 } opacity-0 group-hover:opacity-100`}
                 title={fn.visible ? '隐藏函数' : '显示函数'}
+                aria-label={fn.visible ? '隐藏函数' : '显示函数'}
               >
                 {fn.visible ? '◉' : '○'}
               </button>
@@ -80,6 +95,7 @@ export const ParametricList: React.FC = () => {
                       : 'text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 opacity-0 group-hover:opacity-100'
                   }`}
                   title={fn.showKeyPoints ? '隐藏关键点标注' : '显示关键点标注（零点、极值点）'}
+                  aria-label={fn.showKeyPoints ? '隐藏关键点标注' : '显示关键点标注'}
                 >
                   ◆
                 </button>
@@ -95,6 +111,7 @@ export const ParametricList: React.FC = () => {
                       : 'text-gray-500 hover:text-purple-400 hover:bg-purple-400/10 opacity-0 group-hover:opacity-100'
                   }`}
                   title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
+                  aria-label={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
                 >
                   d
                 </button>
@@ -105,38 +122,33 @@ export const ParametricList: React.FC = () => {
                 onClick={() => removeParametricFunction(fn.id)}
                 className="text-gray-500 hover:text-red-400 hover:bg-red-400/20 w-7 h-7 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                 title="删除函数"
+                aria-label="删除函数"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* 错误提示 */}
-          {fn.error && (
-            <div className="text-xs text-red-400 mb-2 p-2 bg-red-900/20 rounded">
-              {fn.error}
-            </div>
-          )}
+        {/* 展开内容：参数滑钮 + 标记点 */}
+        {fn.visible && !fn.error && (
+          <div className="mx-3 mt-1 p-2 bg-canvas-panelLight/30 rounded-lg space-y-2">
+            {fn.parameters.length > 0 && (
+              <div className="space-y-2">
+                {fn.parameters.map((param) => (
+                  <ParameterSlider
+                    key={param.name}
+                    parameter={param}
+                    functionId={fn.id}
+                    onChange={(value) => updateParameter(fn.id, param.name, value)}
+                    onConfigChange={updateParametricParameter}
+                    linkedInfo={linkedParams.get(`${fn.id}:${param.name}`)}
+                  />
+                ))}
+              </div>
+            )}
 
-          {/* 参数滑钮 */}
-          {fn.parameters.length > 0 && !fn.error && (
-            <div className="space-y-2 mt-2">
-              {fn.parameters.map((param) => (
-                <ParameterSlider
-                  key={param.name}
-                  parameter={param}
-                  functionId={fn.id}
-                  onChange={(value) => updateParameter(fn.id, param.name, value)}
-                  onConfigChange={updateParametricParameter}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* 标记点列表 */}
-          {fn.visible && !fn.error && (
-            <div className="mt-3 p-2 bg-canvas-panelLight/30 rounded-lg">
-              {/* 添加点输入 */}
+            {/* 标记点 */}
+            <div>
               <div className="flex items-center gap-2 mb-2">
                 <input
                   type="text"
@@ -154,7 +166,6 @@ export const ParametricList: React.FC = () => {
                 </button>
               </div>
 
-              {/* 已添加的点 */}
               {fn.markedPoints && fn.markedPoints.length > 0 && (
                 <div className="space-y-1">
                   {fn.markedPoints.map((point) => (
@@ -175,6 +186,7 @@ export const ParametricList: React.FC = () => {
                       <button
                         onClick={() => removeMarkedPoint(fn.id, point.id, true)}
                         className="ml-auto text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                        aria-label="删除标记点"
                       >
                         ✕
                       </button>
@@ -183,9 +195,18 @@ export const ParametricList: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* 错误提示 */}
+        {fn.error && (
+          <div className="mx-3 mt-1 text-xs text-red-400 p-2 bg-red-900/20 rounded">
+            {fn.error}
+          </div>
+        )}
+        </li>
       ))}
+      </ul>
     </div>
   );
 };

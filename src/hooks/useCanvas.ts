@@ -35,6 +35,7 @@ export function useCanvas() {
           // 缩放上下文以匹配 DPR
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置，防止多次累积
             ctx.scale(dpr, dpr);
           }
         }

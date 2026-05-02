@@ -43,14 +43,20 @@ export const GlobalSettings: React.FC = () => {
           <input
             type="number"
             value={viewPort.xMin}
-            onChange={(e) => setViewPort({ xMin: parseFloat(e.target.value) || -10 })}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setViewPort({ xMin: Number.isNaN(val) ? viewPort.xMin : val });
+            }}
             className="w-16 px-2 py-1.5 bg-canvas-panelLight text-white text-xs rounded-lg border border-gray-600 input-glow focus:outline-none text-center"
           />
           <span className="text-gray-600">→</span>
           <input
             type="number"
             value={viewPort.xMax}
-            onChange={(e) => setViewPort({ xMax: parseFloat(e.target.value) || 10 })}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setViewPort({ xMax: Number.isNaN(val) ? viewPort.xMax : val });
+            }}
             className="w-16 px-2 py-1.5 bg-canvas-panelLight text-white text-xs rounded-lg border border-gray-600 input-glow focus:outline-none text-center"
           />
         </div>
@@ -61,14 +67,20 @@ export const GlobalSettings: React.FC = () => {
           <input
             type="number"
             value={viewPort.yMin}
-            onChange={(e) => setViewPort({ yMin: parseFloat(e.target.value) || -10 })}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setViewPort({ yMin: Number.isNaN(val) ? viewPort.yMin : val });
+            }}
             className="w-16 px-2 py-1.5 bg-canvas-panelLight text-white text-xs rounded-lg border border-gray-600 input-glow focus:outline-none text-center"
           />
           <span className="text-gray-600">→</span>
           <input
             type="number"
             value={viewPort.yMax}
-            onChange={(e) => setViewPort({ yMax: parseFloat(e.target.value) || 10 })}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setViewPort({ yMax: Number.isNaN(val) ? viewPort.yMax : val });
+            }}
             className="w-16 px-2 py-1.5 bg-canvas-panelLight text-white text-xs rounded-lg border border-gray-600 input-glow focus:outline-none text-center"
           />
         </div>

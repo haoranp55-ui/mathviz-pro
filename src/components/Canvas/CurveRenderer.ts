@@ -29,6 +29,7 @@ export function drawCurve(
   let isDrawing = false;
   let prevPx = 0;
   let prevPy = 0;
+  let prevYMath = 0; // 前一个点的数学 y 值（用于异号跳变检测）
 
   ctx.beginPath();
 
@@ -60,21 +61,37 @@ export function drawCurve(
       continue;
     }
 
-    // 检测渐近线：斜率过大时断开路径，不画连接线
+    // 检测渐近线（两种机制，互补）
     if (isDrawing) {
+      // 机制1：像素斜率过大（小视口/密采样时有效）
       const dx = px - prevPx;
       const dy = py - prevPy;
+      let isAsymptote = false;
 
       if (Math.abs(dx) > 0.1) {
         const slope = Math.abs(dy / dx);
-
         if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
-          // 斜率过大，视为渐近线，断开路径但不画贯穿画布的线
-          ctx.stroke();
-          ctx.beginPath();
-          isDrawing = false;
-          // 继续处理当前点（作为新路径的起点）
+          isAsymptote = true;
         }
+      }
+
+      // 机制2：大值异号跳变（大视口/疏采样时有效，不依赖像素斜率）
+      // tan(x)、1/x 等函数的渐近线两侧：+大值 → -大值
+      // exp(x)、x^2 等同号函数不会被误判
+      const prevSign = Math.sign(prevYMath);
+      const currSign = Math.sign(yi);
+      if (!isAsymptote && prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
+        if (Math.abs(prevYMath) > 50 && Math.abs(yi) > 50) {
+          isAsymptote = true;
+        }
+      }
+
+      if (isAsymptote) {
+        // 断开路径并跳过当前点（渐近线上的极大/极小值不能作为新路径起点）
+        ctx.stroke();
+        ctx.beginPath();
+        isDrawing = false;
+        continue;
       }
     }
 
@@ -87,6 +104,7 @@ export function drawCurve(
 
     prevPx = px;
     prevPy = py;
+    prevYMath = yi;
   }
 
   if (isDrawing) {
@@ -118,6 +136,9 @@ export function drawDerivativeCurve(
   ctx.globalAlpha = 0.7; // 半透明
 
   let isDrawing = false;
+  let prevPx = 0;
+  let prevPy = 0;
+  let prevYMath = 0;
 
   ctx.beginPath();
 
@@ -146,12 +167,46 @@ export function drawDerivativeCurve(
       continue;
     }
 
+    // 检测渐近线（与 drawCurve 相同的双机制）
+    if (isDrawing) {
+      const dx = px - prevPx;
+      const dy = py - prevPy;
+      let isAsymptote = false;
+
+      if (Math.abs(dx) > 0.1) {
+        const slope = Math.abs(dy / dx);
+        if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
+          isAsymptote = true;
+        }
+      }
+
+      // 数学坐标异号跳变检测
+      const prevSign = Math.sign(prevYMath);
+      const currSign = Math.sign(yi);
+      if (!isAsymptote && prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
+        if (Math.abs(prevYMath) > 50 && Math.abs(yi) > 50) {
+          isAsymptote = true;
+        }
+      }
+
+      if (isAsymptote) {
+        ctx.stroke();
+        ctx.beginPath();
+        isDrawing = false;
+        continue;
+      }
+    }
+
     if (!isDrawing) {
       ctx.moveTo(px, py);
       isDrawing = true;
     } else {
       ctx.lineTo(px, py);
     }
+
+    prevPx = px;
+    prevPy = py;
+    prevYMath = yi;
   }
 
   if (isDrawing) {

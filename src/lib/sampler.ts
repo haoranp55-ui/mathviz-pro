@@ -11,6 +11,27 @@ interface SampleCache {
   timestamp: number;
 }
 
+// 浮点容差比较（用于视口坐标缓存匹配）
+function floatMatch(a: number, b: number, tolerance: number = 1e-9): boolean {
+  return Math.abs(a - b) < tolerance;
+}
+
+// 参数比较（键顺序无关，带数值容差）
+function paramsMatch(a?: Record<string, number>, b?: Record<string, number>, tolerance: number = 1e-9): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+
+  for (const key of keysA) {
+    if (!(key in b)) return false;
+    if (!floatMatch(a[key], b[key], tolerance)) return false;
+  }
+  return true;
+}
+
 // 全局缓存管理器
 class SampleCacheManager {
   private cache = new Map<string, SampleCache>();
@@ -26,8 +47,8 @@ class SampleCacheManager {
     const cached = this.cache.get(cacheId);
     if (!cached) return null;
 
-    if (cached.xMin === xMin && cached.xMax === xMax && cached.sampleCount === sampleCount) {
-      if (!params || !cached.params || JSON.stringify(cached.params) === JSON.stringify(params)) {
+    if (floatMatch(cached.xMin, xMin) && floatMatch(cached.xMax, xMax) && cached.sampleCount === sampleCount) {
+      if (paramsMatch(cached.params, params)) {
         cached.timestamp = Date.now();
         return cached.points;
       }
@@ -108,7 +129,7 @@ export function adaptiveSample(
   const regionsToRefine: Array<{ start: number; end: number; depth: number }> = [];
 
   // 检测需要加密的区域
-  detectProblemRegions(fn, initialPoints, regionsToRefine, 0, maxDepth);
+  detectProblemRegions(initialPoints, regionsToRefine, 0, maxDepth);
 
   // 如果没有问题区域，直接返回
   if (regionsToRefine.length === 0) {
@@ -136,6 +157,14 @@ function uniformSample(
   xMax: number,
   count: number
 ): SampledPoints {
+  if (count <= 1) {
+    const y = fn(xMin);
+    return {
+      x: new Float64Array([xMin]),
+      y: new Float64Array([isFinite(y) ? y : NaN]),
+    };
+  }
+
   const x = new Float64Array(count);
   const y = new Float64Array(count);
   const step = (xMax - xMin) / (count - 1);
@@ -151,13 +180,17 @@ function uniformSample(
 /**
  * 检测需要加密的区域
  *
- * 判断标准：
- * 1. 斜率突变（相邻两点斜率差异大）
- * 2. 函数值跳变（相邻两点函数值差异大）
- * 3. 存在 NaN/Infinity（渐近线）
+ * 核心原则：只检测"加密能改善可视化质量"的区域。
+ *
+ * 两种真正需要加密的场景：
+ * 1. 定义域边界/渐近线（NaN/Infinity 混合区域）
+ * 2. 大值异号跳变（tan(x)、1/x 等函数的极点两侧）
+ *
+ * 被移除的过度检测：
+ * - 斜率比突变：容易误判 exp(x) 等平滑曲线
+ * - 绝对/相对值跳变：同上，且与指数增长混淆
  */
 function detectProblemRegions(
-  _fn: (x: number) => number,
   points: SampledPoints,
   regions: Array<{ start: number; end: number; depth: number }>,
   currentDepth: number,
@@ -166,23 +199,29 @@ function detectProblemRegions(
   const { x, y } = points;
   const n = x.length;
 
-  // 斜率阈值：当相邻斜率差异超过此值时，认为需要加密
-  const SLOPE_RATIO_THRESHOLD = 3.0;
-  // 函数值跳变阈值
-  const VALUE_JUMP_THRESHOLD = 100;
+  // 异号跳变阈值：两侧绝对值都超过此值才认为是渐近线
+  // sin(x) 零点的 ~0.00x → ~-0.00x 不会触发（绝对值太小）
+  // tan(x) 的 +92 → -108 会触发（异号且绝对值大）
+  const SIGN_CHANGE_THRESHOLD = 50;
 
   for (let i = 1; i < n - 1; i++) {
     const prevY = y[i - 1];
-    const currY = y[i];
     const nextY = y[i + 1];
-
     const prevX = x[i - 1];
-    const currX = x[i];
     const nextX = x[i + 1];
 
-    // 跳过无效点
-    if (!isFinite(prevY) || !isFinite(currY) || !isFinite(nextY)) {
-      // 在无效点附近标记需要加密
+    // 处理无效点
+    const prevValid = isFinite(prevY);
+    const currValid = isFinite(y[i]);
+    const nextValid = isFinite(nextY);
+
+    // 全无效：整个区域在定义域外（如 ln(x) 的 x<0），加密毫无意义
+    if (!prevValid && !currValid && !nextValid) {
+      continue;
+    }
+
+    // 混合有效/无效：定义域边界或渐近线，加密以精确定位边界
+    if (!prevValid || !currValid || !nextValid) {
       if (currentDepth < maxDepth) {
         regions.push({
           start: prevX,
@@ -193,16 +232,14 @@ function detectProblemRegions(
       continue;
     }
 
-    // 计算斜率
-    const slope1 = (currY - prevY) / (currX - prevX);
-    const slope2 = (nextY - currY) / (nextX - currX);
+    // 检测"大值异号跳变"——渐近线的唯一可靠特征
+    // 原理：渐近线两侧，函数值从很大的正数跳变到很大的负数（或反之）
+    // exp(x)、x^2、sin(x) 等不会触发（同号或绝对值小）
+    const prevSign = Math.sign(prevY);
+    const nextSign = Math.sign(nextY);
 
-    // 检测斜率突变
-    if (isFinite(slope1) && isFinite(slope2) && slope1 !== 0 && slope2 !== 0) {
-      const ratio = Math.abs(slope2 / slope1);
-      const inverseRatio = Math.abs(slope1 / slope2);
-
-      if (ratio > SLOPE_RATIO_THRESHOLD || inverseRatio > SLOPE_RATIO_THRESHOLD) {
+    if (prevSign !== 0 && nextSign !== 0 && prevSign !== nextSign) {
+      if (Math.abs(prevY) > SIGN_CHANGE_THRESHOLD && Math.abs(nextY) > SIGN_CHANGE_THRESHOLD) {
         if (currentDepth < maxDepth) {
           regions.push({
             start: prevX,
@@ -211,20 +248,6 @@ function detectProblemRegions(
           });
         }
         continue;
-      }
-    }
-
-    // 检测函数值跳变
-    const jump1 = Math.abs(currY - prevY);
-    const jump2 = Math.abs(nextY - currY);
-
-    if (jump1 > VALUE_JUMP_THRESHOLD || jump2 > VALUE_JUMP_THRESHOLD) {
-      if (currentDepth < maxDepth) {
-        regions.push({
-          start: prevX,
-          end: nextX,
-          depth: currentDepth + 1,
-        });
       }
     }
   }
@@ -262,7 +285,7 @@ function refineRegion(
       y: new Float64Array(points.map(p => p.y)),
     };
 
-    detectProblemRegions(fn, tempPoints, subRegions, depth, maxDepth);
+    detectProblemRegions(tempPoints, subRegions, depth, maxDepth);
 
     // 对检测到的子区域继续加密
     for (const sub of subRegions) {

@@ -105,24 +105,34 @@ const EXAMPLES = [
 
 export const FunctionHelp: React.FC<FunctionHelpProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'operators' | 'functions' | 'examples'>('functions');
+  const [copied, setCopied] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 1500);
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fade-in p-4" onClick={onClose}>
       <div
-        className="bg-canvas-panel rounded-xl w-[680px] max-h-[80vh] overflow-hidden shadow-2xl border border-gray-700"
+        className="bg-canvas-panel rounded-xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-gray-700"
         onClick={e => e.stopPropagation()}
       >
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <span className="text-accent-primary">📖</span>
+            <svg className="w-5 h-5 text-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
             函数输入帮助
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors text-xl"
+            className="text-gray-400 hover:text-white transition-colors text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-700/50"
+            aria-label="关闭"
           >
             ✕
           </button>
@@ -226,16 +236,18 @@ export const FunctionHelp: React.FC<FunctionHelpProps> = ({ isOpen, onClose }) =
                   <div
                     key={ex.expr}
                     className="flex items-center justify-between py-3 px-4 rounded-lg bg-canvas-panelLight/30 hover:bg-canvas-panelLight/50 transition-colors cursor-pointer group"
-                    onClick={() => {
-                      navigator.clipboard.writeText(ex.expr);
-                    }}
+                    onClick={() => handleCopy(ex.expr)}
                   >
                     <div>
                       <span className="text-gray-400 text-sm">{ex.desc}:</span>
                       <code className="ml-2 text-white font-mono">{ex.expr}</code>
                     </div>
-                    <span className="text-gray-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                      点击复制
+                    <span className={`text-xs transition-opacity ${
+                      copied === ex.expr
+                        ? 'text-green-400 opacity-100'
+                        : 'text-gray-500 opacity-0 group-hover:opacity-100'
+                    }`}>
+                      {copied === ex.expr ? '✓ 已复制' : '点击复制'}
                     </span>
                   </div>
                 ))}

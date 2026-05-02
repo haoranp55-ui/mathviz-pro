@@ -12,14 +12,17 @@ export function numericalDerivative(
   x: number,
   h: number = 1e-5
 ): number {
-  const yPlus = fn(x + h);
-  const yMinus = fn(x - h);
+  // 自适应步长：对于大 |x| 增大 h，避免灾难性抵消
+  const adaptiveH = h * Math.max(1, Math.abs(x));
+
+  const yPlus = fn(x + adaptiveH);
+  const yMinus = fn(x - adaptiveH);
 
   if (!isFinite(yPlus) || !isFinite(yMinus)) {
     return NaN;
   }
 
-  return (yPlus - yMinus) / (2 * h);
+  return (yPlus - yMinus) / (2 * adaptiveH);
 }
 
 /**

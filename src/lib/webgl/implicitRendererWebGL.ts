@@ -205,13 +205,25 @@ export class ImplicitRendererWebGL {
     return { program, uniforms };
   }
 
-  createShaderForFunction(id: string, node: MathNode, _color: string): { success: boolean; error?: string } {
+  createShaderForFunction(id: string, node: MathNode, _color: string): { success: boolean; error?: string; requiresCPU?: boolean } {
     if (this.shaderCache.has(id)) return { success: true };
 
     try {
-      const { expression, params } = compileExpressionOnly(node);
-      const fragmentSource = createFragmentShader(expression, params);
-      const program = this.createProgram(fragmentSource, params);
+      const result = compileExpressionOnly(node);
+
+      // 如果需要 CPU 渲染，返回 requiresCPU 标志
+      if (result.requiresCPU) {
+        return {
+          success: false,
+          requiresCPU: true,
+          error: result.unsupportedFunctions
+            ? `GLSL 不支持: ${result.unsupportedFunctions.join(', ')}，已自动切换到 CPU 渲染`
+            : 'GLSL 编译失败，已自动切换到 CPU 渲染',
+        };
+      }
+
+      const fragmentSource = createFragmentShader(result.expression, result.params);
+      const program = this.createProgram(fragmentSource, result.params);
 
       if (!program) return { success: false, error: 'Program creation failed' };
 
@@ -255,11 +267,18 @@ export class ImplicitRendererWebGL {
       gl.uniform4f(uniforms.renderRegion, 0, 0, this.canvas.width, this.canvas.height);
     }
 
-    // 解析颜色
+    // 解析颜色（支持 #RRGGBB 和 #RGB）
+    let r = 1, g = 1, b = 1;
     const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16) / 255;
-    const g = parseInt(hex.substring(2, 4), 16) / 255;
-    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16) / 255;
+      g = parseInt(hex[1] + hex[1], 16) / 255;
+      b = parseInt(hex[2] + hex[2], 16) / 255;
+    } else if (hex.length >= 6) {
+      r = parseInt(hex.substring(0, 2), 16) / 255;
+      g = parseInt(hex.substring(2, 4), 16) / 255;
+      b = parseInt(hex.substring(4, 6), 16) / 255;
+    }
     gl.uniform3f(uniforms.color, r, g, b);
 
     for (const [name, loc] of uniforms.params) {

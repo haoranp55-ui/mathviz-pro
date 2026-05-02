@@ -183,3 +183,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .function-item {
   animation: slideIn 0.3s ease-out;
 }
+
+/* 关联参数滑钮轨道 - 紫色渐变区分 */
+.slider-linked::-webkit-slider-track {
+  background: linear-gradient(90deg, #334155, #6366F1, #334155);
+}

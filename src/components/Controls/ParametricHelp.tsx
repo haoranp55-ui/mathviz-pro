@@ -11,7 +11,7 @@ const PARAMETER_RULES = [
   { rule: '排除 x/y', desc: 'x 和 y 是坐标变量，不能作为参数', example: 'a*x + b ✓，x*x ✗' },
   { rule: '最多3个参数', desc: '每个函数最多支持3个额外参数', example: 'a*x + b + c ✓' },
   { rule: '最多3个函数', desc: '同时最多显示3个参数化函数', example: '' },
-  { rule: '参数关联', desc: '同名参数会同步变化', example: 'a*x 和 sin(a*x) 共享参数 a' },
+  { rule: '参数关联', desc: '同名参数会同步变化，共享参数旁显示彩色关联标记', example: 'a*x 和 sin(a*x) 共享参数 a' },
 ];
 
 const PARAMETER_CONFIG = [
@@ -111,7 +111,7 @@ export const ParametricHelp: React.FC<ParametricHelpProps> = ({ isOpen, onClose 
               {/* 参数关联 */}
               <div className="mt-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
                 <p className="text-sm text-green-300">
-                  <strong>参数关联:</strong> 当多个函数有相同名称的参数时，调整其中一个会同步更新所有同名参数。例如：<code className="text-white">a*x</code> 和 <code className="text-white">sin(a*x)</code> 共享参数 a，滑动任一滑钮两者都会变化。
+                  <strong>参数关联:</strong> 当多个函数有相同名称的参数时，调整其中一个会同步更新所有同名参数的值和范围。共享参数旁会显示彩色圆点标记，指示哪些函数共享该参数。例如：<code className="text-white">a*x</code> 和 <code className="text-white">sin(a*x)</code> 共享参数 a，滑动任一滑钮两者都会变化。
                 </p>
               </div>
             </div>

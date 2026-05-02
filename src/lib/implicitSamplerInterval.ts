@@ -30,6 +30,29 @@ const gridCacheMap = new Map<string, GridCache>();
 
 // 缓存过期时间（毫秒）
 const CACHE_EXPIRE_TIME = 2000;
+// 网格缓存最大条目数，防止内存泄漏
+const GRID_CACHE_MAX_SIZE = 20;
+
+/**
+ * 清理最旧的网格缓存条目，防止无界增长
+ */
+function evictOldestGridCache(): void {
+  if (gridCacheMap.size < GRID_CACHE_MAX_SIZE) return;
+
+  let oldestKey: string | null = null;
+  let oldestTime = Infinity;
+
+  for (const [key, entry] of gridCacheMap) {
+    if (entry.lastAccess < oldestTime) {
+      oldestTime = entry.lastAccess;
+      oldestKey = key;
+    }
+  }
+
+  if (oldestKey !== null) {
+    gridCacheMap.delete(oldestKey);
+  }
+}
 
 /**
  * 预计算网格值（可缓存）
@@ -210,6 +233,7 @@ export function fastRenderWithCache(
   } else {
     // 缓存未命中，重新计算
     values = computeGridValues(fn, viewPort, gridSize);
+    evictOldestGridCache();
     gridCacheMap.set(cacheId, {
       values,
       gridSize,
@@ -301,8 +325,8 @@ export function intervalMarchingSquares(
       continue;
     }
 
-    // Marching Squares 提取线段
-    extractSegment(fn, cell, segments);
+    // Marching Squares 提取线段（直接传入已计算的角点值，避免重复求值）
+    extractSegment(cell, segments, v0, v1, v2, v3);
   }
 
   return segments;
@@ -310,19 +334,17 @@ export function intervalMarchingSquares(
 
 /**
  * Marching Squares 线段提取（内联优化）
+ * 注意：v0, v1, v2, v3 由调用方传入，避免重复求值
  */
 function extractSegment(
-  fn: (x: number, y: number) => number,
   cell: { x: number; y: number; w: number; h: number },
-  segments: ContourSegment[]
+  segments: ContourSegment[],
+  v0: number,
+  v1: number,
+  v2: number,
+  v3: number
 ): void {
   const { x, y, w, h } = cell;
-
-  // 重新计算角点值
-  const v0 = fn(x, y);
-  const v1 = fn(x + w, y);
-  const v2 = fn(x + w, y + h);
-  const v3 = fn(x, y + h);
 
   // 跳过无效值
   if (!isFinite(v0) || !isFinite(v1) || !isFinite(v2) || !isFinite(v3)) return;
@@ -342,8 +364,8 @@ function extractSegment(
   if (!edges) return;
 
   for (const [e1, e2] of edges) {
-    const p1 = getEdgePoint(fn, e1, x, y, w, h, v0, v1, v2, v3);
-    const p2 = getEdgePoint(fn, e2, x, y, w, h, v0, v1, v2, v3);
+    const p1 = getEdgePoint(e1, x, y, w, h, v0, v1, v2, v3);
+    const p2 = getEdgePoint(e2, x, y, w, h, v0, v1, v2, v3);
     if (p1 && p2) {
       segments.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
     }
@@ -354,7 +376,6 @@ function extractSegment(
  * 边上插值点计算
  */
 function getEdgePoint(
-  _fn: (x: number, y: number) => number,
   edge: number,
   x: number,
   y: number,

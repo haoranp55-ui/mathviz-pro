@@ -307,7 +307,7 @@ function detectSelfIntersections(
 
         if (!exists) {
           keyPoints.push({
-            type: 'zero',
+            type: 'intersection',
             x: intersection.x,
             y: intersection.y,
             functionId,

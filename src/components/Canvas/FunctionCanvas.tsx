@@ -8,13 +8,13 @@ import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
 import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
 import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
-import { canvasToMath, createScales, createRenderContext } from '../../lib/transformer';
+import { createScales, createRenderContext } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { detectImplicitKeyPoints } from '../../lib/implicitKeyPointDetector';
 import { drawKeyPoints, drawKeyPointTooltip, findHoveredKeyPoint } from './KeyPointRenderer';
 import { createDerivativeFunction } from '../../lib/derivative';
 import { SAMPLE_PRESETS } from '../../types';
-import type { ContourSegment } from '../../types';
+import type { ContourSegment, KeyPoint } from '../../types';
 
 /**
  * 计算点到线段的最短距离和最近点
@@ -81,11 +81,22 @@ export const FunctionCanvas: React.FC = () => {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // 上一次渲染的视口范围，用于判断是否需要重新采样
-  const lastViewPortRef = useRef<{ xMin: number; xMax: number } | null>(null);
+  // 缓存关键点哈希，避免 RAF 内频繁 setKeyPoints 触发不必要的重渲染
+  const lastKeyPointsHashRef = useRef<Map<string, string>>(new Map());
+
+  function keyPointsChanged(functionId: string, kps: KeyPoint[]): boolean {
+    const hash = kps.length === 0 ? 'empty' : JSON.stringify(kps.map(kp => `${kp.type}:${kp.x.toFixed(6)}:${(kp.y ?? 'nan').toString()}`));
+    const last = lastKeyPointsHashRef.current.get(functionId);
+    if (last === hash) return false;
+    lastKeyPointsHashRef.current.set(functionId, hash);
+    return true;
+  }
 
   // 缓存隐函数线段数据，用于悬停检测
   const implicitSegmentsRef = useRef<Map<string, ContourSegment[]>>(new Map());
+
+  // 缓存普通/参数化函数采样点，用于悬停检测（避免陡峭函数"相同x坐标"检测失效）
+  const functionPointsRef = useRef<Map<string, { x: Float64Array; y: Float64Array }>>(new Map());
 
   // 注册 canvas 引用到 store（用于导出）
   useEffect(() => {
@@ -124,6 +135,8 @@ export const FunctionCanvas: React.FC = () => {
     const { sampleXMin, sampleXMax } = renderCtx;
 
     // 渲染普通函数曲线
+    functionPointsRef.current.clear();
+
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
 
@@ -132,6 +145,9 @@ export const FunctionCanvas: React.FC = () => {
         xMax: sampleXMax,
         sampleCount: dynamicSampleCount,
       });
+
+      // 缓存采样点用于悬停检测
+      functionPointsRef.current.set(fn.id, points);
 
       drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
 
@@ -146,9 +162,11 @@ export const FunctionCanvas: React.FC = () => {
         drawDerivativeCurve(ctx, derivativePoints, fn.color, viewPort, canvasSize, aspectRatioMode);
       }
 
-      // 检测关键点
+      // 检测关键点（防抖提交，避免 RAF 内频繁触发 store 更新）
       const kps = detectKeyPoints(fn.compiled, points, fn.id);
-      setKeyPoints(fn.id, kps);
+      if (keyPointsChanged(fn.id, kps)) {
+        setKeyPoints(fn.id, kps);
+      }
     }
 
     // 渲染参数化函数曲线
@@ -169,6 +187,9 @@ export const FunctionCanvas: React.FC = () => {
         sampleCount: dynamicSampleCount,
       }, currentParams);
 
+      // 缓存采样点用于悬停检测
+      functionPointsRef.current.set(fn.id, points);
+
       drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
 
       // 绘制导数曲线
@@ -182,9 +203,11 @@ export const FunctionCanvas: React.FC = () => {
         drawDerivativeCurve(ctx, derivativePoints, fn.color, viewPort, canvasSize, aspectRatioMode);
       }
 
-      // 检测关键点
+      // 检测关键点（防抖提交）
       const kps = detectKeyPoints(boundFn, points, fn.id);
-      setKeyPoints(fn.id, kps);
+      if (keyPointsChanged(fn.id, kps)) {
+        setKeyPoints(fn.id, kps);
+      }
     }
 
     // 渲染隐函数曲线
@@ -252,11 +275,13 @@ export const FunctionCanvas: React.FC = () => {
 
         implicitSegmentsRef.current.set(fn.id, segments);
 
-        // 检测隐函数关键点
+        // 检测隐函数关键点（防抖提交）
         if (fn.showKeyPoints) {
           const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-          setKeyPoints(fn.id, implicitKps);
-        } else {
+          if (keyPointsChanged(fn.id, implicitKps)) {
+            setKeyPoints(fn.id, implicitKps);
+          }
+        } else if (keyPointsChanged(fn.id, [])) {
           setKeyPoints(fn.id, []);
         }
       }
@@ -309,11 +334,13 @@ export const FunctionCanvas: React.FC = () => {
         // 绘制隐函数曲线
         drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
 
-        // 检测隐函数关键点
+        // 检测隐函数关键点（防抖提交）
         if (fn.showKeyPoints) {
           const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-          setKeyPoints(fn.id, implicitKps);
-        } else {
+          if (keyPointsChanged(fn.id, implicitKps)) {
+            setKeyPoints(fn.id, implicitKps);
+          }
+        } else if (keyPointsChanged(fn.id, [])) {
           setKeyPoints(fn.id, []);
         }
       }
@@ -543,8 +570,6 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
-    // 记录当前视口范围
-    lastViewPortRef.current = { xMin: viewPort.xMin, xMax: viewPort.xMax };
   }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, useGPURendering, setKeyPoints]);
 
   // 使用 requestAnimationFrame 渲染
@@ -603,55 +628,83 @@ export const FunctionCanvas: React.FC = () => {
       setHoverKeyPoint(null);
     }
 
-    // 曲线悬停检测
-    const mathCoord = canvasToMath(px, py, createScales(viewPort, canvasSize, aspectRatioMode));
+    // 曲线悬停检测：使用"点到折线距离"替代"相同x坐标的垂直距离"
+    // 解决陡峭函数（tan(x)靠近π/2、ln(x)靠近0）悬停断断续续的问题
+    const scales = createScales(viewPort, canvasSize, aspectRatioMode);
 
     let closestPoint: { x: number; y: number; functionId: string; distance: number } | null = null;
     const threshold = 12;
+    // 与 CurveRenderer 一致的渐近线斜率阈值（像素单位）
+    const ASYMPTOTE_SLOPE_THRESHOLD = 50000;
 
+    // 辅助函数：检测采样点折线中的最近线段
+    const findNearestOnPolyline = (
+      points: { x: Float64Array; y: Float64Array } | undefined,
+      fnId: string
+    ) => {
+      if (!points) return;
+      const { x, y } = points;
+      const n = x.length;
+      let prevPx = 0;
+      let prevPy = 0;
+      let hasPrev = false;
+
+      for (let i = 0; i < n; i++) {
+        const yi = y[i];
+        if (!isFinite(yi)) {
+          hasPrev = false;
+          continue;
+        }
+
+        const cpx = scales.xScale(x[i]);
+        const cpy = scales.yScale(yi);
+
+        // 跳过画布外很远的点（与 CurveRenderer 一致）
+        if (cpx < -1000 || cpx > canvasSize.width + 1000) {
+          hasPrev = false;
+          continue;
+        }
+
+        // 检测渐近线：斜率过大时断开路径
+        if (hasPrev) {
+          const dx = cpx - prevPx;
+          const dy = cpy - prevPy;
+          if (Math.abs(dx) > 0.1) {
+            const slope = Math.abs(dy / dx);
+            if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
+              hasPrev = false; // 断开，不连接这段
+              continue;
+            }
+          }
+        }
+
+        if (hasPrev) {
+          const result = pointToSegmentDistance(px, py, prevPx, prevPy, cpx, cpy);
+          if (result.distance < threshold && (!closestPoint || result.distance < closestPoint.distance)) {
+            const nearestMathX = scales.xScale.invert(result.nearestPx);
+            const nearestMathY = scales.yScale.invert(result.nearestPy);
+            closestPoint = { x: nearestMathX, y: nearestMathY, functionId: fnId, distance: result.distance };
+          }
+        }
+
+        prevPx = cpx;
+        prevPy = cpy;
+        hasPrev = true;
+      }
+    };
+
+    // 普通函数悬停检测
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
-
-      try {
-        const y = fn.compiled(mathCoord.x);
-        if (!isFinite(y)) continue;
-
-        const pointPx = createScales(viewPort, canvasSize, aspectRatioMode).xScale(mathCoord.x);
-        const pointPy = createScales(viewPort, canvasSize, aspectRatioMode).yScale(y);
-
-        const distance = Math.sqrt(Math.pow(px - pointPx, 2) + Math.pow(py - pointPy, 2));
-
-        if (distance < threshold && (!closestPoint || distance < closestPoint.distance)) {
-          closestPoint = { x: mathCoord.x, y, functionId: fn.id, distance };
-        }
-      } catch {
-        continue;
-      }
+      const points = functionPointsRef.current.get(fn.id);
+      findNearestOnPolyline(points, fn.id);
     }
 
+    // 参数化函数悬停检测
     for (const fn of parametricFunctions) {
       if (!fn.visible || fn.error) continue;
-
-      try {
-        const currentParams: Record<string, number> = {};
-        for (const p of fn.parameters) {
-          currentParams[p.name] = p.currentValue;
-        }
-
-        const y = fn.compiled(mathCoord.x, currentParams);
-        if (!isFinite(y)) continue;
-
-        const pointPx = createScales(viewPort, canvasSize, aspectRatioMode).xScale(mathCoord.x);
-        const pointPy = createScales(viewPort, canvasSize, aspectRatioMode).yScale(y);
-
-        const distance = Math.sqrt(Math.pow(px - pointPx, 2) + Math.pow(py - pointPy, 2));
-
-        if (distance < threshold && (!closestPoint || distance < closestPoint.distance)) {
-          closestPoint = { x: mathCoord.x, y, functionId: fn.id, distance };
-        }
-      } catch {
-        continue;
-      }
+      const points = functionPointsRef.current.get(fn.id);
+      findNearestOnPolyline(points, fn.id);
     }
 
     // 隐函数悬停检测
@@ -711,27 +764,35 @@ export const FunctionCanvas: React.FC = () => {
     mousePosRef.current = null;
   }, [setHoverPoint, setHoverKeyPoint, setDragging]);
 
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+  // 原生 wheel 事件（使用 { passive: false } 以支持 preventDefault）
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
-    const scales = createScales(viewPort, canvasSize, aspectRatioMode);
-    const centerX = scales.xScale.invert(px);
-    const centerY = scales.yScale.invert(py);
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
 
-    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+      const scales = createScales(viewPort, canvasSize, aspectRatioMode);
+      const centerX = scales.xScale.invert(px);
+      const centerY = scales.yScale.invert(py);
 
-    setViewPort({
-      xMin: centerX - (centerX - viewPort.xMin) * zoomFactor,
-      xMax: centerX + (viewPort.xMax - centerX) * zoomFactor,
-      yMin: centerY - (centerY - viewPort.yMin) * zoomFactor,
-      yMax: centerY + (viewPort.yMax - centerY) * zoomFactor,
-    });
-  }, [canvasRef, canvasSize, viewPort, setViewPort]);
+      const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+
+      setViewPort({
+        xMin: centerX - (centerX - viewPort.xMin) * zoomFactor,
+        xMax: centerX + (viewPort.xMax - centerX) * zoomFactor,
+        yMin: centerY - (centerY - viewPort.yMin) * zoomFactor,
+        yMax: centerY + (viewPort.yMax - centerY) * zoomFactor,
+      });
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [canvasRef, canvasSize, viewPort, aspectRatioMode, setViewPort]);
 
   const handleDoubleClick = useCallback(() => {
     useAppStore.getState().resetView();
@@ -746,7 +807,6 @@ export const FunctionCanvas: React.FC = () => {
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
       />
     </div>

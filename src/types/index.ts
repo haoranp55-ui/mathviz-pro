@@ -115,7 +115,7 @@ export const FUNCTION_COLORS = [
 export type FunctionColor = typeof FUNCTION_COLORS[number];
 
 // 关键点类型
-export type KeyPointType = 'zero' | 'maximum' | 'minimum' | 'inflection' | 'discontinuity';
+export type KeyPointType = 'zero' | 'maximum' | 'minimum' | 'inflection' | 'discontinuity' | 'intersection';
 
 export interface KeyPoint {
   type: KeyPointType;
@@ -136,6 +136,7 @@ export const KEY_POINT_STYLES: Record<KeyPointType, KeyPointStyle> = {
   minimum:       { color: '#10B981', marker: '▼', label: '极小值' },
   inflection:    { color: '#F59E0B', marker: '◆', label: '拐点' },
   discontinuity: { color: '#8B5CF6', marker: '║', label: '不连续点' },
+  intersection:  { color: '#EC4899', marker: '✕', label: '交点' },
 };
 
 // 用户标记的点（用于函数上标注特定点及其导数）
@@ -160,6 +161,7 @@ export interface ImplicitFunction {
   error?: string;
   parameters: Parameter[];      // 支持参数，如 a, b
   transformedExpression?: string;  // 自动转换后的表达式（如 tan 转换）
+  requiresCPU?: boolean;        // 标记是否需要 CPU 渲染（GLSL 不支持的函数）
 }
 
 // 等值线段（Marching Squares 输出）

@@ -127,56 +127,15 @@ export function createRenderContext(
 /**
  * 创建坐标变换比例尺
  *
- * 支持两种模式：
- * - normal: 独立比例，x 和 y 轴各自映射（可能导致圆变形）
- * - equal: 等比例，保持 1:1 纵横比（圆显示为正圆）
+ * 复用 createRenderContext 的等比例/普通模式逻辑，避免重复
  */
 export function createScales(
   viewPort: ViewPort,
   canvasSize: CanvasSize,
   mode: 'normal' | 'equal' = 'normal'
 ): Scales {
-  if (mode === 'equal') {
-    // 等比例模式：确保 x 和 y 的单位长度在像素上相等
-    const xRange = viewPort.xMax - viewPort.xMin;
-    const yRange = viewPort.yMax - viewPort.yMin;
-
-    // 计算像素比例
-    const pixelRatioX = canvasSize.width / xRange;
-    const pixelRatioY = canvasSize.height / yRange;
-
-    // 使用较小的比例作为基准，确保两个轴都能完整显示
-    const baseRatio = Math.min(pixelRatioX, pixelRatioY);
-
-    // 计算实际使用的像素范围
-    const actualWidth = xRange * baseRatio;
-    const actualHeight = yRange * baseRatio;
-
-    // 计算偏移量，使内容居中
-    const offsetX = (canvasSize.width - actualWidth) / 2;
-    const offsetY = (canvasSize.height - actualHeight) / 2;
-
-    const xScale = scaleLinear()
-      .domain([viewPort.xMin, viewPort.xMax])
-      .range([offsetX, offsetX + actualWidth]);
-
-    const yScale = scaleLinear()
-      .domain([viewPort.yMin, viewPort.yMax])
-      .range([offsetY + actualHeight, offsetY]); // Y轴翻转
-
-    return { xScale, yScale };
-  }
-
-  // 普通模式：独立比例
-  const xScale = scaleLinear()
-    .domain([viewPort.xMin, viewPort.xMax])
-    .range([0, canvasSize.width]);
-
-  const yScale = scaleLinear()
-    .domain([viewPort.yMin, viewPort.yMax])
-    .range([canvasSize.height, 0]); // Y轴翻转
-
-  return { xScale, yScale };
+  const ctx = createRenderContext(viewPort, canvasSize, mode, 0);
+  return { xScale: ctx.xScale, yScale: ctx.yScale };
 }
 
 // 数学坐标 → Canvas 像素坐标

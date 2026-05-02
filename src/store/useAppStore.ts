@@ -146,6 +146,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addFunction: (expression: string) => {
     const { functions } = get();
+    if (functions.length >= 10) return; // 限制最大数量
     const colorIndex = functions.length % FUNCTION_COLORS.length;
     const color = FUNCTION_COLORS[colorIndex];
 
@@ -382,19 +383,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateParametricParameter: (
-    functionId: string,
+    _functionId: string,
     paramName: string,
     field: 'min' | 'max' | 'step' | 'defaultValue',
     value: number
   ) => {
+    // 参数关联：更新所有函数中同名参数的范围配置
     set({
       parametricFunctions: get().parametricFunctions.map(fn => {
-        if (fn.id !== functionId) return fn;
+        const hasParam = fn.parameters.some(p => p.name === paramName);
+        if (!hasParam) return fn;
         return {
           ...fn,
-          parameters: fn.parameters.map(p =>
-            p.name === paramName ? { ...p, [field]: value } : p
-          ),
+          parameters: fn.parameters.map(p => {
+            if (p.name !== paramName) return p;
+            const updated = { ...p, [field]: value };
+            // 范围变更时夹紧 currentValue
+            if (field === 'min' || field === 'max') {
+              updated.currentValue = Math.max(updated.min, Math.min(updated.max, updated.currentValue));
+            }
+            return updated;
+          }),
         };
       }),
     });
@@ -572,8 +581,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeImplicitFunction: (id: string) => {
+    const { implicitFunctions, keyPoints } = get();
     set({
-      implicitFunctions: get().implicitFunctions.filter(f => f.id !== id),
+      implicitFunctions: implicitFunctions.filter(f => f.id !== id),
+      keyPoints: keyPoints.filter(kp => kp.functionId !== id),
     });
   },
 

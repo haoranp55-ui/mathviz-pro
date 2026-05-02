@@ -69,6 +69,17 @@ export interface GLSLCompileResult {
   expression?: string;  // 仅表达式部分
   uniforms?: string[];
   error?: string;
+  requiresCPU?: boolean;  // 标记是否需要 CPU 渲染
+}
+
+/**
+ * 表达式编译结果
+ */
+export interface ExpressionCompileResult {
+  expression: string;
+  params: string[];
+  requiresCPU: boolean;  // 是否包含 GLSL 不支持的函数
+  unsupportedFunctions?: string[];  // 不支持的函数列表
 }
 
 /**
@@ -245,15 +256,69 @@ function hexToRGB(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
- * 只编译表达式为 GLSL 字符串（用于自定义着色器）
+ * 检测表达式中是否有 GLSL 不支持的函数
  */
-export function compileExpressionOnly(node: MathNode): { expression: string; params: string[] } {
+function detectUnsupportedFunctions(node: MathNode): string[] {
+  const unsupported: string[] = [];
+
+  node.traverse((n: MathNode) => {
+    if (n.type === 'FunctionNode') {
+      const fnNode = n as any;
+      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn?.name;
+
+      // 这些函数在 GLSL 中无法实现或实现成本过高
+      const UNSUPPORTED_IN_GLSL = [
+        'factorial', 'gamma', 'erf',
+        'combinations', 'permutations',
+        'acosh', 'asinh', 'atanh',  // GLSL ES 3.0 不支持
+        'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',  // 反三角扩展
+      ];
+
+      if (UNSUPPORTED_IN_GLSL.includes(fnName)) {
+        unsupported.push(fnName);
+      }
+    }
+  });
+
+  return unsupported;
+}
+
+/**
+ * 只编译表达式为 GLSL 字符串（用于自定义着色器）
+ * 返回 requiresCPU 标志，指示是否需要使用 CPU 渲染
+ */
+export function compileExpressionOnly(node: MathNode): ExpressionCompileResult {
   const params = new Set<string>();
-  const expression = mathNodeToGLSL(node, params);
-  return {
-    expression,
-    params: Array.from(params),
-  };
+
+  // 先检测是否有不支持的函数
+  const unsupportedFunctions = detectUnsupportedFunctions(node);
+
+  if (unsupportedFunctions.length > 0) {
+    // 有不支持的函数，返回 requiresCPU: true
+    return {
+      expression: '',
+      params: [],
+      requiresCPU: true,
+      unsupportedFunctions,
+    };
+  }
+
+  try {
+    const expression = mathNodeToGLSL(node, params);
+    return {
+      expression,
+      params: Array.from(params),
+      requiresCPU: false,
+    };
+  } catch (e) {
+    // 编译失败，标记为需要 CPU
+    return {
+      expression: '',
+      params: [],
+      requiresCPU: true,
+      unsupportedFunctions: [(e as Error).message],
+    };
+  }
 }
 
 /**

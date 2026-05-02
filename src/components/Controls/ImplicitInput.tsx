@@ -1,5 +1,5 @@
 // src/components/Controls/ImplicitInput.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 const IMPLICIT_FUNCTION_LIST = [
@@ -12,6 +12,7 @@ const IMPLICIT_FUNCTION_LIST = [
 export const ImplicitInput: React.FC = () => {
   const [expression, setExpression] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const addImplicitFunction = useAppStore(state => state.addImplicitFunction);
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
 
@@ -28,10 +29,22 @@ export const ImplicitInput: React.FC = () => {
     setShowPicker(false);
   };
 
+  // 点击外部关闭选择器
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showPicker]);
+
   const canAdd = implicitFunctions.length < 3;
 
   return (
-    <div className="p-4 border-b border-gray-700/50">
+    <div className="p-4 border-b border-gray-700/50" ref={pickerRef}>
       <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-green-500"></span>
         隐函数 (F(x,y) = 0)
@@ -55,6 +68,7 @@ export const ImplicitInput: React.FC = () => {
             onClick={() => setShowPicker(!showPicker)}
             className={`absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors px-2 py-1 flex items-center gap-0.5 ${showPicker ? 'text-white' : ''}`}
             title="函数选择器"
+            aria-label="函数选择器"
           >
             <span>ƒ</span>
             <span className={`text-xs transition-transform ${showPicker ? 'rotate-180' : ''}`}>▼</span>
