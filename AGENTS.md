@@ -99,6 +99,26 @@ src/components/
 - **更新 README.md**：功能变更时同步更新 README.md 的功能特性、项目结构等章节
 - **函数级属性**：`showDerivative`、`showKeyPoints` 等放在函数对象内，使用 `toggleFunctionXxx(id)` 模式操作
 
+### 版本发布规范
+
+每次向 GitHub 推送功能变更或 Bug 修复后，**必须创建对应的版本标签（tag）**：
+
+```bash
+git tag -a v2.3 -m "v2.3: 功能描述或修复摘要"
+git push origin v2.3
+```
+
+**Tag 命名规则**：`v{主版本}.{次版本}`（如 v2.2、v2.3）
+- **主版本**：重大架构变更或破坏性改动
+- **次版本**：功能新增、Bug 修复、性能优化
+
+**为什么必须打 tag**：
+- Tag 是 GitHub 上查找历史版本的唯一便捷入口
+- 没有 tag 时，只能通过 commit hash 或时间线在大量提交中翻找
+- 每个 tag 对应一个可独立访问的代码快照，便于回溯和对比
+
+**已有标签**：v1.0 ~ v2.2，记录了每个版本的变更历史
+
 ### WebGL/CPU 自动降级机制
 
 **背景**：GLSL 着色器不支持所有 mathjs 函数（如 factorial、gamma、erf 等）。
