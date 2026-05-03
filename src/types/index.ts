@@ -158,6 +158,7 @@ export interface ImplicitFunction {
   color: string;
   visible: boolean;
   showKeyPoints?: boolean;      // 是否显示关键点标注
+  useGPURendering?: boolean;    // 是否使用 GPU 渲染（函数级别）
   error?: string;
   parameters: Parameter[];      // 支持参数，如 a, b
   transformedExpression?: string;  // 自动转换后的表达式（如 tan 转换）
@@ -237,6 +238,7 @@ export interface PolarFunction {
   color: string;
   visible: boolean;
   showKeyPoints?: boolean;      // 是否显示关键点标注
+  useGPURendering?: boolean;    // 是否使用 GPU 渲染（函数级别）
   error?: string;
   parameters: Parameter[];      // 支持参数，如 a, b
 

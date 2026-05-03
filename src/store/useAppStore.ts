@@ -52,9 +52,6 @@ interface AppState {
   samplePreset: SamplePreset;
   aspectRatioMode: AspectRatioMode;
 
-  // 渲染模式
-  useGPURendering: boolean;
-
   // 关键点列表
   keyPoints: KeyPoint[];
 
@@ -111,6 +108,7 @@ interface AppState {
   removeImplicitFunction: (id: string) => void;
   toggleImplicitVisibility: (id: string) => void;
   toggleImplicitKeyPoints: (id: string) => void;
+  toggleImplicitGPURendering: (id: string) => void;  // 函数级别 GPU 开关
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => void;
 
   // 极坐标函数 Actions
@@ -118,10 +116,9 @@ interface AppState {
   removePolarFunction: (id: string) => void;
   togglePolarVisibility: (id: string) => void;
   togglePolarKeyPoints: (id: string) => void;
+  togglePolarGPURendering: (id: string) => void;  // 函数级别 GPU 开关
   updatePolarParameter: (functionId: string, paramName: string, value: number) => void;
-
-  // GPU 渲染
-  toggleGPURendering: () => void;
+  updatePolarThetaRange: (functionId: string, thetaMin: number, thetaMax: number) => void;
 
   // 滑钮状态（用于优化隐函数渲染性能）
   isSliderActive: boolean;
@@ -155,7 +152,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   evaluateX: 1,
   canvasRef: null,
   isSliderActive: false,
-  useGPURendering: false,  // 默认关闭，需要用户手动开启
 
   addFunction: (expression: string) => {
     const { functions } = get();
@@ -617,6 +613,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  toggleImplicitGPURendering: (id: string) => {
+    set({
+      implicitFunctions: get().implicitFunctions.map(f =>
+        f.id === id ? { ...f, useGPURendering: !f.useGPURendering } : f
+      ),
+    });
+  },
+
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => {
     set({
       implicitFunctions: get().implicitFunctions.map(fn => {
@@ -691,6 +695,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  togglePolarGPURendering: (id: string) => {
+    set({
+      polarFunctions: get().polarFunctions.map(f =>
+        f.id === id ? { ...f, useGPURendering: !f.useGPURendering } : f
+      ),
+    });
+  },
+
   updatePolarParameter: (functionId: string, paramName: string, value: number) => {
     set({
       polarFunctions: get().polarFunctions.map(fn => {
@@ -703,8 +715,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  toggleGPURendering: () => {
-    set({ useGPURendering: !get().useGPURendering });
+  updatePolarThetaRange: (functionId: string, thetaMin: number, thetaMax: number) => {
+    set({
+      polarFunctions: get().polarFunctions.map(fn => {
+        if (fn.id !== functionId) return fn;
+        return {
+          ...fn,
+          thetaMin,
+          thetaMax,
+        };
+      }),
+    });
   },
 
   setSliderActive: (active: boolean) => {

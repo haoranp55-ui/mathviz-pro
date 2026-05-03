@@ -7,11 +7,10 @@ import { isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 
 export const ImplicitList: React.FC = () => {
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
-  const useGPURendering = useAppStore(state => state.useGPURendering);
-  const toggleGPURendering = useAppStore(state => state.toggleGPURendering);
   const removeImplicitFunction = useAppStore(state => state.removeImplicitFunction);
   const toggleImplicitVisibility = useAppStore(state => state.toggleImplicitVisibility);
   const toggleImplicitKeyPoints = useAppStore(state => state.toggleImplicitKeyPoints);
+  const toggleImplicitGPURendering = useAppStore(state => state.toggleImplicitGPURendering);
   const updateImplicitParameter = useAppStore(state => state.updateImplicitParameter);
 
   const [gpuAvailable] = useState(() => isWebGLAvailable());
@@ -36,49 +35,6 @@ export const ImplicitList: React.FC = () => {
         </span>
       </div>
 
-      {/* GPU 着色器渲染开关 - 仅隐函数支持 */}
-      <div className="mx-1 mb-3 p-3 glass-card border-green-500/10 relative overflow-hidden">
-        {/* 背景装饰 */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl font-mono text-green-400">GPU</div>
-        </div>
-
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500/25 to-teal-500/25 flex items-center justify-center border border-green-500/20">
-              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-300">GPU 着色器渲染</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useGPURendering}
-              onChange={toggleGPURendering}
-              disabled={!gpuAvailable}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-green-500 peer-checked:to-teal-500 peer-disabled:opacity-30 peer-disabled:cursor-not-allowed border border-white/10"></div>
-          </label>
-        </div>
-        {!gpuAvailable && (
-          <div className="text-xs text-yellow-500/80 mt-2 flex items-center gap-1 relative z-10">
-            <span>⚠️</span>
-            <span>WebGL2 不可用</span>
-          </div>
-        )}
-        {gpuAvailable && useGPURendering && (
-          <div className="text-xs text-green-400/80 mt-2 flex items-center gap-1 relative z-10">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span>像素级精度，GPU 并行加速</span>
-          </div>
-        )}
-      </div>
-
       <ul className="space-y-2">
       {implicitFunctions.map(fn => (
         <li key={fn.id}>
@@ -86,8 +42,8 @@ export const ImplicitList: React.FC = () => {
           {/* 颜色指示条 */}
           <div
             className="w-1.5 h-7 rounded-full flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-y-110"
-            style={{ 
-              backgroundColor: fn.color, 
+            style={{
+              backgroundColor: fn.color,
               boxShadow: `0 0 10px ${fn.color}60, 0 0 4px ${fn.color}40`
             }}
             onClick={() => toggleImplicitVisibility(fn.id)}
@@ -108,6 +64,22 @@ export const ImplicitList: React.FC = () => {
               <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md border border-red-500/20" title={fn.error}>
                 错误
               </span>
+            )}
+
+            {/* GPU 渲染开关（函数级别） */}
+            {!fn.error && gpuAvailable && !fn.requiresCPU && (
+              <button
+                onClick={() => toggleImplicitGPURendering(fn.id)}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                  fn.useGPURendering
+                    ? 'text-green-400 bg-green-400/15 hover:bg-green-400/25 border border-green-400/20'
+                    : 'text-gray-500 hover:text-green-400 hover:bg-green-400/10 opacity-0 group-hover:opacity-100'
+                }`}
+                title={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染（像素级精度）'}
+                aria-label={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染'}
+              >
+                ⚡
+              </button>
             )}
 
             <button
@@ -167,6 +139,15 @@ export const ImplicitList: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 <span>已自动切换到 CPU 渲染（GLSL 不支持该函数）</span>
+              </div>
+            )}
+
+            {fn.useGPURendering && !fn.requiresCPU && (
+              <div className="text-xs text-green-400/80 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span>GPU 渲染已启用（像素级精度）</span>
               </div>
             )}
 

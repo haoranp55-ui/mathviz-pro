@@ -7,7 +7,7 @@ import { drawCurve, drawHoverPoint, drawDerivativeCurve } from './CurveRenderer'
 import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
 import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
-import { cachedSamplePolar, samplePolarFunctionFast } from '../../lib/polarParser';
+import { samplePolarFunctionFast } from '../../lib/polarParser';
 import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 import { getPolarWebGLManager, isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 import { createScales, createRenderContext } from '../../lib/transformer';
@@ -65,7 +65,6 @@ export const FunctionCanvas: React.FC = () => {
     samplePreset,
     aspectRatioMode,
     isSliderActive,
-    useGPURendering,
     keyPoints,
     hoverKeyPoint,
     showKeyPoints,
@@ -217,25 +216,154 @@ export const FunctionCanvas: React.FC = () => {
     // 清空隐函数线段缓存（每次渲染时重新填充）
     implicitSegmentsRef.current.clear();
 
-    // 检查是否使用 WebGL 着色器渲染
-    const webglManager = useGPURendering ? getWebGLManager() : null;
-    const useWebGL = webglManager && isWebGLAvailable() && implicitFunctions.some(fn => fn.visible && !fn.error);
+    // 获取 WebGL 管理器（如果至少有一个函数启用了 GPU 渲染）
+    const hasGPUImplicit = implicitFunctions.some(fn => fn.visible && !fn.error && fn.useGPURendering && !fn.requiresCPU);
+    const webglManager = hasGPUImplicit ? getWebGLManager() : null;
 
-    if (useWebGL && webglManager) {
-      // WebGL 着色器渲染（像素级精度）
+    if (webglManager && isWebGLAvailable()) {
       webglManager.resize(canvasSize.width, canvasSize.height);
 
-      // 注册所有隐函数
+      // 注册需要 GPU 渲染的函数
       for (const fn of implicitFunctions) {
-        if (fn.visible && !fn.error) {
+        if (fn.visible && !fn.error && fn.useGPURendering && !fn.requiresCPU) {
           webglManager.registerFunction(fn);
         }
       }
 
-      // 渲染到 WebGL canvas（透明背景，只有曲线）
-      // 传入渲染区域信息以处理 equal 模式的偏移
-      const glCanvas = webglManager.renderToCanvas(
-        implicitFunctions,
+      // 渲染 GPU 函数到 WebGL canvas
+      const gpuFunctions = implicitFunctions.filter(fn => fn.visible && !fn.error && fn.useGPURendering && !fn.requiresCPU);
+      if (gpuFunctions.length > 0) {
+        const glCanvas = webglManager.renderToCanvas(
+          gpuFunctions,
+          viewPort,
+          {
+            offsetX: renderCtx.offsetX,
+            offsetY: renderCtx.offsetY,
+            actualWidth: renderCtx.actualWidth,
+            actualHeight: renderCtx.actualHeight,
+          }
+        );
+
+        if (glCanvas) {
+          ctx.drawImage(glCanvas, 0, 0);
+        }
+      }
+    }
+
+    // 渲染 CPU 函数（未启用 GPU 或 requiresCPU）
+    for (const fn of implicitFunctions) {
+      if (!fn.visible || fn.error) continue;
+      if (fn.useGPURendering && !fn.requiresCPU) continue;  // 已由 GPU 渲染
+
+      // 绑定当前参数值
+      const currentParams: Record<string, number> = {};
+      for (const p of fn.parameters) {
+        currentParams[p.name] = p.currentValue;
+      }
+
+      const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
+
+      // 使用统一的渲染上下文计算采样范围
+      const sampleViewPort = {
+        xMin: renderCtx.sampleXMin,
+        xMax: renderCtx.sampleXMax,
+        yMin: renderCtx.sampleYMin,
+        yMax: renderCtx.sampleYMax,
+      };
+
+      // 根据精度预设确定网格大小
+      const gridSizes: Record<string, { slider: number; normal: number }> = {
+        'fast': { slider: 32, normal: 64 },
+        'normal': { slider: 48, normal: 96 },
+        'fine': { slider: 64, normal: 128 },
+        'ultra': { slider: 80, normal: 160 },
+      };
+
+      const sizes = gridSizes[samplePreset] || gridSizes['normal'];
+      const gridSize = isSliderActive ? sizes.slider : sizes.normal;
+
+      const segments = fastRenderWithCache(
+        boundFn,
+        sampleViewPort,
+        gridSize,
+        `implicit-cpu-${fn.id}`,
+        currentParams
+      );
+
+      // 缓存线段数据用于悬停检测
+      implicitSegmentsRef.current.set(fn.id, segments);
+
+      // 绘制隐函数曲线
+      drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
+
+      // 检测隐函数关键点（防抖提交）
+      if (fn.showKeyPoints) {
+        const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
+        if (keyPointsChanged(fn.id, implicitKps)) {
+          setKeyPoints(fn.id, implicitKps);
+        }
+      } else if (keyPointsChanged(fn.id, [])) {
+        setKeyPoints(fn.id, []);
+      }
+    }
+
+    // GPU 渲染的函数也需要低分辨率采样用于悬停检测
+    for (const fn of implicitFunctions) {
+      if (!fn.visible || fn.error) continue;
+      if (!fn.useGPURendering || fn.requiresCPU) continue;  // 已由 CPU 渲染
+
+      const currentParams: Record<string, number> = {};
+      for (const p of fn.parameters) {
+        currentParams[p.name] = p.currentValue;
+      }
+
+      const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
+      const sampleViewPort = {
+        xMin: renderCtx.sampleXMin,
+        xMax: renderCtx.sampleXMax,
+        yMin: renderCtx.sampleYMin,
+        yMax: renderCtx.sampleYMax,
+      };
+
+      // 使用低分辨率网格仅用于悬停检测
+      const segments = fastRenderWithCache(
+        boundFn,
+        sampleViewPort,
+        48,
+        `implicit-hover-${fn.id}`,
+        currentParams
+      );
+
+      implicitSegmentsRef.current.set(fn.id, segments);
+
+      // 检测隐函数关键点（防抖提交）
+      if (fn.showKeyPoints) {
+        const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
+        if (keyPointsChanged(fn.id, implicitKps)) {
+          setKeyPoints(fn.id, implicitKps);
+        }
+      } else if (keyPointsChanged(fn.id, [])) {
+        setKeyPoints(fn.id, []);
+      }
+    }
+
+    // 渲染极坐标函数曲线
+    // 获取需要 GPU 渲染的极坐标函数
+    const gpuPolarFunctions = polarFunctions.filter(fn => fn.visible && !fn.error && fn.useGPURendering);
+    const hasGPUPolar = gpuPolarFunctions.length > 0;
+    const polarWebGLManager = hasGPUPolar ? getPolarWebGLManager() : null;
+
+    if (polarWebGLManager && isPolarWebGLAvailable()) {
+      polarWebGLManager.resize(canvasSize.width, canvasSize.height);
+
+      // 注册 GPU 函数
+      for (const fn of gpuPolarFunctions) {
+        polarWebGLManager.registerFunction(fn);
+      }
+
+      // 渲染 GPU 函数
+      const glCanvas = polarWebGLManager.renderToCanvas(
+        gpuPolarFunctions,
         viewPort,
         {
           offsetX: renderCtx.offsetX,
@@ -246,151 +374,17 @@ export const FunctionCanvas: React.FC = () => {
       );
 
       if (glCanvas) {
-        // 将 WebGL 结果叠加到主 canvas
         ctx.drawImage(glCanvas, 0, 0);
       }
 
-      // 仍然需要 CPU 渲染线段用于悬停检测和关键点
-      for (const fn of implicitFunctions) {
-        if (!fn.visible || fn.error) continue;
-
+      // GPU 函数的悬停检测采样
+      for (const fn of gpuPolarFunctions) {
         const currentParams: Record<string, number> = {};
         for (const p of fn.parameters) {
           currentParams[p.name] = p.currentValue;
         }
 
-        const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
-        const sampleViewPort = {
-          xMin: renderCtx.sampleXMin,
-          xMax: renderCtx.sampleXMax,
-          yMin: renderCtx.sampleYMin,
-          yMax: renderCtx.sampleYMax,
-        };
-
-        // 使用低分辨率网格仅用于悬停检测
-        const segments = fastRenderWithCache(
-          boundFn,
-          sampleViewPort,
-          48,
-          `implicit-hover-${fn.id}`,
-          currentParams
-        );
-
-        implicitSegmentsRef.current.set(fn.id, segments);
-
-        // 检测隐函数关键点（防抖提交）
-        if (fn.showKeyPoints) {
-          const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-          if (keyPointsChanged(fn.id, implicitKps)) {
-            setKeyPoints(fn.id, implicitKps);
-          }
-        } else if (keyPointsChanged(fn.id, [])) {
-          setKeyPoints(fn.id, []);
-        }
-      }
-    } else {
-      // CPU 渲染（原有逻辑）
-      for (const fn of implicitFunctions) {
-        if (!fn.visible || fn.error) continue;
-
-        // 绑定当前参数值
-        const currentParams: Record<string, number> = {};
-        for (const p of fn.parameters) {
-          currentParams[p.name] = p.currentValue;
-        }
-
-        const boundFn = (x: number, y: number) => fn.compiled(x, y, currentParams);
-
-        // 使用统一的渲染上下文计算采样范围
-        const sampleViewPort = {
-          xMin: renderCtx.sampleXMin,
-          xMax: renderCtx.sampleXMax,
-          yMin: renderCtx.sampleYMin,
-          yMax: renderCtx.sampleYMax,
-        };
-
-        // 选择渲染方式
-        let segments: ContourSegment[];
-
-        // 根据精度预设确定网格大小
-        const gridSizes: Record<string, { slider: number; normal: number }> = {
-          'fast': { slider: 32, normal: 64 },
-          'normal': { slider: 48, normal: 96 },
-          'fine': { slider: 64, normal: 128 },
-          'ultra': { slider: 80, normal: 160 },
-        };
-
-        const sizes = gridSizes[samplePreset] || gridSizes['normal'];
-        const gridSize = isSliderActive ? sizes.slider : sizes.normal;
-
-        segments = fastRenderWithCache(
-          boundFn,
-          sampleViewPort,
-          gridSize,
-          `implicit-cpu-${fn.id}`,
-          currentParams
-        );
-
-        // 缓存线段数据用于悬停检测
-        implicitSegmentsRef.current.set(fn.id, segments);
-
-        // 绘制隐函数曲线
-        drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
-
-        // 检测隐函数关键点（防抖提交）
-        if (fn.showKeyPoints) {
-          const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-          if (keyPointsChanged(fn.id, implicitKps)) {
-            setKeyPoints(fn.id, implicitKps);
-          }
-        } else if (keyPointsChanged(fn.id, [])) {
-          setKeyPoints(fn.id, []);
-        }
-      }
-    }
-
-    // 渲染极坐标函数曲线
-    // 检查是否使用 WebGL 着色器渲染极坐标
-    const polarWebGLManager = useGPURendering ? getPolarWebGLManager() : null;
-    const usePolarWebGL = polarWebGLManager && isPolarWebGLAvailable() && polarFunctions.some(fn => fn.visible && !fn.error);
-
-    if (usePolarWebGL && polarWebGLManager) {
-      // WebGL 着色器渲染极坐标曲线
-      polarWebGLManager.resize(canvasSize.width, canvasSize.height);
-
-      // 注册所有极坐标函数
-      for (const fn of polarFunctions) {
-        if (fn.visible && !fn.error) {
-          polarWebGLManager.registerFunction(fn);
-        }
-      }
-
-      // 渲染到 WebGL canvas
-      const glCanvas = polarWebGLManager.renderToCanvas(polarFunctions, viewPort);
-
-      if (glCanvas) {
-        // 将 WebGL 结果叠加到主 canvas
-        ctx.drawImage(glCanvas, 0, 0);
-      }
-
-      // 仍然需要 CPU 采样用于悬停检测
-      for (const fn of polarFunctions) {
-        if (!fn.visible || fn.error) continue;
-
-        const currentParams: Record<string, number> = {};
-        for (const p of fn.parameters) {
-          currentParams[p.name] = p.currentValue;
-        }
-
-        // 使用快速均匀采样用于悬停检测（较少采样点）
-        const polarPoints = samplePolarFunctionFast(
-          fn.compiled,
-          currentParams,
-          fn.thetaMin,
-          fn.thetaMax,
-          60
-        );
-
+        const polarPoints = samplePolarFunctionFast(fn.compiled, currentParams, fn.thetaMin, fn.thetaMax, 60);
         const xArray = new Float64Array(polarPoints.length);
         const yArray = new Float64Array(polarPoints.length);
 
@@ -401,44 +395,32 @@ export const FunctionCanvas: React.FC = () => {
 
         functionPointsRef.current.set(`polar-${fn.id}`, { x: xArray, y: yArray });
       }
-    } else {
-      // CPU 渲染极坐标曲线（自适应采样）
-      for (const fn of polarFunctions) {
-        if (!fn.visible || fn.error) continue;
+    }
 
-        // 绑定当前参数值
-        const currentParams: Record<string, number> = {};
-        for (const p of fn.parameters) {
-          currentParams[p.name] = p.currentValue;
-        }
+    // CPU 渲染未启用 GPU 的极坐标函数
+    for (const fn of polarFunctions) {
+      if (!fn.visible || fn.error) continue;
+      if (fn.useGPURendering) continue;  // 已由 GPU 渲染
 
-        // 使用带缓存的自适应采样
-        const polarPoints = cachedSamplePolar(
-          fn.compiled,
-          `polar-${fn.id}`,
-          currentParams,
-          fn.thetaMin,
-          fn.thetaMax,
-          fn.thetaSteps
-        );
-
-        // 转换为 SampledPoints 格式
-        const xArray = new Float64Array(polarPoints.length);
-        const yArray = new Float64Array(polarPoints.length);
-
-        for (let i = 0; i < polarPoints.length; i++) {
-          xArray[i] = polarPoints[i].x;
-          yArray[i] = polarPoints[i].y;
-        }
-
-        const points = { x: xArray, y: yArray };
-
-        // 绘制极坐标曲线
-        drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
-
-        // 缓存用于悬停检测
-        functionPointsRef.current.set(`polar-${fn.id}`, points);
+      const currentParams: Record<string, number> = {};
+      for (const p of fn.parameters) {
+        currentParams[p.name] = p.currentValue;
       }
+
+      const steps = isSliderActive ? 60 : fn.thetaSteps;
+      const polarPoints = samplePolarFunctionFast(fn.compiled, currentParams, fn.thetaMin, fn.thetaMax, steps);
+
+      const xArray = new Float64Array(polarPoints.length);
+      const yArray = new Float64Array(polarPoints.length);
+
+      for (let i = 0; i < polarPoints.length; i++) {
+        xArray[i] = polarPoints[i].x;
+        yArray[i] = polarPoints[i].y;
+      }
+
+      const points = { x: xArray, y: yArray };
+      drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
+      functionPointsRef.current.set(`polar-${fn.id}`, points);
     }
 
     // 绘制关键点（按函数单独控制）
@@ -669,7 +651,7 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, useGPURendering, setKeyPoints]);
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, setKeyPoints]);
 
   // 使用 requestAnimationFrame 渲染
   useEffect(() => {

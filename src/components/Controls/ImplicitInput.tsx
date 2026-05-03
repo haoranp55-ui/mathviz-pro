@@ -1,6 +1,7 @@
 // src/components/Controls/ImplicitInput.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { ImplicitHelp } from './ImplicitHelp';
 
 const IMPLICIT_FUNCTION_LIST = [
   { category: '圆与椭圆', items: ['x^2 + y^2 = 1', 'x^2/a^2 + y^2/b^2 = 1', 'x^2 + y^2 = r^2'] },
@@ -12,6 +13,7 @@ const IMPLICIT_FUNCTION_LIST = [
 export const ImplicitInput: React.FC = () => {
   const [expression, setExpression] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const addImplicitFunction = useAppStore(state => state.addImplicitFunction);
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
@@ -50,6 +52,14 @@ export const ImplicitInput: React.FC = () => {
         <div className="w-2 h-2 rounded-full bg-gradient-to-br from-green-400 to-teal-400 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
         <span className="text-gray-400">隐函数</span>
         <span className="text-green-400 font-serif text-sm">F(x,y) = 0</span>
+        <button
+          type="button"
+          onClick={() => setShowHelp(true)}
+          className="text-gray-500 hover:text-green-400 hover:bg-green-500/10 w-5 h-5 rounded flex items-center justify-center transition-colors"
+          title="帮助"
+        >
+          ?
+        </button>
         <span className="ml-auto glass-subtle px-2 py-0.5 rounded-md text-xs text-green-300 border border-white/5">
           {implicitFunctions.length}/3
         </span>
@@ -132,6 +142,8 @@ export const ImplicitInput: React.FC = () => {
         <span className="text-gray-600">格式：F(x,y) = G(x,y)，支持参数</span>
         <span className="text-green-400 font-mono bg-green-500/10 px-1.5 py-0.5 rounded-md border border-green-500/15">a, b, c</span>
       </p>
+
+      <ImplicitHelp isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 };

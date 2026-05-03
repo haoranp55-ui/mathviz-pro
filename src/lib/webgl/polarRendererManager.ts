@@ -12,14 +12,30 @@ import {
 } from './polarRendererWebGL';
 
 /**
- * 检查 WebGL2 是否可用
+ * 检查 WebGL2 是否可用（带缓存，避免重复创建上下文）
  */
+let isWebGL2AvailableCache: boolean | null = null;
+
 export function isWebGL2Available(): boolean {
+  if (isWebGL2AvailableCache !== null) {
+    return isWebGL2AvailableCache;
+  }
+
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2');
-    return gl !== null;
+    if (gl) {
+      // 正确清理上下文，避免资源泄漏
+      const loseContext = gl.getExtension('WEBGL_lose_context');
+      if (loseContext) {
+        loseContext.loseContext();
+      }
+    }
+    canvas.remove();
+    isWebGL2AvailableCache = gl !== null;
+    return isWebGL2AvailableCache;
   } catch {
+    isWebGL2AvailableCache = false;
     return false;
   }
 }
@@ -96,7 +112,8 @@ export class PolarWebGLManager {
    */
   renderToCanvas(
     functions: PolarFunction[],
-    viewPort: ViewPort
+    viewPort: ViewPort,
+    renderRegion?: { offsetX: number; offsetY: number; actualWidth: number; actualHeight: number }
   ): HTMLCanvasElement | null {
     const visibleFunctions = functions.filter(fn => fn.visible && !fn.error);
     if (visibleFunctions.length === 0) return null;
@@ -134,7 +151,8 @@ export class PolarWebGLManager {
         fn.thetaMax,
         fn.thetaSteps,
         color,
-        params
+        params,
+        renderRegion
       );
     }
 

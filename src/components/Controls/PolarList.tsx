@@ -5,16 +5,25 @@ import { ParameterSlider } from './ParameterSlider';
 import { EmptyState } from '../UI/EmptyState';
 import { isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 
+// 预设 theta 范围
+const THETA_PRESETS = [
+  { label: '1圈', value: 2 },
+  { label: '2圈', value: 4 },
+  { label: '3圈', value: 6 },
+  { label: '4圈', value: 8 },
+];
+
 export const PolarList: React.FC = () => {
   const polarFunctions = useAppStore(state => state.polarFunctions);
-  const useGPURendering = useAppStore(state => state.useGPURendering);
-  const toggleGPURendering = useAppStore(state => state.toggleGPURendering);
   const updatePolarParameter = useAppStore(state => state.updatePolarParameter);
+  const updatePolarThetaRange = useAppStore(state => state.updatePolarThetaRange);
   const togglePolarVisibility = useAppStore(state => state.togglePolarVisibility);
   const togglePolarKeyPoints = useAppStore(state => state.togglePolarKeyPoints);
+  const togglePolarGPURendering = useAppStore(state => state.togglePolarGPURendering);
   const removePolarFunction = useAppStore(state => state.removePolarFunction);
 
   const [gpuAvailable] = useState(() => isPolarWebGLAvailable());
+  const [expandedConfig, setExpandedConfig] = useState<string | null>(null);
 
   if (polarFunctions.length === 0) {
     return (
@@ -30,53 +39,10 @@ export const PolarList: React.FC = () => {
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></div>
         <span className="text-gray-400">极坐标函数列表</span>
-        <span className="text-amber-400 font-serif text-sm">r = f(x)</span>
+        <span className="text-amber-400 font-serif text-sm">r = f(θ)</span>
         <span className="ml-auto glass-subtle px-2 py-0.5 rounded-md text-xs text-amber-300 border border-white/5">
           {polarFunctions.length}
         </span>
-      </div>
-
-      {/* GPU 着色器渲染开关 */}
-      <div className="mx-1 mb-3 p-3 glass-card border-amber-500/10 relative overflow-hidden">
-        {/* 背景装饰 */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl font-mono text-amber-400">GPU</div>
-        </div>
-
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500/25 to-orange-500/25 flex items-center justify-center border border-amber-500/20">
-              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-300">GPU 着色器渲染</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useGPURendering}
-              onChange={toggleGPURendering}
-              disabled={!gpuAvailable}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-500 peer-checked:to-orange-500 peer-disabled:opacity-30 peer-disabled:cursor-not-allowed border border-white/10"></div>
-          </label>
-        </div>
-        {!gpuAvailable && (
-          <div className="text-xs text-yellow-500/80 mt-2 flex items-center gap-1 relative z-10">
-            <span>⚠️</span>
-            <span>WebGL2 不可用</span>
-          </div>
-        )}
-        {gpuAvailable && useGPURendering && (
-          <div className="text-xs text-amber-400/80 mt-2 flex items-center gap-1 relative z-10">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span>GPU 并行采样，自适应渲染</span>
-          </div>
-        )}
       </div>
 
       <ul className="space-y-2">
@@ -110,6 +76,22 @@ export const PolarList: React.FC = () => {
                   <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md border border-red-500/20" title={fn.error}>
                     错误
                   </span>
+                )}
+
+                {/* GPU 渲染开关（函数级别） */}
+                {!fn.error && gpuAvailable && (
+                  <button
+                    onClick={() => togglePolarGPURendering(fn.id)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                      fn.useGPURendering
+                        ? 'text-amber-400 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/20'
+                        : 'text-gray-500 hover:text-amber-400 hover:bg-amber-400/10 opacity-0 group-hover:opacity-100'
+                    }`}
+                    title={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染（并行采样）'}
+                    aria-label={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染'}
+                  >
+                    ⚡
+                  </button>
                 )}
 
                 {/* 显示/隐藏按钮 */}
@@ -151,6 +133,22 @@ export const PolarList: React.FC = () => {
                 >
                   ✕
                 </button>
+
+                {/* 范围配置按钮 */}
+                {!fn.error && (
+                  <button
+                    onClick={() => setExpandedConfig(expandedConfig === fn.id ? null : fn.id)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                      expandedConfig === fn.id
+                        ? 'text-amber-400 bg-amber-400/15 border border-amber-400/20'
+                        : 'text-gray-500 hover:text-amber-400 hover:bg-amber-400/10 opacity-0 group-hover:opacity-100'
+                    }`}
+                    title="配置 theta 范围"
+                    aria-label="配置 theta 范围"
+                  >
+                    ⚙
+                  </button>
+                )}
               </div>
             </div>
 
@@ -164,6 +162,82 @@ export const PolarList: React.FC = () => {
                     onChange={(value) => updatePolarParameter(fn.id, param.name, value)}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* GPU 渲染状态提示 */}
+            {fn.visible && !fn.error && fn.useGPURendering && (
+              <div className="mt-1.5 mx-1 p-2 glass-subtle rounded-xl border border-amber-500/10">
+                <div className="text-xs text-amber-400/80 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>GPU 渲染已启用（并行采样）</span>
+                </div>
+              </div>
+            )}
+
+            {/* Theta 范围配置 */}
+            {fn.visible && !fn.error && expandedConfig === fn.id && (
+              <div className="mt-1.5 mx-1 p-2.5 glass-subtle rounded-xl border border-amber-500/10 space-y-2">
+                <div className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                  <span>θ 范围</span>
+                  <span className="text-amber-400 font-mono">
+                    [{(fn.thetaMin / Math.PI).toFixed(1)}π, {(fn.thetaMax / Math.PI).toFixed(1)}π]
+                  </span>
+                </div>
+
+                {/* 预设按钮 */}
+                <div className="flex gap-1.5 mb-2">
+                  {THETA_PRESETS.map(preset => (
+                    <button
+                      key={preset.value}
+                      onClick={() => updatePolarThetaRange(fn.id, 0, preset.value * Math.PI)}
+                      className={`px-2 py-1 text-xs rounded-lg transition-all ${
+                        Math.abs(fn.thetaMax - preset.value * Math.PI) < 0.1
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-white/5 text-gray-400 hover:bg-amber-500/10 hover:text-amber-300 border border-transparent'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 手动输入 */}
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1 text-xs text-gray-400">
+                    <span>最小:</span>
+                    <input
+                      type="number"
+                      value={(fn.thetaMin / Math.PI).toFixed(2)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) * Math.PI;
+                        if (!isNaN(val)) updatePolarThetaRange(fn.id, val, fn.thetaMax);
+                      }}
+                      className="w-14 px-1.5 py-0.5 input-glass text-xs"
+                      step="0.5"
+                    />
+                    <span className="text-gray-500">π</span>
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-gray-400">
+                    <span>最大:</span>
+                    <input
+                      type="number"
+                      value={(fn.thetaMax / Math.PI).toFixed(2)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) * Math.PI;
+                        if (!isNaN(val) && val > fn.thetaMin) {
+                          updatePolarThetaRange(fn.id, fn.thetaMin, val);
+                        }
+                      }}
+                      className="w-14 px-1.5 py-0.5 input-glass text-xs"
+                      step="0.5"
+                      min={(fn.thetaMin / Math.PI) + 0.5}
+                    />
+                    <span className="text-gray-500">π</span>
+                  </label>
+                </div>
               </div>
             )}
 

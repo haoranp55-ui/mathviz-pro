@@ -1,6 +1,7 @@
 // src/components/Controls/PolarInput.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { PolarHelp } from './PolarHelp';
 
 const POLAR_FUNCTION_LIST = [
   { category: '玫瑰曲线', items: ['sin(3*x)', 'cos(2*x)', 'sin(4*x)', 'a*sin(n*x)'] },
@@ -13,6 +14,7 @@ const POLAR_FUNCTION_LIST = [
 export const PolarInput: React.FC = () => {
   const [expression, setExpression] = useState('');
   const [showPicker, setShowPicker] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const addPolarFunction = useAppStore(state => state.addPolarFunction);
   const polarFunctions = useAppStore(state => state.polarFunctions);
@@ -50,7 +52,15 @@ export const PolarInput: React.FC = () => {
       <div className="text-xs text-gray-500 mb-2.5 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></div>
         <span className="text-gray-400">极坐标函数</span>
-        <span className="text-amber-400 font-serif text-sm">r = f(x)</span>
+        <span className="text-amber-400 font-serif text-sm">r = f(θ)</span>
+        <button
+          type="button"
+          onClick={() => setShowHelp(true)}
+          className="text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 w-5 h-5 rounded flex items-center justify-center transition-colors"
+          title="帮助"
+        >
+          ?
+        </button>
         <span className="ml-auto bg-amber-500/15 px-2 py-0.5 rounded text-xs text-amber-300 border border-amber-500/20">
           {polarFunctions.length}/3
         </span>
@@ -133,6 +143,8 @@ export const PolarInput: React.FC = () => {
         <span className="text-gray-600">，x 代表角度，支持参数</span>
         <span className="text-amber-400 font-mono">a, n</span>
       </p>
+
+      <PolarHelp isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 };

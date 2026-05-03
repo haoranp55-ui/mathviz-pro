@@ -32,10 +32,13 @@ void main() {
 
 /**
  * 创建极坐标顶点着色器
- * 注意：expression 中使用 'x' 作为 theta 变量
+ * 使用 renderRegion 处理 Y 轴翻转和 equal 模式偏移
  */
 function createPolarVertexShader(expression: string, params: string[]): string {
   const paramDecls = params.map(p => `uniform float u_${p};`).join('\n');
+
+  // 将表达式中的 x 替换为 theta（因为着色器函数参数名是 theta）
+  const thetaExpression = expression.replace(/\bx\b/g, 'theta');
 
   return `#version 300 es
 precision highp float;
@@ -44,13 +47,15 @@ in float a_theta;
 
 uniform float u_thetaMin;
 uniform float u_thetaRange;
-uniform vec4 u_viewPort;
+uniform vec4 u_viewPort;       // xMin, xMax, yMin, yMax
+uniform vec4 u_renderRegion;   // offsetX, offsetY, actualWidth, actualHeight
+uniform vec2 u_resolution;
 ${paramDecls}
 
 out float v_valid;
 
 float polarFn(float theta) {
-  return ${expression};
+  return ${thetaExpression};
 }
 
 void main() {
@@ -65,14 +70,24 @@ void main() {
 
   v_valid = 1.0;
 
-  float x = r * cos(theta);
-  float y = r * sin(theta);
+  // 极坐标转笛卡尔
+  float cartX = r * cos(theta);
+  float cartY = r * sin(theta);
 
-  float nx = (x - u_viewPort.x) / (u_viewPort.y - u_viewPort.x);
-  float ny = (y - u_viewPort.z) / (u_viewPort.w - u_viewPort.z);
+  // 数学坐标 → Canvas 2D 坐标（Y 轴翻转）
+  float mathNX = (cartX - u_viewPort.x) / (u_viewPort.y - u_viewPort.x);
+  float mathNY = (cartY - u_viewPort.z) / (u_viewPort.w - u_viewPort.z);
 
-  vec2 ndc = vec2(nx * 2.0 - 1.0, ny * 2.0 - 1.0);
-  gl_Position = vec4(ndc, 0.0, 1.0);
+  // 转换到渲染区域（考虑 equal 模式偏移）
+  float canvasX = u_renderRegion.x + mathNX * u_renderRegion.z;
+  float canvasY = u_renderRegion.y + (1.0 - mathNY) * u_renderRegion.w;  // Y 轴翻转
+
+  // Canvas 坐标 → WebGL NDC
+  // 注意：WebGL NDC 的 Y=1 在顶部，Y=-1 在底部（与 Canvas 相反）
+  float ndcX = (canvasX / u_resolution.x) * 2.0 - 1.0;
+  float ndcY = 1.0 - (canvasY / u_resolution.y) * 2.0;  // Y 轴再次翻转
+
+  gl_Position = vec4(ndcX, ndcY, 0.0, 1.0);
 }
 `;
 }
@@ -233,12 +248,16 @@ export class PolarRendererWebGL {
     const thetaMinLoc = gl.getUniformLocation(program, 'u_thetaMin');
     const thetaRangeLoc = gl.getUniformLocation(program, 'u_thetaRange');
     const viewPortLoc = gl.getUniformLocation(program, 'u_viewPort');
+    const renderRegionLoc = gl.getUniformLocation(program, 'u_renderRegion');
+    const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');
     const colorLoc = gl.getUniformLocation(program, 'u_color');
     const alphaLoc = gl.getUniformLocation(program, 'u_alpha');
 
     if (thetaMinLoc) this.uniformLocations.set('u_thetaMin', thetaMinLoc);
     if (thetaRangeLoc) this.uniformLocations.set('u_thetaRange', thetaRangeLoc);
     if (viewPortLoc) this.uniformLocations.set('u_viewPort', viewPortLoc);
+    if (renderRegionLoc) this.uniformLocations.set('u_renderRegion', renderRegionLoc);
+    if (resolutionLoc) this.uniformLocations.set('u_resolution', resolutionLoc);
     if (colorLoc) this.uniformLocations.set('u_color', colorLoc);
     if (alphaLoc) this.uniformLocations.set('u_alpha', alphaLoc);
 
@@ -273,7 +292,8 @@ export class PolarRendererWebGL {
     thetaMax: number,
     steps: number,
     color: [number, number, number],
-    params: Record<string, number>
+    params: Record<string, number>,
+    renderRegion?: { offsetX: number; offsetY: number; actualWidth: number; actualHeight: number }
   ): void {
     const gl = this.gl;
 
@@ -297,12 +317,25 @@ export class PolarRendererWebGL {
     const thetaMinLoc = this.uniformLocations.get('u_thetaMin');
     const thetaRangeLoc = this.uniformLocations.get('u_thetaRange');
     const viewPortLoc = this.uniformLocations.get('u_viewPort');
+    const renderRegionLoc = this.uniformLocations.get('u_renderRegion');
+    const resolutionLoc = this.uniformLocations.get('u_resolution');
     const colorLoc = this.uniformLocations.get('u_color');
     const alphaLoc = this.uniformLocations.get('u_alpha');
 
     if (thetaMinLoc) gl.uniform1f(thetaMinLoc, thetaMin);
     if (thetaRangeLoc) gl.uniform1f(thetaRangeLoc, thetaMax - thetaMin);
     if (viewPortLoc) gl.uniform4f(viewPortLoc, viewPort.xMin, viewPort.xMax, viewPort.yMin, viewPort.yMax);
+    if (resolutionLoc) gl.uniform2f(resolutionLoc, gl.canvas.width, gl.canvas.height);
+
+    // 设置渲染区域（默认为整个画布）
+    if (renderRegionLoc) {
+      if (renderRegion) {
+        gl.uniform4f(renderRegionLoc, renderRegion.offsetX, renderRegion.offsetY, renderRegion.actualWidth, renderRegion.actualHeight);
+      } else {
+        gl.uniform4f(renderRegionLoc, 0, 0, gl.canvas.width, gl.canvas.height);
+      }
+    }
+
     if (colorLoc) gl.uniform3f(colorLoc, color[0], color[1], color[2]);
     if (alphaLoc) gl.uniform1f(alphaLoc, 1.0);
 
