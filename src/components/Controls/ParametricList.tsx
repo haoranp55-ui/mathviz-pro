@@ -41,29 +41,30 @@ export const ParametricList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-lg shadow-purple-500/30"></div>
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
         <span className="text-gray-400">参数化函数列表</span>
         <span className="text-purple-400 font-serif text-sm">ξ(t)</span>
-        <span className="ml-auto bg-purple-500/20 px-2 py-0.5 rounded text-xs text-purple-300">
+        <span className="ml-auto glass-subtle px-2 py-0.5 rounded-md text-xs text-purple-300 border border-white/5">
           {parametricFunctions.length}
         </span>
       </div>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
       {parametricFunctions.map((fn) => (
         <li key={fn.id}>
-        <div
-          className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group"
-        >
+        <div className="function-item glass-card flex items-center gap-2.5 px-3 py-2.5 group">
           {/* 颜色指示条 */}
           <div
-            className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer shadow-lg"
-            style={{ backgroundColor: fn.color, boxShadow: `0 0 8px ${fn.color}50` }}
+            className="w-1.5 h-7 rounded-full flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-y-110"
+            style={{ 
+              backgroundColor: fn.color, 
+              boxShadow: `0 0 10px ${fn.color}60, 0 0 4px ${fn.color}40`
+            }}
             onClick={() => toggleParametricVisibility(fn.id)}
           />
 
           {/* 函数表达式 */}
           <button
-            className={`text-sm flex-1 text-left font-mono truncate ${
+            className={`text-sm flex-1 text-left font-mono truncate transition-all ${
               fn.visible ? 'text-white' : 'text-gray-500 line-through'
             }`}
           >
@@ -75,10 +76,10 @@ export const ParametricList: React.FC = () => {
               {/* 显示/隐藏按钮 */}
               <button
                 onClick={() => toggleParametricVisibility(fn.id)}
-                className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                   fn.visible
-                    ? 'text-green-400 hover:text-green-300'
-                    : 'text-gray-500 bg-gray-500/20 hover:bg-gray-500/30'
+                    ? 'text-green-400 hover:text-green-300 hover:bg-green-400/10'
+                    : 'text-gray-500 bg-white/5 hover:bg-white/10'
                 } opacity-0 group-hover:opacity-100`}
                 title={fn.visible ? '隐藏函数' : '显示函数'}
                 aria-label={fn.visible ? '隐藏函数' : '显示函数'}
@@ -90,9 +91,9 @@ export const ParametricList: React.FC = () => {
               {!fn.error && (
                 <button
                   onClick={() => toggleParametricKeyPoints(fn.id)}
-                  className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                     fn.showKeyPoints
-                      ? 'text-blue-400 bg-blue-400/20 hover:bg-blue-400/30'
+                      ? 'text-blue-400 bg-blue-400/15 hover:bg-blue-400/25 border border-blue-400/20'
                       : 'text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 opacity-0 group-hover:opacity-100'
                   }`}
                   title={fn.showKeyPoints ? '隐藏关键点标注' : '显示关键点标注（零点、极值点）'}
@@ -106,9 +107,9 @@ export const ParametricList: React.FC = () => {
               {!fn.error && (
                 <button
                   onClick={() => toggleParametricDerivative(fn.id)}
-                  className={`w-7 h-7 rounded flex items-center justify-center transition-all font-bold ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all font-bold ${
                     fn.showDerivative
-                      ? 'text-purple-400 bg-purple-400/20 hover:bg-purple-400/30'
+                      ? 'text-purple-400 bg-purple-400/15 hover:bg-purple-400/25 border border-purple-400/20'
                       : 'text-gray-500 hover:text-purple-400 hover:bg-purple-400/10 opacity-0 group-hover:opacity-100'
                   }`}
                   title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
@@ -121,7 +122,7 @@ export const ParametricList: React.FC = () => {
               {/* 删除按钮 */}
               <button
                 onClick={() => removeParametricFunction(fn.id)}
-                className="text-gray-500 hover:text-red-400 hover:bg-red-400/20 w-7 h-7 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                className="text-gray-500 hover:text-red-400 hover:bg-red-400/15 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-400/20"
                 title="删除函数"
                 aria-label="删除函数"
               >
@@ -132,7 +133,7 @@ export const ParametricList: React.FC = () => {
 
         {/* 展开内容：参数滑钮 + 标记点 */}
         {fn.visible && !fn.error && (
-          <div className="mx-3 mt-1 p-2 bg-gradient-to-r from-purple-900/10 to-pink-900/10 rounded-lg border border-purple-500/10 space-y-2">
+          <div className="mt-1.5 mx-1 p-2.5 glass-subtle rounded-xl border border-white/[0.04] space-y-2">
             {fn.parameters.length > 0 && (
               <div className="space-y-2">
                 {fn.parameters.map((param) => (
@@ -158,11 +159,11 @@ export const ParametricList: React.FC = () => {
                   value={newPointX[fn.id] || ''}
                   onChange={(e) => setNewPointX({ ...newPointX, [fn.id]: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddPoint(fn.id)}
-                  className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 focus:border-purple-500/50 focus:outline-none transition-all"
+                  className="flex-1 px-2 py-1 input-glass text-xs"
                 />
                 <button
                   onClick={() => handleAddPoint(fn.id)}
-                  className="px-2 py-1 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded hover:from-purple-500 hover:to-pink-500 transition-all"
+                  className="px-2.5 py-1 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/15 border border-white/10"
                 >
                   + 点
                 </button>
@@ -171,14 +172,14 @@ export const ParametricList: React.FC = () => {
               {fn.markedPoints && fn.markedPoints.length > 0 && (
                 <div className="space-y-1">
                   {fn.markedPoints.map((point) => (
-                    <div key={point.id} className="flex items-center gap-2 text-xs p-1.5 bg-gray-800/50 rounded group">
+                    <div key={point.id} className="flex items-center gap-2 text-xs p-1.5 glass-subtle rounded-lg group border border-transparent hover:border-white/5">
                       <input
                         type="number"
                         value={point.x}
                         onChange={(e) => updateMarkedPoint(fn.id, point.id, parseFloat(e.target.value) || 0, true)}
-                        className="w-14 px-1 py-0.5 bg-canvas-panel text-white rounded border border-gray-600 text-center"
+                        className="w-14 px-1 py-0.5 input-glass text-center text-xs"
                       />
-                      <span className="text-purple-400">→</span>
+                      <span className="text-purple-400/70">→</span>
                       <span className="text-white font-mono">
                         y={isNaN(point.y) ? '—' : point.y.toFixed(4)}
                       </span>
@@ -187,7 +188,7 @@ export const ParametricList: React.FC = () => {
                       </span>
                       <button
                         onClick={() => removeMarkedPoint(fn.id, point.id, true)}
-                        className="ml-auto text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                        className="ml-auto text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all w-5 h-5 flex items-center justify-center rounded hover:bg-red-400/10"
                         aria-label="删除标记点"
                       >
                         ✕
@@ -202,7 +203,7 @@ export const ParametricList: React.FC = () => {
 
         {/* 错误提示 */}
         {fn.error && (
-          <div className="mx-3 mt-1 text-xs text-red-400 p-2 bg-red-900/20 rounded border border-red-500/20">
+          <div className="mx-1 mt-1 text-xs text-red-400 p-2 glass-subtle rounded-xl border border-red-500/15">
             {fn.error}
           </div>
         )}

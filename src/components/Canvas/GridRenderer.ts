@@ -2,10 +2,10 @@
 import type { ViewPort, CanvasSize, AspectRatioMode } from '../../types';
 import { createScales, calculateTickInterval, generateTicks } from '../../lib/transformer';
 
-const GRID_COLOR = '#475569';
-const AXIS_COLOR = '#94A3B8';
-const TICK_LABEL_COLOR = '#CBD5E1';
-const TICK_LABEL_FONT = '11px JetBrains Mono, monospace';
+const GRID_COLOR = '#334155';
+const AXIS_COLOR = '#64748B';
+const TICK_LABEL_COLOR = '#94A3B8';
+const TICK_LABEL_FONT = '11px "JetBrains Mono", ui-monospace, monospace';
 
 export function drawGrid(
   ctx: CanvasRenderingContext2D,
@@ -89,6 +89,14 @@ export function drawGrid(
     ctx.stroke();
   }
 
+  // 原点十字标记
+  if (xAxisY >= 0 && xAxisY <= canvasSize.height && yAxisX >= 0 && yAxisX <= canvasSize.width) {
+    ctx.fillStyle = AXIS_COLOR;
+    ctx.beginPath();
+    ctx.arc(yAxisX, xAxisY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // 绘制刻度标签
   ctx.fillStyle = TICK_LABEL_COLOR;
   ctx.font = TICK_LABEL_FONT;
@@ -96,7 +104,7 @@ export function drawGrid(
   ctx.textAlign = 'center';
 
   // X轴刻度标签（只在视口范围内显示）
-  const labelY = Math.min(Math.max(xAxisY + 5, 5), canvasSize.height - 15);
+  const labelY = Math.min(Math.max(xAxisY + 6, 6), canvasSize.height - 15);
   for (const x of xTicks) {
     if (Math.abs(x) < 1e-10) continue; // 跳过原点
     // 只显示视口范围内的刻度标签
@@ -110,7 +118,7 @@ export function drawGrid(
   // Y轴刻度标签（只在视口范围内显示）
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  const labelX = Math.min(Math.max(yAxisX - 5, 30), canvasSize.width - 5);
+  const labelX = Math.min(Math.max(yAxisX - 6, 30), canvasSize.width - 5);
   for (const y of yTicks) {
     if (Math.abs(y) < 1e-10) continue; // 跳过原点
     // 只显示视口范围内的刻度标签

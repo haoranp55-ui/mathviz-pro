@@ -1,16 +1,17 @@
 # MathViz Pro
 
-一个现代化的数学函数可视化工具，支持普通函数、参数化函数、隐函数的实时渲染。
+一个现代化的数学函数可视化工具，支持普通函数、参数化函数、隐函数、极坐标函数的实时渲染。
 
 ## 功能特性
 
-### 三种函数类型
+### 四种函数类型
 
 | 类型 | 形式 | 示例 |
 |------|------|------|
 | **普通函数** | y = f(x) | `sin(x)`, `x^2`, `ln(x)` |
 | **参数化函数** | y = f(x, a, b, ...) | `a*sin(b*x)` (可调参数) |
 | **隐函数** | F(x,y) = 0 | `x^2 + y^2 = 1` (圆) |
+| **极坐标函数** | r = f(θ) | `sin(3*theta)` (三叶玫瑰线) |
 
 ### 核心功能
 - **多函数叠加**：同时绘制多个函数曲线，自动分配颜色
@@ -83,6 +84,7 @@ src/
 │   ├── parser.ts         # 表达式解析
 │   ├── paramParser.ts    # 参数化函数解析
 │   ├── implicitParser.ts # 隐函数解析（含奇点转换）
+│   ├── polarParser.ts    # 极坐标函数解析（自适应采样）
 │   ├── sampler.ts        # 自适应采样
 │   ├── implicitSamplerInterval.ts # 隐函数区间采样
 │   ├── implicitKeyPointDetector.ts # 隐函数关键点检测
@@ -91,6 +93,8 @@ src/
 │   └── webgl/            # WebGL 渲染
 │       ├── implicitRendererWebGL.ts # WebGL 隐函数渲染器
 │       ├── implicitRendererManager.ts # 渲染管理器
+│       ├── polarRendererWebGL.ts   # WebGL 极坐标渲染器
+│       ├── polarRendererManager.ts # 极坐标渲染管理器
 │       └── glslCompiler.ts # mathjs → GLSL 编译器
 ├── store/                # 状态管理
 └── types/                # 类型定义
@@ -125,6 +129,19 @@ npm run build
 - `x^2/4 + y^2/9 = 1` → 椭圆
 - `sin(x)*cos(y) = 0.5` → 复杂曲线
 - `y = tan(x)` → 自动转换为无奇点形式
+
+### 极坐标函数
+输入 `r = f(x)` 形式的表达式，x 代表角度变量：
+- `sin(3*x)` → 三叶玫瑰线
+- `cos(2*x)` → 四叶玫瑰线
+- `x` → 阿基米德螺线
+- `1 + cos(x)` → 心形线
+- `sqrt(cos(2*x))` → 双纽线
+- 支持带参数：`a*sin(n*x)`
+
+**渲染优化**：
+- 自适应采样算法：根据曲线曲率动态调整采样密度
+- GPU 着色器渲染：开启后使用 WebGL 顶点着色器加速采样计算
 
 ### GPU 渲染模式
 在全局设置中开启"GPU 着色器渲染"可获得：

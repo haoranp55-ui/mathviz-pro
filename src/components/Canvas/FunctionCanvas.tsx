@@ -7,7 +7,9 @@ import { drawCurve, drawHoverPoint, drawDerivativeCurve } from './CurveRenderer'
 import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
 import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
+import { samplePolarFunction, samplePolarFunctionFast } from '../../lib/polarParser';
 import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
+import { getPolarWebGLManager, isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 import { createScales, createRenderContext } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { detectImplicitKeyPoints } from '../../lib/implicitKeyPointDetector';
@@ -56,6 +58,7 @@ export const FunctionCanvas: React.FC = () => {
     functions,
     parametricFunctions,
     implicitFunctions,
+    polarFunctions,
     viewPort,
     interaction,
     showGrid,
@@ -346,6 +349,97 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
+    // 渲染极坐标函数曲线
+    // 检查是否使用 WebGL 着色器渲染极坐标
+    const polarWebGLManager = useGPURendering ? getPolarWebGLManager() : null;
+    const usePolarWebGL = polarWebGLManager && isPolarWebGLAvailable() && polarFunctions.some(fn => fn.visible && !fn.error);
+
+    if (usePolarWebGL && polarWebGLManager) {
+      // WebGL 着色器渲染极坐标曲线
+      polarWebGLManager.resize(canvasSize.width, canvasSize.height);
+
+      // 注册所有极坐标函数
+      for (const fn of polarFunctions) {
+        if (fn.visible && !fn.error) {
+          polarWebGLManager.registerFunction(fn);
+        }
+      }
+
+      // 渲染到 WebGL canvas
+      const glCanvas = polarWebGLManager.renderToCanvas(polarFunctions, viewPort);
+
+      if (glCanvas) {
+        // 将 WebGL 结果叠加到主 canvas
+        ctx.drawImage(glCanvas, 0, 0);
+      }
+
+      // 仍然需要 CPU 采样用于悬停检测
+      for (const fn of polarFunctions) {
+        if (!fn.visible || fn.error) continue;
+
+        const currentParams: Record<string, number> = {};
+        for (const p of fn.parameters) {
+          currentParams[p.name] = p.currentValue;
+        }
+
+        // 使用快速均匀采样用于悬停检测（较少采样点）
+        const polarPoints = samplePolarFunctionFast(
+          fn.compiled,
+          currentParams,
+          fn.thetaMin,
+          fn.thetaMax,
+          60
+        );
+
+        const xArray = new Float64Array(polarPoints.length);
+        const yArray = new Float64Array(polarPoints.length);
+
+        for (let i = 0; i < polarPoints.length; i++) {
+          xArray[i] = polarPoints[i].x;
+          yArray[i] = polarPoints[i].y;
+        }
+
+        functionPointsRef.current.set(`polar-${fn.id}`, { x: xArray, y: yArray });
+      }
+    } else {
+      // CPU 渲染极坐标曲线（自适应采样）
+      for (const fn of polarFunctions) {
+        if (!fn.visible || fn.error) continue;
+
+        // 绑定当前参数值
+        const currentParams: Record<string, number> = {};
+        for (const p of fn.parameters) {
+          currentParams[p.name] = p.currentValue;
+        }
+
+        // 使用自适应采样
+        const polarPoints = samplePolarFunction(
+          fn.compiled,
+          currentParams,
+          fn.thetaMin,
+          fn.thetaMax,
+          fn.thetaSteps
+        );
+
+        // 转换为 SampledPoints 格式
+        const xArray = new Float64Array(polarPoints.length);
+        const yArray = new Float64Array(polarPoints.length);
+
+        for (let i = 0; i < polarPoints.length; i++) {
+          xArray[i] = polarPoints[i].x;
+          yArray[i] = polarPoints[i].y;
+        }
+
+        const points = { x: xArray, y: yArray };
+
+        // 绘制极坐标曲线
+        drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
+
+        // 缓存用于悬停检测
+        functionPointsRef.current.set(`polar-${fn.id}`, points);
+      }
+    }
+
     // 绘制关键点（按函数单独控制）
     const visibleKeyPoints = keyPoints.filter(kp => {
       const normalFn = functions.find(f => f.id === kp.functionId);
@@ -356,6 +450,9 @@ export const FunctionCanvas: React.FC = () => {
 
       const implicitFn = implicitFunctions.find(f => f.id === kp.functionId);
       if (implicitFn && implicitFn.visible && implicitFn.showKeyPoints) return true;
+
+      const polarFn = polarFunctions.find(f => f.id === kp.functionId);
+      if (polarFn && polarFn.visible && polarFn.showKeyPoints) return true;
 
       return false;
     });
@@ -374,9 +471,10 @@ export const FunctionCanvas: React.FC = () => {
       const fn = functions.find(f => f.id === interaction.hoverPoint?.functionId) ||
                  parametricFunctions.find(f => f.id === interaction.hoverPoint?.functionId);
       const implicitFn = implicitFunctions.find(f => f.id === interaction.hoverPoint?.functionId);
-      const color = fn?.color || implicitFn?.color || '#FFFFFF';
+      const polarFn = polarFunctions.find(f => f.id === interaction.hoverPoint?.functionId);
+      const color = fn?.color || implicitFn?.color || polarFn?.color || '#FFFFFF';
 
-      if (fn || implicitFn) {
+      if (fn || implicitFn || polarFn) {
         drawHoverPoint(ctx, interaction.hoverPoint, color, viewPort, canvasSize, aspectRatioMode);
 
         // 在鼠标位置旁边显示坐标
@@ -707,6 +805,13 @@ export const FunctionCanvas: React.FC = () => {
       findNearestOnPolyline(points, fn.id);
     }
 
+    // 极坐标函数悬停检测
+    for (const fn of polarFunctions) {
+      if (!fn.visible || fn.error) continue;
+      const points = functionPointsRef.current.get(`polar-${fn.id}`);
+      findNearestOnPolyline(points, fn.id);
+    }
+
     // 隐函数悬停检测
     for (const fn of implicitFunctions) {
       if (!fn.visible || fn.error) continue;
@@ -737,7 +842,7 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     setHoverPoint(closestPoint ? { x: closestPoint.x, y: closestPoint.y, functionId: closestPoint.functionId } : null);
-  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint]);
+  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

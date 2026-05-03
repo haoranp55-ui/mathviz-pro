@@ -226,5 +226,25 @@ export interface SolutionCurve {
   points: SampledPoints;        // 解曲线的采样点
 }
 
+// ============================================
+// 极坐标函数支持 r = f(θ)
+// ============================================
+
+export interface PolarFunction {
+  id: string;
+  expression: string;           // 原始表达式 "r = sin(3θ)" 或 "sin(3*theta)"
+  compiled: (theta: number, params?: Record<string, number>) => number;  // 返回 r 值
+  color: string;
+  visible: boolean;
+  showKeyPoints?: boolean;      // 是否显示关键点标注
+  error?: string;
+  parameters: Parameter[];      // 支持参数，如 a, b
+
+  // 极坐标特有配置
+  thetaMin: number;             // θ 最小值，默认 0
+  thetaMax: number;             // θ 最大值，默认 2π
+  thetaSteps: number;           // 采样点数，默认 360
+}
+
 // 侧边栏 Tab 类型（扩展）
-export type SidebarTab = 'normal' | 'parametric' | 'implicit' | 'integral';
+export type SidebarTab = 'normal' | 'parametric' | 'implicit' | 'polar';

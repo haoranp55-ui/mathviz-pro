@@ -38,31 +38,34 @@ export const FunctionList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-lg shadow-blue-500/30"></div>
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
         <span className="text-gray-400">函数列表</span>
         <span className="text-blue-400 font-serif text-sm">y = ƒ(x)</span>
-        <span className="ml-auto bg-blue-500/20 px-2 py-0.5 rounded text-xs text-blue-300">
+        <span className="ml-auto glass-subtle px-2 py-0.5 rounded-md text-xs text-blue-300 border border-white/5">
           {functions.length}
         </span>
       </div>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {functions.map((fn) => (
           <li key={fn.id}>
-            <div className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group cursor-pointer relative">
-              {/* 颜色指示条 */}
+            <div className="function-item glass-card flex items-center gap-2.5 px-3 py-2.5 group cursor-pointer">
+              {/* 颜色指示条 - 加宽并发光 */}
               <div
-                className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer shadow-lg"
-                style={{ backgroundColor: fn.color, boxShadow: `0 0 8px ${fn.color}50` }}
+                className="w-1.5 h-7 rounded-full flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-y-110"
+                style={{ 
+                  backgroundColor: fn.color, 
+                  boxShadow: `0 0 10px ${fn.color}60, 0 0 4px ${fn.color}40`
+                }}
                 onClick={() => toggleFunctionVisibility(fn.id)}
               />
 
               {/* 函数表达式 */}
               <button
-                className={`text-sm flex-1 text-left font-mono truncate ${
+                className={`text-sm flex-1 text-left font-mono truncate transition-all ${
                   fn.visible ? 'text-white' : 'text-gray-500 line-through'
                 }`}
               >
-                <span className="text-cyan-400">y = </span>
+                <span className="text-cyan-400/80">y = </span>
                 {fn.expression}
               </button>
 
@@ -70,7 +73,7 @@ export const FunctionList: React.FC = () => {
               <div className="flex items-center gap-1 flex-shrink-0">
                 {/* 错误提示 */}
                 {fn.error && (
-                  <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/30" title={fn.error}>
+                  <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded-md border border-red-500/20" title={fn.error}>
                     错误
                   </span>
                 )}
@@ -78,10 +81,10 @@ export const FunctionList: React.FC = () => {
                 {/* 显示/隐藏按钮 */}
                 <button
                   onClick={() => toggleFunctionVisibility(fn.id)}
-                  className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                     fn.visible
-                      ? 'text-green-400 hover:text-green-300'
-                      : 'text-gray-500 bg-gray-500/20 hover:bg-gray-500/30'
+                      ? 'text-green-400 hover:text-green-300 hover:bg-green-400/10'
+                      : 'text-gray-500 bg-white/5 hover:bg-white/10'
                   } opacity-0 group-hover:opacity-100`}
                   title={fn.visible ? '隐藏函数' : '显示函数'}
                   aria-label={fn.visible ? '隐藏函数' : '显示函数'}
@@ -93,9 +96,9 @@ export const FunctionList: React.FC = () => {
                 {!fn.error && (
                   <button
                     onClick={() => toggleFunctionKeyPoints(fn.id)}
-                    className={`w-7 h-7 rounded flex items-center justify-center transition-all ${
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                       fn.showKeyPoints
-                        ? 'text-blue-400 bg-blue-400/20 hover:bg-blue-400/30'
+                        ? 'text-blue-400 bg-blue-400/15 hover:bg-blue-400/25 border border-blue-400/20'
                         : 'text-gray-500 hover:text-blue-400 hover:bg-blue-400/10 opacity-0 group-hover:opacity-100'
                     }`}
                     title={fn.showKeyPoints ? '隐藏关键点标注' : '显示关键点标注（零点、极值点）'}
@@ -109,9 +112,9 @@ export const FunctionList: React.FC = () => {
                 {!fn.error && (
                   <button
                     onClick={() => toggleFunctionDerivative(fn.id)}
-                    className={`w-7 h-7 rounded flex items-center justify-center transition-all font-bold ${
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all font-bold ${
                       fn.showDerivative
-                        ? 'text-purple-400 bg-purple-400/20 hover:bg-purple-400/30'
+                        ? 'text-purple-400 bg-purple-400/15 hover:bg-purple-400/25 border border-purple-400/20'
                         : 'text-gray-500 hover:text-purple-400 hover:bg-purple-400/10 opacity-0 group-hover:opacity-100'
                     }`}
                     title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
@@ -124,7 +127,7 @@ export const FunctionList: React.FC = () => {
                 {/* 删除按钮 */}
                 <button
                   onClick={() => removeFunction(fn.id)}
-                  className="text-gray-500 hover:text-red-400 hover:bg-red-400/20 w-7 h-7 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                  className="text-gray-500 hover:text-red-400 hover:bg-red-400/15 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all border border-transparent hover:border-red-400/20"
                   title="删除函数"
                   aria-label="删除函数"
                 >
@@ -135,9 +138,9 @@ export const FunctionList: React.FC = () => {
 
             {/* 标记点列表 */}
             {fn.visible && !fn.error && (
-              <div className="mt-1 mx-3 p-2 bg-gradient-to-r from-blue-900/10 to-cyan-900/10 rounded-lg border border-blue-500/10">
+              <div className="mt-1.5 mx-1 p-2.5 glass-subtle rounded-xl border border-white/[0.04] space-y-2">
                 {/* 添加点输入 */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2">
                   <div className="text-xs text-blue-400 font-mono mr-1">x =</div>
                   <input
                     type="text"
@@ -145,11 +148,11 @@ export const FunctionList: React.FC = () => {
                     value={newPointX[fn.id] || ''}
                     onChange={(e) => setNewPointX({ ...newPointX, [fn.id]: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddPoint(fn.id)}
-                    className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 focus:border-blue-500/50 focus:outline-none transition-all"
+                    className="flex-1 px-2 py-1 input-glass text-xs"
                   />
                   <button
                     onClick={() => handleAddPoint(fn.id)}
-                    className="px-2 py-1 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded hover:from-blue-500 hover:to-cyan-500 transition-all"
+                    className="px-2.5 py-1 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-500 hover:to-cyan-500 transition-all shadow-lg shadow-blue-500/15 border border-white/10"
                   >
                     + 点
                   </button>
@@ -159,14 +162,14 @@ export const FunctionList: React.FC = () => {
                 {fn.markedPoints && fn.markedPoints.length > 0 && (
                   <div className="space-y-1">
                     {fn.markedPoints.map((point) => (
-                      <div key={point.id} className="flex items-center gap-2 text-xs p-1.5 bg-gray-800/50 rounded group">
+                      <div key={point.id} className="flex items-center gap-2 text-xs p-1.5 glass-subtle rounded-lg group border border-transparent hover:border-white/5">
                         <input
                           type="number"
                           value={point.x}
                           onChange={(e) => updateMarkedPoint(fn.id, point.id, parseFloat(e.target.value) || 0, false)}
-                          className="w-14 px-1 py-0.5 bg-canvas-panel text-white rounded border border-gray-600 text-center"
+                          className="w-14 px-1 py-0.5 input-glass text-center text-xs"
                         />
-                        <span className="text-cyan-400">→</span>
+                        <span className="text-cyan-400/70">→</span>
                         <span className="text-white font-mono">
                           y={isNaN(point.y) ? '—' : point.y.toFixed(4)}
                         </span>
@@ -175,7 +178,8 @@ export const FunctionList: React.FC = () => {
                         </span>
                         <button
                           onClick={() => removeMarkedPoint(fn.id, point.id, false)}
-                          className="ml-auto text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                          className="ml-auto text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all w-5 h-5 flex items-center justify-center rounded hover:bg-red-400/10"
+                          aria-label="删除标记点"
                         >
                           ✕
                         </button>

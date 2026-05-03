@@ -31,6 +31,12 @@
   --animate-fade-in: fadeIn 0.3s ease-out;
   --animate-slide-in: slideIn 0.3s ease-out;
   --animate-pulse-soft: pulseSoft 2s ease-in-out infinite;
+  --animate-float: float 8s ease-in-out infinite;
+  --animate-float-slow: float 12s ease-in-out infinite;
+  --animate-float-delayed: float 10s ease-in-out infinite 3s;
+  --animate-shimmer: shimmer 3s ease-in-out infinite;
+  --animate-glow-pulse: glowPulse 3s ease-in-out infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
 }
 
 @keyframes fadeIn {
@@ -48,6 +54,32 @@
   50% { opacity: 0.7; }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  33% { transform: translateY(-12px) translateX(6px); }
+  66% { transform: translateY(6px) translateX(-4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.6), 0 0 40px rgba(99, 102, 241, 0.2); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(99, 102, 241, 0.2); }
+  50% { border-color: rgba(99, 102, 241, 0.5); }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -61,9 +93,153 @@ html, body, #root {
   background-color: #0F172A;
 }
 
-/* 自定义滚动条 */
+/* ========== Glassmorphism 工具类 ========== */
+
+.glass {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-strong {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-subtle {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1);
+}
+
+/* ========== 输入框样式 ========== */
+
+.input-glass {
+  background: rgba(51, 65, 85, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: white;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-glass::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.input-glass:hover {
+  background: rgba(51, 65, 85, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.input-glass:focus {
+  outline: none;
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 0 20px rgba(99, 102, 241, 0.1);
+}
+
+/* ========== 按钮样式 ========== */
+
+.btn-glass {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: white;
+  font-weight: 500;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.btn-glass:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4), 0 0 30px rgba(99, 102, 241, 0.15);
+}
+
+.btn-glass:hover::before {
+  opacity: 1;
+}
+
+.btn-glass:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-glass-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(226, 232, 240, 0.9);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-glass-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.btn-glass-secondary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-icon-glass {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(148, 163, 184, 0.8);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.btn-icon-glass:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: scale(1.08);
+}
+
+.btn-icon-glass:active {
+  transform: scale(0.95);
+}
+
+/* ========== 自定义滚动条 ========== */
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -71,69 +247,34 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 3px;
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.02);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
+  background: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
 }
 
-/* 输入框焦点动画 */
-.input-glow:focus {
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
-  border-color: #6366F1 !important;
-}
+/* ========== 复选框样式 ========== */
 
-/* 按钮渐变背景 */
-.btn-gradient {
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
-  transition: all 0.2s ease;
-}
-
-.btn-gradient:hover {
-  background: linear-gradient(135deg, #818CF8 0%, #A78BFA 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-}
-
-.btn-gradient:active {
-  transform: translateY(0);
-}
-
-/* 列表项动画 */
-.list-item {
-  transition: all 0.2s ease;
-}
-
-.list-item:hover {
-  background: rgba(99, 102, 241, 0.1);
-  transform: translateX(2px);
-}
-
-/* 参数面板分组 */
-.param-group {
-  border-top: 1px solid rgba(55, 65, 81, 0.5);
-  padding-top: 12px;
-  margin-top: 12px;
-}
-
-/* 复选框自定义样式 */
 .custom-checkbox {
   appearance: none;
   width: 16px;
   height: 16px;
-  border: 2px solid #475569;
-  border-radius: 4px;
-  background: transparent;
+  border: 2px solid rgba(71, 85, 105, 0.6);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
 .custom-checkbox:checked {
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
-  border-color: #6366F1;
+  border-color: transparent;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
 }
 
 .custom-checkbox:checked::after {
@@ -148,35 +289,61 @@ html, body, #root {
 }
 
 .custom-checkbox:hover {
-  border-color: #6366F1;
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.15);
 }
 
-/* 滑块样式 */
+/* ========== 滑块样式 ========== */
+
 input[type="range"] {
   -webkit-appearance: none;
   background: transparent;
   cursor: pointer;
+  height: 20px;
 }
 
 input[type="range"]::-webkit-slider-track {
-  height: 4px;
-  background: #334155;
-  border-radius: 2px;
+  height: 5px;
+  background: linear-gradient(90deg, rgba(51, 65, 85, 0.8), rgba(99, 102, 241, 0.3));
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
   border-radius: 50%;
-  margin-top: -6px;
-  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
-  transition: transform 0.2s ease;
+  margin-top: -7px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5), 0 0 12px rgba(99, 102, 241, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.6), 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
   transform: scale(1.1);
+}
+
+/* 关联参数滑钮轨道 */
+.slider-linked::-webkit-slider-track {
+  background: linear-gradient(90deg, rgba(51, 65, 85, 0.6), rgba(99, 102, 241, 0.5), rgba(51, 65, 85, 0.6));
+}
+
+/* ========== 列表项动画 ========== */
+
+.list-item {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.list-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateX(3px);
 }
 
 /* 函数列表项进入动画 */
@@ -184,7 +351,33 @@ input[type="range"]::-webkit-slider-thumb:hover {
   animation: slideIn 0.3s ease-out;
 }
 
-/* 关联参数滑钮轨道 - 紫色渐变区分 */
-.slider-linked::-webkit-slider-track {
-  background: linear-gradient(90deg, #334155, #6366F1, #334155);
+/* ========== 参数面板分组 ========== */
+
+.param-group {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+/* ========== 渐变文字 ========== */
+
+.text-gradient {
+  background: linear-gradient(135deg, #60A5FA 0%, #A78BFA 50%, #F472B6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========== 发光边框 ========== */
+
+.glow-border {
+  animation: borderGlow 3s ease-in-out infinite;
+}
+
+/* ========== 响应式优化 ========== */
+
+@media (max-width: 768px) {
+  .glass-card:hover {
+    transform: none;
+  }
 }

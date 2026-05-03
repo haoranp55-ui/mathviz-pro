@@ -81,8 +81,8 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
 
   return (
     <div className="parameter-slider">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
           <span className="text-xs font-mono text-gray-300">{parameter.name}</span>
           {linkedInfo?.isLinked && (
             <span
@@ -100,7 +100,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           )}
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="text-gray-500 hover:text-gray-300 text-xs px-1"
+            className="text-gray-500 hover:text-gray-300 text-xs px-1 py-0.5 rounded hover:bg-white/5 transition-all"
             title="配置参数范围"
           >
             ⚙
@@ -110,7 +110,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           type="number"
           value={parameter.currentValue.toFixed(2)}
           onChange={handleInputChange}
-          className="w-16 px-1.5 py-0.5 bg-canvas-panelLight text-white text-xs rounded border border-gray-600 text-center"
+          className="w-16 px-1.5 py-0.5 input-glass text-center text-xs"
           step={parameter.step}
           min={parameter.min}
           max={parameter.max}
@@ -119,14 +119,14 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
 
       {/* 配置面板 */}
       {showConfig && (
-        <div className="flex items-center gap-2 mb-1.5 p-1.5 bg-gray-800/50 rounded text-xs">
+        <div className="flex items-center gap-2 mb-2 p-2 glass-subtle rounded-lg border border-white/[0.04] text-xs">
           <label className="flex items-center gap-1 text-gray-400">
             <span>最小:</span>
             <input
               type="number"
               value={parameter.min}
               onChange={(e) => handleConfigChange('min', e)}
-              className="w-12 px-1 py-0.5 bg-canvas-panelLight text-white rounded border border-gray-600"
+              className="w-12 px-1 py-0.5 input-glass text-xs"
             />
           </label>
           <label className="flex items-center gap-1 text-gray-400">
@@ -135,7 +135,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
               type="number"
               value={parameter.max}
               onChange={(e) => handleConfigChange('max', e)}
-              className="w-12 px-1 py-0.5 bg-canvas-panelLight text-white rounded border border-gray-600"
+              className="w-12 px-1 py-0.5 input-glass text-xs"
             />
           </label>
           <label className="flex items-center gap-1 text-gray-400">
@@ -144,7 +144,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
               type="number"
               value={parameter.step}
               onChange={(e) => handleConfigChange('step', e)}
-              className="w-12 px-1 py-0.5 bg-canvas-panelLight text-white rounded border border-gray-600"
+              className="w-12 px-1 py-0.5 input-glass text-xs"
               step="any"
             />
           </label>
@@ -152,7 +152,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
       )}
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500 w-8 text-right">{parameter.min}</span>
+        <span className="text-[11px] text-gray-500 w-8 text-right font-mono">{parameter.min}</span>
         <input
           type="range"
           min={parameter.min}
@@ -164,9 +164,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           onMouseUp={handleMouseUp}
           onTouchStart={handleMouseDown}
           onTouchEnd={handleMouseUp}
-          className={`flex-1 h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer slider-thumb${linkedInfo?.isLinked ? ' slider-linked' : ''}`}
+          className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer ${linkedInfo?.isLinked ? 'slider-linked' : ''}`}
         />
-        <span className="text-xs text-gray-500 w-8">{parameter.max}</span>
+        <span className="text-[11px] text-gray-500 w-8 font-mono">{parameter.max}</span>
       </div>
     </div>
   );

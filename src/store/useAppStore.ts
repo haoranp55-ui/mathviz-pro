@@ -12,6 +12,7 @@ import type {
   SamplePreset,
   AspectRatioMode,
   ImplicitFunction,
+  PolarFunction,
   SidebarTab,
 } from '../types';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../types';
 import { parseExpression, parseParametricExpression } from '../lib/parser';
 import { parseImplicitExpression } from '../lib/implicitParser';
+import { parsePolarExpression } from '../lib/polarParser';
 import { updateParameterValue } from '../lib/paramParser';
 import { numericalDerivative } from '../lib/derivative';
 
@@ -32,6 +34,9 @@ interface AppState {
 
   // 隐函数列表（最多3个）
   implicitFunctions: ImplicitFunction[];
+
+  // 极坐标函数列表（最多3个）
+  polarFunctions: PolarFunction[];
 
   // 当前侧边栏 Tab
   sidebarTab: SidebarTab;
@@ -108,6 +113,13 @@ interface AppState {
   toggleImplicitKeyPoints: (id: string) => void;
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => void;
 
+  // 极坐标函数 Actions
+  addPolarFunction: (expression: string) => void;
+  removePolarFunction: (id: string) => void;
+  togglePolarVisibility: (id: string) => void;
+  togglePolarKeyPoints: (id: string) => void;
+  updatePolarParameter: (functionId: string, paramName: string, value: number) => void;
+
   // GPU 渲染
   toggleGPURendering: () => void;
 
@@ -125,6 +137,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   functions: [],
   parametricFunctions: [],
   implicitFunctions: [],
+  polarFunctions: [],
   sidebarTab: 'normal',
   viewPort: { ...DEFAULT_VIEWPORT },
   interaction: {
@@ -607,6 +620,80 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => {
     set({
       implicitFunctions: get().implicitFunctions.map(fn => {
+        if (fn.id !== functionId) return fn;
+        return {
+          ...fn,
+          parameters: updateParameterValue(fn.parameters, paramName, value),
+        };
+      }),
+    });
+  },
+
+  // 极坐标函数 Actions
+  addPolarFunction: (expression: string) => {
+    const { polarFunctions } = get();
+
+    // 检查数量限制
+    if (polarFunctions.length >= 3) {
+      return; // 最多3个
+    }
+
+    const colorIndex = polarFunctions.length % FUNCTION_COLORS.length;
+    const color = FUNCTION_COLORS[colorIndex];
+
+    const result = parsePolarExpression(expression);
+
+    if (result instanceof Error) {
+      const errorFn: PolarFunction = {
+        id: uuidv4(),
+        expression,
+        compiled: () => NaN,
+        color,
+        visible: true,
+        error: result.message,
+        parameters: [],
+        thetaMin: 0,
+        thetaMax: 2 * Math.PI,
+        thetaSteps: 360,
+      };
+      set({ polarFunctions: [...polarFunctions, errorFn] });
+    } else {
+      set({
+        polarFunctions: [
+          ...polarFunctions,
+          { ...result, id: uuidv4(), color, visible: true },
+        ],
+      });
+    }
+  },
+
+  removePolarFunction: (id: string) => {
+    const { polarFunctions, keyPoints } = get();
+    set({
+      polarFunctions: polarFunctions.filter(f => f.id !== id),
+      keyPoints: keyPoints.filter(kp => kp.functionId !== id),
+    });
+  },
+
+  togglePolarVisibility: (id: string) => {
+    set({
+      polarFunctions: get().polarFunctions.map(f =>
+        f.id === id ? { ...f, visible: !f.visible } : f
+      ),
+    });
+  },
+
+  togglePolarKeyPoints: (id: string) => {
+    set({
+      polarFunctions: get().polarFunctions.map(f =>
+        f.id === id ? { ...f, showKeyPoints: !f.showKeyPoints } : f
+      ),
+    });
+  },
+
+  updatePolarParameter: (functionId: string, paramName: string, value: number) => {
+    set({
+      polarFunctions: get().polarFunctions.map(fn => {
         if (fn.id !== functionId) return fn;
         return {
           ...fn,
