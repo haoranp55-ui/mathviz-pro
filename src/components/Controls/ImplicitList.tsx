@@ -1,20 +1,16 @@
 // src/components/Controls/ImplicitList.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ParameterSlider } from './ParameterSlider';
 import { EmptyState } from '../UI/EmptyState';
-import { isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 
 export const ImplicitList: React.FC = () => {
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
   const useGPURendering = useAppStore(state => state.useGPURendering);
-  const toggleGPURendering = useAppStore(state => state.toggleGPURendering);
   const removeImplicitFunction = useAppStore(state => state.removeImplicitFunction);
   const toggleImplicitVisibility = useAppStore(state => state.toggleImplicitVisibility);
   const toggleImplicitKeyPoints = useAppStore(state => state.toggleImplicitKeyPoints);
   const updateImplicitParameter = useAppStore(state => state.updateImplicitParameter);
-
-  const [gpuAvailable] = useState(() => isWebGLAvailable());
 
   if (implicitFunctions.length === 0) {
     return (
@@ -34,48 +30,8 @@ export const ImplicitList: React.FC = () => {
         <span className="ml-auto glass-subtle px-2 py-0.5 rounded-md text-xs text-green-300 border border-white/5">
           {implicitFunctions.length}
         </span>
-      </div>
-
-      {/* GPU 着色器渲染开关 - 仅隐函数支持 */}
-      <div className="mx-1 mb-3 p-3 glass-card border-green-500/10 relative overflow-hidden">
-        {/* 背景装饰 */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl font-mono text-green-400">GPU</div>
-        </div>
-
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500/25 to-teal-500/25 flex items-center justify-center border border-green-500/20">
-              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-300">GPU 着色器渲染</span>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useGPURendering}
-              onChange={toggleGPURendering}
-              disabled={!gpuAvailable}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-green-500 peer-checked:to-teal-500 peer-disabled:opacity-30 peer-disabled:cursor-not-allowed border border-white/10"></div>
-          </label>
-        </div>
-        {!gpuAvailable && (
-          <div className="text-xs text-yellow-500/80 mt-2 flex items-center gap-1 relative z-10">
-            <span>⚠️</span>
-            <span>WebGL2 不可用</span>
-          </div>
-        )}
-        {gpuAvailable && useGPURendering && (
-          <div className="text-xs text-green-400/80 mt-2 flex items-center gap-1 relative z-10">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span>像素级精度，GPU 并行加速</span>
-          </div>
+        {useGPURendering && (
+          <span className="text-purple-400 text-xs">⚡GPU</span>
         )}
       </div>
 
@@ -86,8 +42,8 @@ export const ImplicitList: React.FC = () => {
           {/* 颜色指示条 */}
           <div
             className="w-1.5 h-7 rounded-full flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-y-110"
-            style={{ 
-              backgroundColor: fn.color, 
+            style={{
+              backgroundColor: fn.color,
               boxShadow: `0 0 10px ${fn.color}60, 0 0 4px ${fn.color}40`
             }}
             onClick={() => toggleImplicitVisibility(fn.id)}

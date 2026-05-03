@@ -3,6 +3,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
 import type { SamplePreset } from '../../types';
+import { isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
 
@@ -18,12 +19,16 @@ export const GlobalSettings: React.FC = () => {
     viewPort,
     showGrid,
     samplePreset,
+    useGPURendering,
     setViewPort,
     toggleGrid,
     setSamplePreset,
+    toggleGPURendering,
     resetView,
     exportImage,
   } = useAppStore();
+
+  const gpuAvailable = isWebGLAvailable();
 
   return (
     <div className="p-4 border-t border-white/[0.06] space-y-4 relative glass-subtle">
@@ -134,6 +139,23 @@ export const GlobalSettings: React.FC = () => {
             显示网格
           </label>
         </div>
+
+        {/* GPU 渲染开关 */}
+        {gpuAvailable && (
+          <div className="flex items-center gap-3 py-1">
+            <input
+              type="checkbox"
+              id="useGPU"
+              checked={useGPURendering}
+              onChange={toggleGPURendering}
+              className="custom-checkbox"
+            />
+            <label htmlFor="useGPU" className="text-xs text-gray-300 cursor-pointer flex items-center gap-1.5">
+              <span className="text-purple-400/70">⚡</span>
+              GPU 着色器渲染
+            </label>
+          </div>
+        )}
       </div>
 
       {/* 操作按钮 */}
