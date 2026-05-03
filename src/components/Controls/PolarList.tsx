@@ -1,15 +1,20 @@
 // src/components/Controls/PolarList.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ParameterSlider } from './ParameterSlider';
 import { EmptyState } from '../UI/EmptyState';
+import { isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 
 export const PolarList: React.FC = () => {
   const polarFunctions = useAppStore(state => state.polarFunctions);
+  const useGPURendering = useAppStore(state => state.useGPURendering);
+  const toggleGPURendering = useAppStore(state => state.toggleGPURendering);
   const updatePolarParameter = useAppStore(state => state.updatePolarParameter);
   const togglePolarVisibility = useAppStore(state => state.togglePolarVisibility);
   const togglePolarKeyPoints = useAppStore(state => state.togglePolarKeyPoints);
   const removePolarFunction = useAppStore(state => state.removePolarFunction);
+
+  const [gpuAvailable] = useState(() => isPolarWebGLAvailable());
 
   if (polarFunctions.length === 0) {
     return (
@@ -30,6 +35,50 @@ export const PolarList: React.FC = () => {
           {polarFunctions.length}
         </span>
       </div>
+
+      {/* GPU 着色器渲染开关 */}
+      <div className="mx-1 mb-3 p-3 glass-card border-amber-500/10 relative overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl font-mono text-amber-400">GPU</div>
+        </div>
+
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500/25 to-orange-500/25 flex items-center justify-center border border-amber-500/20">
+              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-300">GPU 着色器渲染</span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useGPURendering}
+              onChange={toggleGPURendering}
+              disabled={!gpuAvailable}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-500 peer-checked:to-orange-500 peer-disabled:opacity-30 peer-disabled:cursor-not-allowed border border-white/10"></div>
+          </label>
+        </div>
+        {!gpuAvailable && (
+          <div className="text-xs text-yellow-500/80 mt-2 flex items-center gap-1 relative z-10">
+            <span>⚠️</span>
+            <span>WebGL2 不可用</span>
+          </div>
+        )}
+        {gpuAvailable && useGPURendering && (
+          <div className="text-xs text-amber-400/80 mt-2 flex items-center gap-1 relative z-10">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span>GPU 并行采样，自适应渲染</span>
+          </div>
+        )}
+      </div>
+
       <ul className="space-y-2">
         {polarFunctions.map((fn) => (
           <li key={fn.id}>

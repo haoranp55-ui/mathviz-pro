@@ -7,7 +7,7 @@ import { drawCurve, drawHoverPoint, drawDerivativeCurve } from './CurveRenderer'
 import { drawImplicitCurve } from './ImplicitCurveRenderer';
 import { cachedSample } from '../../lib/sampler';
 import { fastRenderWithCache } from '../../lib/implicitSamplerInterval';
-import { samplePolarFunction, samplePolarFunctionFast } from '../../lib/polarParser';
+import { cachedSamplePolar, samplePolarFunctionFast } from '../../lib/polarParser';
 import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRendererManager';
 import { getPolarWebGLManager, isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 import { createScales, createRenderContext } from '../../lib/transformer';
@@ -412,9 +412,10 @@ export const FunctionCanvas: React.FC = () => {
           currentParams[p.name] = p.currentValue;
         }
 
-        // 使用自适应采样
-        const polarPoints = samplePolarFunction(
+        // 使用带缓存的自适应采样
+        const polarPoints = cachedSamplePolar(
           fn.compiled,
+          `polar-${fn.id}`,
           currentParams,
           fn.thetaMin,
           fn.thetaMax,

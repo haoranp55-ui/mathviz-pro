@@ -6,6 +6,109 @@ import { extractParameters, createDefaultParams, validateParamCount } from './pa
 
 const math = create(all);
 
+// 极坐标采样缓存
+interface PolarSampleCache {
+  thetaMin: number;
+  thetaMax: number;
+  steps: number;
+  params?: Record<string, number>;
+  points: { x: number; y: number; r: number; theta: number }[];
+  timestamp: number;
+}
+
+class PolarCacheManager {
+  private cache = new Map<string, PolarSampleCache>();
+  private maxSize = 30;
+
+  get(
+    cacheId: string,
+    thetaMin: number,
+    thetaMax: number,
+    steps: number,
+    params?: Record<string, number>
+  ): { x: number; y: number; r: number; theta: number }[] | null {
+    const cached = this.cache.get(cacheId);
+    if (!cached) return null;
+
+    const tolerance = 1e-9;
+    if (
+      Math.abs(cached.thetaMin - thetaMin) < tolerance &&
+      Math.abs(cached.thetaMax - thetaMax) < tolerance &&
+      cached.steps === steps
+    ) {
+      if (this.paramsMatch(cached.params, params, tolerance)) {
+        cached.timestamp = Date.now();
+        return cached.points;
+      }
+    }
+
+    return null;
+  }
+
+  set(
+    cacheId: string,
+    thetaMin: number,
+    thetaMax: number,
+    steps: number,
+    points: { x: number; y: number; r: number; theta: number }[],
+    params?: Record<string, number>
+  ): void {
+    if (this.cache.size >= this.maxSize) {
+      this.evictOldest();
+    }
+
+    this.cache.set(cacheId, {
+      thetaMin,
+      thetaMax,
+      steps,
+      params,
+      points,
+      timestamp: Date.now(),
+    });
+  }
+
+  private paramsMatch(
+    a?: Record<string, number>,
+    b?: Record<string, number>,
+    tolerance: number = 1e-9
+  ): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+
+    for (const key of keysA) {
+      if (!(key in b)) return false;
+      if (Math.abs(a[key] - b[key]) > tolerance) return false;
+    }
+    return true;
+  }
+
+  private evictOldest(): void {
+    let oldestKey = '';
+    let oldestTime = Infinity;
+
+    for (const [key, value] of this.cache) {
+      if (value.timestamp < oldestTime) {
+        oldestTime = value.timestamp;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+    }
+  }
+
+  clear(cacheId: string): void {
+    this.cache.delete(cacheId);
+  }
+}
+
+const polarCache = new PolarCacheManager();
+
 // 允许的函数
 const ALLOWED_FUNCTIONS = [
   // 三角函数
@@ -282,4 +385,37 @@ export function samplePolarFunctionFast(
   }
 
   return points;
+}
+
+/**
+ * 带缓存的极坐标采样（用于参数滑钮频繁更新场景）
+ */
+export function cachedSamplePolar(
+  fn: (theta: number, params?: Record<string, number>) => number,
+  cacheId: string,
+  params: Record<string, number>,
+  thetaMin: number = 0,
+  thetaMax: number = 2 * Math.PI,
+  steps: number = 200
+): { x: number; y: number; r: number; theta: number }[] {
+  // 尝试从缓存获取
+  const cached = polarCache.get(cacheId, thetaMin, thetaMax, steps, params);
+  if (cached) {
+    return cached;
+  }
+
+  // 未命中缓存，执行采样
+  const points = samplePolarFunction(fn, params, thetaMin, thetaMax, steps);
+
+  // 存入缓存
+  polarCache.set(cacheId, thetaMin, thetaMax, steps, points, params);
+
+  return points;
+}
+
+/**
+ * 清除指定函数的极坐标采样缓存
+ */
+export function clearPolarCache(cacheId: string): void {
+  polarCache.clear(cacheId);
 }
