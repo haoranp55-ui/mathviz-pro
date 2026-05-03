@@ -51,19 +51,21 @@ export const ParametricInput: React.FC = () => {
   const canAdd = parametricFunctions.length < 3;
 
   return (
-    <div className="p-4 border-b border-gray-700/50">
+    <div className="p-4 border-b border-gray-700/50 relative">
+      {/* 标题栏 */}
       <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-        参数化函数
-        <span className="ml-auto bg-canvas-panelLight px-2 py-0.5 rounded text-xs">
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-lg shadow-purple-500/30"></div>
+        <span className="text-gray-400">参数化函数</span>
+        <span className="text-purple-400 font-serif text-sm">ξ(t)</span>
+        <span className="ml-auto bg-purple-500/20 px-2 py-0.5 rounded text-xs text-purple-300">
           {parametricFunctions.length}/3
         </span>
         <button
           onClick={() => setShowHelp(true)}
-          className="text-gray-400 hover:text-purple-400 transition-colors"
+          className="w-5 h-5 rounded-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 flex items-center justify-center transition-all"
           title="帮助"
         >
-          ?
+          <span className="text-xs">?</span>
         </button>
       </div>
 
@@ -74,25 +76,30 @@ export const ParametricInput: React.FC = () => {
             value={expression}
             onChange={(e) => setExpression(e.target.value)}
             placeholder="a*x + b, sin(k*x)..."
-            className="w-full px-3 py-2.5 bg-canvas-panelLight text-white rounded-lg border border-gray-600 input-glow focus:outline-none text-sm placeholder-gray-500 pr-10"
+            className="w-full px-3 py-2.5 bg-canvas-panelLight text-white rounded-lg border border-gray-600 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 focus:outline-none text-sm placeholder-gray-500 pr-10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!canAdd}
           />
           <button
             type="button"
             onClick={() => setShowPicker(!showPicker)}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors px-2 py-1 flex items-center gap-0.5 ${showPicker ? 'text-white' : ''}`}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 flex items-center gap-0.5 rounded transition-all ${
+              showPicker ? 'text-purple-400 bg-purple-500/20' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+            }`}
             title="函数选择器"
           >
-            <span>ƒ</span>
+            <span className="font-serif">ξ</span>
             <span className={`text-xs transition-transform ${showPicker ? 'rotate-180' : ''}`}>▼</span>
           </button>
 
           {/* 函数选择器下拉 */}
           {showPicker && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-canvas-panel border border-gray-600 rounded-lg shadow-xl z-20 max-h-64 overflow-y-auto">
+              <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-2 border-b border-gray-600/50">
+                <span className="text-xs text-purple-300 font-medium">选择参数化模板</span>
+              </div>
               {PARAMETRIC_FUNCTION_LIST.map(group => (
                 <div key={group.category}>
-                  <div className="text-xs text-gray-500 px-3 py-1.5 bg-canvas-panelLight/50 sticky top-0">
+                  <div className="text-xs text-gray-500 px-3 py-1.5 bg-canvas-panelLight/50">
                     {group.category}
                   </div>
                   <div className="grid grid-cols-1 gap-1 p-2">
@@ -117,7 +124,7 @@ export const ParametricInput: React.FC = () => {
           disabled={!canAdd || !expression.trim()}
           className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
             canAdd && expression.trim()
-              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-500 hover:to-blue-500'
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30'
               : 'bg-gray-600 text-gray-400 cursor-not-allowed'
           }`}
         >
@@ -126,13 +133,16 @@ export const ParametricInput: React.FC = () => {
       </form>
 
       {!canAdd && (
-        <p className="text-xs text-yellow-500 mt-2">
+        <p className="text-xs text-yellow-500 mt-2 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
           已达到最大函数数量（3个）
         </p>
       )}
 
-      <p className="text-xs text-gray-500 mt-2">
-        点击输入框右侧 <span className="text-purple-400">ƒ</span> 快速选择函数
+      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+        <span className="text-gray-600">点击</span>
+        <span className="text-purple-400 font-serif bg-purple-500/10 px-1.5 py-0.5 rounded">ξ</span>
+        <span className="text-gray-600">快速选择函数</span>
       </p>
 
       <ParametricHelp isOpen={showHelp} onClose={() => setShowHelp(false)} />

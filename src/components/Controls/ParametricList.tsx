@@ -41,9 +41,10 @@ export const ParametricList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-        参数化函数列表
-        <span className="ml-auto bg-canvas-panelLight px-2 py-0.5 rounded text-xs">
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-lg shadow-purple-500/30"></div>
+        <span className="text-gray-400">参数化函数列表</span>
+        <span className="text-purple-400 font-serif text-sm">ξ(t)</span>
+        <span className="ml-auto bg-purple-500/20 px-2 py-0.5 rounded text-xs text-purple-300">
           {parametricFunctions.length}
         </span>
       </div>
@@ -55,8 +56,8 @@ export const ParametricList: React.FC = () => {
         >
           {/* 颜色指示条 */}
           <div
-            className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer"
-            style={{ backgroundColor: fn.color }}
+            className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer shadow-lg"
+            style={{ backgroundColor: fn.color, boxShadow: `0 0 8px ${fn.color}50` }}
             onClick={() => toggleParametricVisibility(fn.id)}
           />
 
@@ -131,7 +132,7 @@ export const ParametricList: React.FC = () => {
 
         {/* 展开内容：参数滑钮 + 标记点 */}
         {fn.visible && !fn.error && (
-          <div className="mx-3 mt-1 p-2 bg-canvas-panelLight/30 rounded-lg space-y-2">
+          <div className="mx-3 mt-1 p-2 bg-gradient-to-r from-purple-900/10 to-pink-900/10 rounded-lg border border-purple-500/10 space-y-2">
             {fn.parameters.length > 0 && (
               <div className="space-y-2">
                 {fn.parameters.map((param) => (
@@ -150,17 +151,18 @@ export const ParametricList: React.FC = () => {
             {/* 标记点 */}
             <div>
               <div className="flex items-center gap-2 mb-2">
+                <div className="text-xs text-purple-400 font-mono mr-1">x =</div>
                 <input
                   type="text"
-                  placeholder="x 值"
+                  placeholder="值"
                   value={newPointX[fn.id] || ''}
                   onChange={(e) => setNewPointX({ ...newPointX, [fn.id]: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddPoint(fn.id)}
-                  className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 input-glow focus:outline-none"
+                  className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 focus:border-purple-500/50 focus:outline-none transition-all"
                 />
                 <button
                   onClick={() => handleAddPoint(fn.id)}
-                  className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-500"
+                  className="px-2 py-1 text-xs bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded hover:from-purple-500 hover:to-pink-500 transition-all"
                 >
                   + 点
                 </button>
@@ -176,11 +178,11 @@ export const ParametricList: React.FC = () => {
                         onChange={(e) => updateMarkedPoint(fn.id, point.id, parseFloat(e.target.value) || 0, true)}
                         className="w-14 px-1 py-0.5 bg-canvas-panel text-white rounded border border-gray-600 text-center"
                       />
-                      <span className="text-gray-400">→</span>
+                      <span className="text-purple-400">→</span>
                       <span className="text-white font-mono">
                         y={isNaN(point.y) ? '—' : point.y.toFixed(4)}
                       </span>
-                      <span className="text-purple-400 font-mono text-[10px]">
+                      <span className="text-pink-400 font-mono text-[10px]">
                         f'={isNaN(point.derivative) ? '—' : point.derivative.toFixed(4)}
                       </span>
                       <button
@@ -200,7 +202,7 @@ export const ParametricList: React.FC = () => {
 
         {/* 错误提示 */}
         {fn.error && (
-          <div className="mx-3 mt-1 text-xs text-red-400 p-2 bg-red-900/20 rounded">
+          <div className="mx-3 mt-1 text-xs text-red-400 p-2 bg-red-900/20 rounded border border-red-500/20">
             {fn.error}
           </div>
         )}

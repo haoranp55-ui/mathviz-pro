@@ -38,20 +38,21 @@ export const FunctionList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-curve-2"></span>
-        函数列表
-        <span className="ml-auto bg-canvas-panelLight px-2 py-0.5 rounded text-xs">
+        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-lg shadow-blue-500/30"></div>
+        <span className="text-gray-400">函数列表</span>
+        <span className="text-blue-400 font-serif text-sm">y = ƒ(x)</span>
+        <span className="ml-auto bg-blue-500/20 px-2 py-0.5 rounded text-xs text-blue-300">
           {functions.length}
         </span>
       </div>
       <ul className="space-y-1.5">
         {functions.map((fn) => (
           <li key={fn.id}>
-            <div className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group cursor-pointer">
+            <div className="function-item flex items-center gap-2 px-3 py-2.5 rounded-lg list-item group cursor-pointer relative">
               {/* 颜色指示条 */}
               <div
-                className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer"
-                style={{ backgroundColor: fn.color }}
+                className="w-1 h-6 rounded-full flex-shrink-0 cursor-pointer shadow-lg"
+                style={{ backgroundColor: fn.color, boxShadow: `0 0 8px ${fn.color}50` }}
                 onClick={() => toggleFunctionVisibility(fn.id)}
               />
 
@@ -61,7 +62,7 @@ export const FunctionList: React.FC = () => {
                   fn.visible ? 'text-white' : 'text-gray-500 line-through'
                 }`}
               >
-                <span className="text-gray-500">y = </span>
+                <span className="text-cyan-400">y = </span>
                 {fn.expression}
               </button>
 
@@ -69,7 +70,7 @@ export const FunctionList: React.FC = () => {
               <div className="flex items-center gap-1 flex-shrink-0">
                 {/* 错误提示 */}
                 {fn.error && (
-                  <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded" title={fn.error}>
+                  <span className="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/30" title={fn.error}>
                     错误
                   </span>
                 )}
@@ -134,20 +135,21 @@ export const FunctionList: React.FC = () => {
 
             {/* 标记点列表 */}
             {fn.visible && !fn.error && (
-              <div className="mt-1 mx-3 p-2 bg-canvas-panelLight/30 rounded-lg">
+              <div className="mt-1 mx-3 p-2 bg-gradient-to-r from-blue-900/10 to-cyan-900/10 rounded-lg border border-blue-500/10">
                 {/* 添加点输入 */}
                 <div className="flex items-center gap-2 mb-2">
+                  <div className="text-xs text-blue-400 font-mono mr-1">x =</div>
                   <input
                     type="text"
-                    placeholder="x 值"
+                    placeholder="值"
                     value={newPointX[fn.id] || ''}
                     onChange={(e) => setNewPointX({ ...newPointX, [fn.id]: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddPoint(fn.id)}
-                    className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 input-glow focus:outline-none"
+                    className="flex-1 px-2 py-1 bg-canvas-panel text-white text-xs rounded border border-gray-600 focus:border-blue-500/50 focus:outline-none transition-all"
                   />
                   <button
                     onClick={() => handleAddPoint(fn.id)}
-                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500"
+                    className="px-2 py-1 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded hover:from-blue-500 hover:to-cyan-500 transition-all"
                   >
                     + 点
                   </button>
@@ -164,7 +166,7 @@ export const FunctionList: React.FC = () => {
                           onChange={(e) => updateMarkedPoint(fn.id, point.id, parseFloat(e.target.value) || 0, false)}
                           className="w-14 px-1 py-0.5 bg-canvas-panel text-white rounded border border-gray-600 text-center"
                         />
-                        <span className="text-gray-400">→</span>
+                        <span className="text-cyan-400">→</span>
                         <span className="text-white font-mono">
                           y={isNaN(point.y) ? '—' : point.y.toFixed(4)}
                         </span>
