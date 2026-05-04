@@ -299,10 +299,14 @@ export class PolarRendererWebGL {
 
     if (!this.program || !this.vao || !this.thetaBuffer) return;
 
+    // 限制 steps 上限，防止内存分配失败
+    const MAX_STEPS = 10000;
+    const safeSteps = Math.min(Math.max(60, steps), MAX_STEPS);
+
     // 生成 theta 值（0-1 归一化）
-    const thetaValues = new Float32Array(steps + 1);
-    for (let i = 0; i <= steps; i++) {
-      thetaValues[i] = i / steps;
+    const thetaValues = new Float32Array(safeSteps + 1);
+    for (let i = 0; i <= safeSteps; i++) {
+      thetaValues[i] = i / safeSteps;
     }
 
     // 上传 theta 数据
@@ -376,19 +380,4 @@ export class PolarRendererWebGL {
       this.program = null;
     }
   }
-}
-
-/**
- * 十六进制颜色转 RGB（0-1 范围）
- */
-export function hexToRGB(hex: string): [number, number, number] {
-  let h = hex.replace('#', '');
-  if (h.length === 3) {
-    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  }
-  return [
-    parseInt(h.substring(0, 2), 16) / 255,
-    parseInt(h.substring(2, 4), 16) / 255,
-    parseInt(h.substring(4, 6), 16) / 255,
-  ];
 }

@@ -4,12 +4,13 @@
  * 管理多个极坐标曲线的 GPU 渲染
  */
 
-import type { ViewPort, PolarFunction } from '../../types';
+import { POLAR_SAMPLE_PRESETS } from '../../types';
+import type { ViewPort, PolarFunction, SamplePreset } from '../../types';
 import {
   PolarRendererWebGL,
   compilePolarToGLSL,
-  hexToRGB,
 } from './polarRendererWebGL';
+import { hexToRGB } from './webglUtils';
 
 /**
  * 检查 WebGL2 是否可用（带缓存，避免重复创建上下文）
@@ -113,6 +114,7 @@ export class PolarWebGLManager {
   renderToCanvas(
     functions: PolarFunction[],
     viewPort: ViewPort,
+    samplePreset: SamplePreset = 'normal',
     renderRegion?: { offsetX: number; offsetY: number; actualWidth: number; actualHeight: number }
   ): HTMLCanvasElement | null {
     const visibleFunctions = functions.filter(fn => fn.visible && !fn.error);
@@ -145,11 +147,16 @@ export class PolarWebGLManager {
 
       const color = hexToRGB(fn.color);
 
+      // 动态计算采样点数
+      const presetStepsPerRadian = POLAR_SAMPLE_PRESETS[samplePreset].stepsPerRadian;
+      const stepsPerRadian = fn.stepsPerRadian ?? presetStepsPerRadian;
+      const dynamicSteps = Math.max(60, Math.min(4000, Math.ceil((fn.thetaMax - fn.thetaMin) * stepsPerRadian)));
+
       renderer.render(
         viewPort,
         fn.thetaMin,
         fn.thetaMax,
-        fn.thetaSteps,
+        dynamicSteps, // 使用动态计算的采样点数
         color,
         params,
         renderRegion

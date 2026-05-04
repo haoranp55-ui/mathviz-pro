@@ -34,6 +34,13 @@ const CACHE_EXPIRE_TIME = 2000;
 const GRID_CACHE_MAX_SIZE = 20;
 
 /**
+ * 清理所有网格缓存（用于内存管理）
+ */
+export function clearGridCache(): void {
+  gridCacheMap.clear();
+}
+
+/**
  * 清理最旧的网格缓存条目，防止无界增长
  */
 function evictOldestGridCache(): void {
@@ -139,25 +146,32 @@ export function extractSegmentsFromGrid(
 
       const points: Array<{ x: number; y: number }> = [];
 
+      // 数值稳定性阈值
+      const EPS = 1e-10;
+
       // 底边
       if (v0 * v1 < 0) {
-        const t = v0 / (v0 - v1);
+        const denom = v0 - v1;
+        const t = Math.abs(denom) < EPS ? 0.5 : v0 / denom;
         points.push({ x: baseX + t * dx, y: baseY });
       }
       // 右边
       if (v1 * v2 < 0) {
-        const t = v1 / (v1 - v2);
+        const denom = v1 - v2;
+        const t = Math.abs(denom) < EPS ? 0.5 : v1 / denom;
         points.push({ x: baseX + dx, y: baseY + t * dy });
       }
-      // 顶边
-      if (v2 * v3 < 0) {
-        const t = v2 / (v2 - v3);
-        points.push({ x: baseX + (1 - t) * dx, y: baseY + dy });
+      // 顶边 (v3 -> v2，从左到右，与上方单元格的底边方向一致)
+      if (v3 * v2 < 0) {
+        const denom = v3 - v2;
+        const t = Math.abs(denom) < EPS ? 0.5 : v3 / denom;
+        points.push({ x: baseX + t * dx, y: baseY + dy });
       }
-      // 左边
-      if (v3 * v0 < 0) {
-        const t = v3 / (v3 - v0);
-        points.push({ x: baseX, y: baseY + (1 - t) * dy });
+      // 左边 (v0 -> v3，从下到上，与左方单元格的右边方向一致)
+      if (v0 * v3 < 0) {
+        const denom = v0 - v3;
+        const t = Math.abs(denom) < EPS ? 0.5 : v0 / denom;
+        points.push({ x: baseX, y: baseY + t * dy });
       }
 
       if (points.length >= 2) {
@@ -179,29 +193,9 @@ export function extractSegmentsFromGrid(
 }
 
 /**
- * 检查参数是否在容差范围内相同
- */
-function paramsApproxEqual(
-  p1: Record<string, number>,
-  p2: Record<string, number>,
-  tolerance: number = 0.01
-): boolean {
-  const keys1 = Object.keys(p1);
-  const keys2 = Object.keys(p2);
-
-  if (keys1.length !== keys2.length) return false;
-  if (keys1.length === 0) return true;
-
-  for (const key of keys1) {
-    if (!(key in p2)) return false;
-    if (Math.abs(p1[key] - p2[key]) > tolerance) return false;
-  }
-
-  return true;
-}
-
-/**
  * 带网格缓存的快速渲染（滑钮滑动专用）
+ *
+ * 注意：缓存使用精确匹配，不使用容差，避免 NaN 边界导致的曲线不稳定
  */
 export function fastRenderWithCache(
   fn: (x: number, y: number) => number,
@@ -218,23 +212,24 @@ export function fastRenderWithCache(
     gridCacheMap.delete(cacheId);
   }
 
-  // 检查缓存是否有效（参数容差匹配）
+  // 创建视口和参数的唯一 key（精确匹配）
+  const vpKey = `${viewPort.xMin.toFixed(6)},${viewPort.xMax.toFixed(6)},${viewPort.yMin.toFixed(6)},${viewPort.yMax.toFixed(6)}`;
+  const paramsKey = Object.keys(params).length === 0 ? '' : JSON.stringify(params);
+  const fullCacheKey = `${cacheId}-${gridSize}-${vpKey}-${paramsKey}`;
+
+  // 使用精确匹配的缓存查找
+  const cachedEntry = gridCacheMap.get(fullCacheKey);
+
   let values: Float32Array;
-  if (cached &&
-      cached.gridSize === gridSize &&
-      paramsApproxEqual(cached.params, params, 0.005) &&
-      Math.abs(cached.viewPort.xMin - viewPort.xMin) < 0.01 &&
-      Math.abs(cached.viewPort.xMax - viewPort.xMax) < 0.01 &&
-      Math.abs(cached.viewPort.yMin - viewPort.yMin) < 0.01 &&
-      Math.abs(cached.viewPort.yMax - viewPort.yMax) < 0.01) {
-    // 缓存命中，直接使用
-    values = cached.values;
-    cached.lastAccess = now;
+  if (cachedEntry && cachedEntry.gridSize === gridSize) {
+    // 缓存命中
+    values = cachedEntry.values;
+    cachedEntry.lastAccess = now;
   } else {
     // 缓存未命中，重新计算
     values = computeGridValues(fn, viewPort, gridSize);
     evictOldestGridCache();
-    gridCacheMap.set(cacheId, {
+    gridCacheMap.set(fullCacheKey, {
       values,
       gridSize,
       viewPort: { ...viewPort },
@@ -386,27 +381,34 @@ function getEdgePoint(
   v2: number,
   v3: number
 ): { x: number; y: number } | null {
+  // 数值稳定性阈值
+  const EPS = 1e-10;
+
   // 边定义：0-底边, 1-右边, 2-顶边, 3-左边
   switch (edge) {
     case 0: { // 底边 v0→v1
       if (v0 * v1 >= 0) return null;
-      const t = v0 / (v0 - v1);
+      const denom = v0 - v1;
+      const t = Math.abs(denom) < EPS ? 0.5 : v0 / denom;
       return { x: x + t * w, y };
     }
     case 1: { // 右边 v1→v2
       if (v1 * v2 >= 0) return null;
-      const t = v1 / (v1 - v2);
+      const denom = v1 - v2;
+      const t = Math.abs(denom) < EPS ? 0.5 : v1 / denom;
       return { x: x + w, y: y + t * h };
     }
-    case 2: { // 顶边 v2→v3
-      if (v2 * v3 >= 0) return null;
-      const t = v2 / (v2 - v3);
-      return { x: x + (1 - t) * w, y: y + h };
+    case 2: { // 顶边 v3→v2（从左到右，与上方单元格底边一致）
+      if (v3 * v2 >= 0) return null;
+      const denom = v3 - v2;
+      const t = Math.abs(denom) < EPS ? 0.5 : v3 / denom;
+      return { x: x + t * w, y: y + h };
     }
-    case 3: { // 左边 v3→v0
-      if (v3 * v0 >= 0) return null;
-      const t = v3 / (v3 - v0);
-      return { x, y: y + (1 - t) * h };
+    case 3: { // 左边 v0→v3（从下到上，与左方单元格右边一致）
+      if (v0 * v3 >= 0) return null;
+      const denom = v0 - v3;
+      const t = Math.abs(denom) < EPS ? 0.5 : v0 / denom;
+      return { x, y: y + t * h };
     }
     default:
       return null;
@@ -533,6 +535,7 @@ export function cachedIntervalMarchingSquares(
 
 /**
  * 连接线段成连续路径
+ * 使用基于距离的匹配，确保闭合曲线正确连接
  */
 export function connectSegmentsSmooth(
   segments: ContourSegment[],
@@ -540,13 +543,21 @@ export function connectSegmentsSmooth(
 ): Array<Array<{ x: number; y: number }>> {
   if (segments.length === 0) return [];
 
+  // 使用邻接表构建点的关系
   const adjacency = new Map<string, Array<{ x: number; y: number }>>();
+  const pointMap = new Map<string, { x: number; y: number }>();
+
+  // 使用更高的精度来匹配端点
+  const precision = 10;
 
   for (const seg of segments) {
     const p1 = { x: seg.x1, y: seg.y1 };
     const p2 = { x: seg.x2, y: seg.y2 };
-    const key1 = `${p1.x.toFixed(6)},${p1.y.toFixed(6)}`;
-    const key2 = `${p2.x.toFixed(6)},${p2.y.toFixed(6)}`;
+    const key1 = `${p1.x.toFixed(precision)},${p1.y.toFixed(precision)}`;
+    const key2 = `${p2.x.toFixed(precision)},${p2.y.toFixed(precision)}`;
+
+    pointMap.set(key1, p1);
+    pointMap.set(key2, p2);
 
     if (!adjacency.has(key1)) adjacency.set(key1, []);
     if (!adjacency.has(key2)) adjacency.set(key2, []);
@@ -555,19 +566,22 @@ export function connectSegmentsSmooth(
     adjacency.get(key2)!.push(p1);
   }
 
+  // 构建路径
   const visited = new Set<string>();
   const paths: Array<Array<{ x: number; y: number }>> = [];
 
+  // 首先处理端点（度数为1的点，即开放曲线的起点）
   for (const [key, neighbors] of adjacency) {
     if (neighbors.length === 1 && !visited.has(key)) {
-      const path = buildPath(key, adjacency, visited);
+      const path = buildPath(key, adjacency, visited, pointMap);
       if (path.length >= 2) paths.push(path);
     }
   }
 
+  // 然后处理闭合曲线（度数大于等于2的点）
   for (const [key, neighbors] of adjacency) {
     if (!visited.has(key) && neighbors.length >= 2) {
-      const path = buildPath(key, adjacency, visited);
+      const path = buildPath(key, adjacency, visited, pointMap);
       if (path.length >= 2) paths.push(path);
     }
   }
@@ -578,21 +592,25 @@ export function connectSegmentsSmooth(
 function buildPath(
   startKey: string,
   adjacency: Map<string, Array<{ x: number; y: number }>>,
-  visited: Set<string>
+  visited: Set<string>,
+  pointMap: Map<string, { x: number; y: number }>
 ): Array<{ x: number; y: number }> {
   const path: Array<{ x: number; y: number }> = [];
   let currentKey = startKey;
+  const precision = 10;
 
   while (currentKey && !visited.has(currentKey)) {
     visited.add(currentKey);
-    const [x, y] = currentKey.split(',').map(Number);
-    path.push({ x, y });
+    const point = pointMap.get(currentKey);
+    if (point) {
+      path.push(point);
+    }
 
     const neighbors = adjacency.get(currentKey) || [];
     let foundNext = false;
 
     for (const neighbor of neighbors) {
-      const neighborKey = `${neighbor.x.toFixed(6)},${neighbor.y.toFixed(6)}`;
+      const neighborKey = `${neighbor.x.toFixed(precision)},${neighbor.y.toFixed(precision)}`;
       if (!visited.has(neighborKey)) {
         currentKey = neighborKey;
         foundNext = true;

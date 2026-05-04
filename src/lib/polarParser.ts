@@ -257,6 +257,7 @@ export function parsePolarExpression(
       thetaMin: 0,
       thetaMax: 2 * Math.PI,
       thetaSteps: 200,  // 优化：减少默认采样点
+      stepsPerRadian: 32, // 每弧度采样密度
     };
 
   } catch (e) {

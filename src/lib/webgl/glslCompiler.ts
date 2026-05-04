@@ -7,6 +7,7 @@
 
 import { create, all } from 'mathjs';
 import type { MathNode } from 'mathjs';
+import { hexToRGB } from './webglUtils';
 
 const math = create(all);
 
@@ -241,21 +242,6 @@ function formatNumber(value: number): string {
 }
 
 /**
- * 十六进制颜色转 RGB（0-1 范围）
- */
-function hexToRGB(hex: string): { r: number; g: number; b: number } {
-  let h = hex.replace('#', '');
-  if (h.length === 3) {
-    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  }
-  return {
-    r: parseInt(h.substring(0, 2), 16) / 255,
-    g: parseInt(h.substring(2, 4), 16) / 255,
-    b: parseInt(h.substring(4, 6), 16) / 255,
-  };
-}
-
-/**
  * 检测表达式中是否有 GLSL 不支持的函数
  */
 function detectUnsupportedFunctions(node: MathNode): string[] {
@@ -356,7 +342,7 @@ void main() {
   float aa = fwidth(value) * 2.0;
   float dist = abs(value);
   float alpha = 1.0 - smoothstep(0.0, aa, dist);
-  vec3 curveColor = vec3(${rgb.r}, ${rgb.g}, ${rgb.b});
+  vec3 curveColor = vec3(${rgb[0]}, ${rgb[1]}, ${rgb[2]});
   fragColor = vec4(curveColor, alpha);
 }`;
 

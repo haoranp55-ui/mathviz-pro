@@ -329,7 +329,8 @@ function mergePoints(
 
   for (let i = 0; i < sortedX.length; i++) {
     resultX[i] = sortedX[i];
-    resultY[i] = pointMap.get(sortedX[i])!;
+    const y = pointMap.get(sortedX[i]);
+    resultY[i] = y !== undefined ? y : NaN;
   }
 
   return { x: resultX, y: resultY };

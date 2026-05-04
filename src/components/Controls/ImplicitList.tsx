@@ -1,5 +1,5 @@
 // src/components/Controls/ImplicitList.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ParameterSlider } from './ParameterSlider';
 import { EmptyState } from '../UI/EmptyState';
@@ -12,8 +12,46 @@ export const ImplicitList: React.FC = () => {
   const toggleImplicitKeyPoints = useAppStore(state => state.toggleImplicitKeyPoints);
   const toggleImplicitGPURendering = useAppStore(state => state.toggleImplicitGPURendering);
   const updateImplicitParameter = useAppStore(state => state.updateImplicitParameter);
+  const updateImplicitExpression = useAppStore(state => state.updateImplicitExpression);
 
   const [gpuAvailable] = useState(() => isWebGLAvailable());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editExpression, setEditExpression] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 自动聚焦编辑输入框
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
+
+  const startEditing = (fn: { id: string; expression: string }) => {
+    setEditingId(fn.id);
+    setEditExpression(fn.expression);
+  };
+
+  const saveEdit = () => {
+    if (editingId && editExpression.trim()) {
+      updateImplicitExpression(editingId, editExpression.trim());
+    }
+    setEditingId(null);
+    setEditExpression('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditExpression('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
 
   if (implicitFunctions.length === 0) {
     return (
@@ -49,14 +87,29 @@ export const ImplicitList: React.FC = () => {
             onClick={() => toggleImplicitVisibility(fn.id)}
           />
 
-          {/* 表达式 */}
-          <button
-            className={`text-sm flex-1 text-left font-mono truncate transition-all ${
-              fn.visible ? 'text-white' : 'text-gray-500 line-through'
-            }`}
-          >
-            {fn.expression}
-          </button>
+          {/* 表达式 / 编辑输入框 */}
+          {editingId === fn.id ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editExpression}
+              onChange={(e) => setEditExpression(e.target.value)}
+              onBlur={saveEdit}
+              onKeyDown={handleKeyDown}
+              className="flex-1 text-sm font-mono bg-white/10 px-2 py-1 rounded border border-green-400/50 focus:outline-none focus:border-green-400 text-white"
+              placeholder="输入表达式"
+            />
+          ) : (
+            <button
+              className={`text-sm flex-1 text-left font-mono truncate transition-all ${
+                fn.visible ? 'text-white' : 'text-gray-500 line-through'
+              }`}
+              onClick={() => startEditing(fn)}
+              title="点击编辑"
+            >
+              {fn.expression}
+            </button>
+          )}
 
           {/* 操作按钮 */}
           <div className="flex items-center gap-1 flex-shrink-0">

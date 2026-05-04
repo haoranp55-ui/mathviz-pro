@@ -102,6 +102,7 @@ interface AppState {
   toggleParametricDerivative: (id: string) => void;
   toggleParametricKeyPoints: (id: string) => void;
   updateParametricParameter: (functionId: string, paramName: string, field: 'min' | 'max' | 'step' | 'defaultValue', value: number) => void;
+  updateParametricExpression: (id: string, expression: string) => void;
 
   // 隐函数 Actions
   addImplicitFunction: (expression: string) => void;
@@ -110,6 +111,7 @@ interface AppState {
   toggleImplicitKeyPoints: (id: string) => void;
   toggleImplicitGPURendering: (id: string) => void;  // 函数级别 GPU 开关
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => void;
+  updateImplicitExpression: (id: string, expression: string) => void;
 
   // 极坐标函数 Actions
   addPolarFunction: (expression: string) => void;
@@ -119,6 +121,7 @@ interface AppState {
   togglePolarGPURendering: (id: string) => void;  // 函数级别 GPU 开关
   updatePolarParameter: (functionId: string, paramName: string, value: number) => void;
   updatePolarThetaRange: (functionId: string, thetaMin: number, thetaMax: number) => void;
+  updatePolarExpression: (id: string, expression: string) => void;
 
   // 滑钮状态（用于优化隐函数渲染性能）
   isSliderActive: boolean;
@@ -224,9 +227,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         ),
       });
     } else {
+      // 保留原有颜色和 ID
+      const { color, id: _, ...restResult } = result;
       set({
         functions: functions.map(f =>
-          f.id === id ? { ...f, ...result, expression, error: undefined } : f
+          f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
         ),
       });
     }
@@ -303,12 +308,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    // 创建下载链接
-    const dataUrl = canvasRef.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = filename;
-    link.href = dataUrl;
-    link.click();
+    try {
+      // 创建下载链接
+      const dataUrl = canvasRef.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      link.click();
+    } catch (e) {
+      console.error('Failed to export image:', e);
+      alert('导出图片失败，请重试');
+    }
   },
 
   // 参数化函数 Actions
@@ -424,6 +434,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         f.id === id ? { ...f, showKeyPoints: !f.showKeyPoints } : f
       ),
     });
+  },
+
+  updateParametricExpression: (id: string, expression: string) => {
+    const { parametricFunctions } = get();
+    const result = parseParametricExpression(expression);
+    const fn = parametricFunctions.find(f => f.id === id);
+
+    if (!fn) return;
+
+    if (result instanceof Error) {
+      set({
+        parametricFunctions: parametricFunctions.map(f =>
+          f.id === id ? { ...f, expression, error: result.message } : f
+        ),
+      });
+    } else {
+      // 保留原有颜色和 ID
+      const { color, id: _, ...restResult } = result;
+      set({
+        parametricFunctions: parametricFunctions.map(f =>
+          f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
+        ),
+      });
+    }
   },
 
   // 标记点 Actions
@@ -633,6 +667,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  updateImplicitExpression: (id: string, expression: string) => {
+    const { implicitFunctions } = get();
+    const result = parseImplicitExpression(expression);
+    const fn = implicitFunctions.find(f => f.id === id);
+
+    if (!fn) return;
+
+    if (result instanceof Error) {
+      set({
+        implicitFunctions: implicitFunctions.map(f =>
+          f.id === id ? { ...f, expression, error: result.message } : f
+        ),
+      });
+    } else {
+      // 保留原有颜色和 ID
+      const { color, id: _, ...restResult } = result;
+      set({
+        implicitFunctions: implicitFunctions.map(f =>
+          f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
+        ),
+      });
+    }
+  },
+
   // 极坐标函数 Actions
   addPolarFunction: (expression: string) => {
     const { polarFunctions } = get();
@@ -726,6 +784,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         };
       }),
     });
+  },
+
+  updatePolarExpression: (id: string, expression: string) => {
+    const { polarFunctions } = get();
+    const result = parsePolarExpression(expression);
+    const fn = polarFunctions.find(f => f.id === id);
+
+    if (!fn) return;
+
+    if (result instanceof Error) {
+      set({
+        polarFunctions: polarFunctions.map(f =>
+          f.id === id ? { ...f, expression, error: result.message } : f
+        ),
+      });
+    } else {
+      // 保留原有颜色、ID 和 theta 范围
+      const { color, id: _, thetaMin, thetaMax, ...restResult } = result;
+      set({
+        polarFunctions: polarFunctions.map(f =>
+          f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
+        ),
+      });
+    }
   },
 
   setSliderActive: (active: boolean) => {

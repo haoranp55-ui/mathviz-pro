@@ -12,10 +12,10 @@ import { getWebGLManager, isWebGLAvailable } from '../../lib/webgl/implicitRende
 import { getPolarWebGLManager, isPolarWebGLAvailable } from '../../lib/webgl/polarRendererManager';
 import { createScales, createRenderContext } from '../../lib/transformer';
 import { detectKeyPoints } from '../../lib/keyPointDetector';
-import { detectImplicitKeyPoints } from '../../lib/implicitKeyPointDetector';
+// deleted import '../../lib/implicitKeyPointDetector';
 import { drawKeyPoints, drawKeyPointTooltip, findHoveredKeyPoint } from './KeyPointRenderer';
 import { createDerivativeFunction } from '../../lib/derivative';
-import { SAMPLE_PRESETS } from '../../types';
+import { SAMPLE_PRESETS, POLAR_SAMPLE_PRESETS } from '../../types';
 import type { ContourSegment, KeyPoint } from '../../types';
 
 /**
@@ -142,7 +142,7 @@ export const FunctionCanvas: React.FC = () => {
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
 
-      const points = cachedSample(fn.compiled, `normal-${fn.id}`, {
+      const points = cachedSample(fn.compiled, `normal-${fn.id}-${fn.expression}`, {
         xMin: sampleXMin,
         xMax: sampleXMax,
         sampleCount: dynamicSampleCount,
@@ -156,7 +156,7 @@ export const FunctionCanvas: React.FC = () => {
       // 绘制导数曲线
       if (fn.showDerivative) {
         const derivativeFn = createDerivativeFunction(fn.compiled);
-        const derivativePoints = cachedSample(derivativeFn, `normal-${fn.id}-deriv`, {
+        const derivativePoints = cachedSample(derivativeFn, `normal-${fn.id}-${fn.expression}-deriv`, {
           xMin: sampleXMin,
           xMax: sampleXMax,
           sampleCount: dynamicSampleCount,
@@ -183,7 +183,7 @@ export const FunctionCanvas: React.FC = () => {
 
       const boundFn = (x: number) => fn.compiled(x, currentParams);
 
-      const points = cachedSample(boundFn, `parametric-${fn.id}`, {
+      const points = cachedSample(boundFn, `parametric-${fn.id}-${fn.expression}`, {
         xMin: sampleXMin,
         xMax: sampleXMax,
         sampleCount: dynamicSampleCount,
@@ -197,7 +197,7 @@ export const FunctionCanvas: React.FC = () => {
       // 绘制导数曲线
       if (fn.showDerivative) {
         const derivativeFn = createDerivativeFunction(boundFn);
-        const derivativePoints = cachedSample(derivativeFn, `parametric-${fn.id}-deriv`, {
+        const derivativePoints = cachedSample(derivativeFn, `parametric-${fn.id}-${fn.expression}-deriv`, {
           xMin: sampleXMin,
           xMax: sampleXMax,
           sampleCount: dynamicSampleCount,
@@ -286,7 +286,7 @@ export const FunctionCanvas: React.FC = () => {
         boundFn,
         sampleViewPort,
         gridSize,
-        `implicit-cpu-${fn.id}`,
+        `implicit-cpu-${fn.id}-${fn.expression}`,
         currentParams
       );
 
@@ -295,16 +295,6 @@ export const FunctionCanvas: React.FC = () => {
 
       // 绘制隐函数曲线
       drawImplicitCurve(ctx, segments, fn.color, viewPort, canvasSize, aspectRatioMode);
-
-      // 检测隐函数关键点（防抖提交）
-      if (fn.showKeyPoints) {
-        const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-        if (keyPointsChanged(fn.id, implicitKps)) {
-          setKeyPoints(fn.id, implicitKps);
-        }
-      } else if (keyPointsChanged(fn.id, [])) {
-        setKeyPoints(fn.id, []);
-      }
     }
 
     // GPU 渲染的函数也需要低分辨率采样用于悬停检测
@@ -325,26 +315,17 @@ export const FunctionCanvas: React.FC = () => {
         yMax: renderCtx.sampleYMax,
       };
 
-      // 使用低分辨率网格仅用于悬停检测
+      // 使用中等分辨率网格用于悬停检测（与 GPU 渲染匹配）
+      const hoverGridSize = Math.min(128, Math.max(64, Math.floor(canvasSize.width / 8)));
       const segments = fastRenderWithCache(
         boundFn,
         sampleViewPort,
-        48,
-        `implicit-hover-${fn.id}`,
+        hoverGridSize,
+        `implicit-hover-${fn.id}-${fn.expression}`,
         currentParams
       );
 
       implicitSegmentsRef.current.set(fn.id, segments);
-
-      // 检测隐函数关键点（防抖提交）
-      if (fn.showKeyPoints) {
-        const implicitKps = detectImplicitKeyPoints(segments, fn.id, sampleViewPort);
-        if (keyPointsChanged(fn.id, implicitKps)) {
-          setKeyPoints(fn.id, implicitKps);
-        }
-      } else if (keyPointsChanged(fn.id, [])) {
-        setKeyPoints(fn.id, []);
-      }
     }
 
     // 渲染极坐标函数曲线
@@ -365,6 +346,7 @@ export const FunctionCanvas: React.FC = () => {
       const glCanvas = polarWebGLManager.renderToCanvas(
         gpuPolarFunctions,
         viewPort,
+        samplePreset,
         {
           offsetX: renderCtx.offsetX,
           offsetY: renderCtx.offsetY,
@@ -407,7 +389,12 @@ export const FunctionCanvas: React.FC = () => {
         currentParams[p.name] = p.currentValue;
       }
 
-      const steps = isSliderActive ? 60 : fn.thetaSteps;
+      // 动态计算采样点数
+      const presetStepsPerRadian = POLAR_SAMPLE_PRESETS[samplePreset].stepsPerRadian;
+      const stepsPerRadian = fn.stepsPerRadian ?? presetStepsPerRadian;
+      const steps = isSliderActive
+        ? Math.max(60, Math.ceil((fn.thetaMax - fn.thetaMin) * 16))  // 滑动时降低精度
+        : Math.max(60, Math.min(2000, Math.ceil((fn.thetaMax - fn.thetaMin) * stepsPerRadian)));
       const polarPoints = samplePolarFunctionFast(fn.compiled, currentParams, fn.thetaMin, fn.thetaMax, steps);
 
       const xArray = new Float64Array(polarPoints.length);
@@ -421,6 +408,8 @@ export const FunctionCanvas: React.FC = () => {
       const points = { x: xArray, y: yArray };
       drawCurve(ctx, points, fn.color, viewPort, canvasSize, aspectRatioMode);
       functionPointsRef.current.set(`polar-${fn.id}`, points);
+
+
     }
 
     // 绘制关键点（按函数单独控制）

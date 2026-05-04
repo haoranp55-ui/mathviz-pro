@@ -18,6 +18,15 @@ export const SAMPLE_PRESETS: Record<SamplePreset, { label: string; multiplier: n
 // maxDepth: 递归细分深度，越大越精细
 // minPixelSize: 最小像素大小，越小越精细
 // cellMultiplier: 初始单元格乘数，越大越粗略但更快
+// 极坐标采样预设
+// stepsPerRadian: 每弧度采样密度，越大越精细
+export const POLAR_SAMPLE_PRESETS: Record<SamplePreset, { label: string; stepsPerRadian: number }> = {
+  fast: { label: '快速', stepsPerRadian: 16 },
+  normal: { label: '标准', stepsPerRadian: 32 },
+  fine: { label: '精细', stepsPerRadian: 48 },
+  ultra: { label: '极致', stepsPerRadian: 64 },
+};
+
 export const IMPLICIT_SAMPLE_PRESETS: Record<SamplePreset, { label: string; maxDepth: number; minPixelSize: number; cellMultiplier: number }> = {
   fast: { label: '快速', maxDepth: 3, minPixelSize: 4, cellMultiplier: 15 },
   normal: { label: '标准', maxDepth: 5, minPixelSize: 2, cellMultiplier: 10 },
@@ -246,6 +255,7 @@ export interface PolarFunction {
   thetaMin: number;             // θ 最小值，默认 0
   thetaMax: number;             // θ 最大值，默认 2π
   thetaSteps: number;           // 采样点数，默认 360
+  stepsPerRadian?: number;     // 每弧度采样密度，默认 32
 }
 
 // 侧边栏 Tab 类型（扩展）

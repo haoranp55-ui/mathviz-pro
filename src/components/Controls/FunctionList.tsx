@@ -1,5 +1,5 @@
 // src/components/Controls/FunctionList.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { EmptyState } from '../UI/EmptyState';
 
@@ -13,9 +13,21 @@ export const FunctionList: React.FC = () => {
     addMarkedPoint,
     removeMarkedPoint,
     updateMarkedPoint,
+    updateFunctionExpression,
   } = useAppStore();
 
   const [newPointX, setNewPointX] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editExpression, setEditExpression] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 自动聚焦编辑输入框
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
 
   if (functions.length === 0) {
     return (
@@ -32,6 +44,32 @@ export const FunctionList: React.FC = () => {
     if (!isNaN(x)) {
       addMarkedPoint(functionId, x, false);
       setNewPointX({ ...newPointX, [functionId]: '' });
+    }
+  };
+
+  const startEditing = (fn: { id: string; expression: string }) => {
+    setEditingId(fn.id);
+    setEditExpression(fn.expression);
+  };
+
+  const saveEdit = () => {
+    if (editingId && editExpression.trim()) {
+      updateFunctionExpression(editingId, editExpression.trim());
+    }
+    setEditingId(null);
+    setEditExpression('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditExpression('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
     }
   };
 
@@ -52,22 +90,37 @@ export const FunctionList: React.FC = () => {
               {/* 颜色指示条 - 加宽并发光 */}
               <div
                 className="w-1.5 h-7 rounded-full flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-y-110"
-                style={{ 
-                  backgroundColor: fn.color, 
+                style={{
+                  backgroundColor: fn.color,
                   boxShadow: `0 0 10px ${fn.color}60, 0 0 4px ${fn.color}40`
                 }}
                 onClick={() => toggleFunctionVisibility(fn.id)}
               />
 
-              {/* 函数表达式 */}
-              <button
-                className={`text-sm flex-1 text-left font-mono truncate transition-all ${
-                  fn.visible ? 'text-white' : 'text-gray-500 line-through'
-                }`}
-              >
-                <span className="text-cyan-400/80">y = </span>
-                {fn.expression}
-              </button>
+              {/* 函数表达式 / 编辑输入框 */}
+              {editingId === fn.id ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={editExpression}
+                  onChange={(e) => setEditExpression(e.target.value)}
+                  onBlur={saveEdit}
+                  onKeyDown={handleKeyDown}
+                  className="flex-1 text-sm font-mono bg-white/10 px-2 py-1 rounded border border-blue-400/50 focus:outline-none focus:border-blue-400 text-white"
+                  placeholder="输入表达式"
+                />
+              ) : (
+                <button
+                  className={`text-sm flex-1 text-left font-mono truncate transition-all ${
+                    fn.visible ? 'text-white' : 'text-gray-500 line-through'
+                  }`}
+                  onClick={() => startEditing(fn)}
+                  title="点击编辑"
+                >
+                  <span className="text-cyan-400/80">y = </span>
+                  {fn.expression}
+                </button>
+              )}
 
               {/* 操作按钮组 */}
               <div className="flex items-center gap-1 flex-shrink-0">

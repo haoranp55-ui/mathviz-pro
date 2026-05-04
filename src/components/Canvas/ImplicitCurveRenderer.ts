@@ -1,17 +1,11 @@
 // src/components/Canvas/ImplicitCurveRenderer.ts
 import type { ContourSegment, ViewPort, CanvasSize, AspectRatioMode } from '../../types';
 import { createScales } from '../../lib/transformer';
-import {
-  connectSegmentsSmooth,
-  catmullRomSpline
-} from '../../lib/implicitSamplerInterval';
 
 const CURVE_LINE_WIDTH = 2.5;
 
 /**
- * 绘制隐函数曲线（平滑版本）
- *
- * 使用 Catmull-Rom 样条插值生成平滑曲线
+ * 绘制隐函数曲线（直接绘制线段，无缺口问题）
  */
 export function drawImplicitCurve(
   ctx: CanvasRenderingContext2D,
@@ -35,67 +29,47 @@ export function drawImplicitCurve(
   ctx.shadowColor = color;
   ctx.shadowBlur = 6;
 
-  // 将线段连接成连续路径
-  const paths = connectSegmentsSmooth(segments);
+  // 直接绘制所有线段（使用单个路径，确保连接）
+  ctx.beginPath();
+  for (const seg of segments) {
+    const px1 = xScale(seg.x1);
+    const py1 = yScale(seg.y1);
+    const px2 = xScale(seg.x2);
+    const py2 = yScale(seg.y2);
 
-  for (const pathPoints of paths) {
-    if (pathPoints.length < 2) continue;
-
-    // 使用 Catmull-Rom 样条平滑
-    const smoothPoints = catmullRomSpline(pathPoints, 8);
-
-    ctx.beginPath();
-
-    let started = false;
-    for (const point of smoothPoints) {
-      const px = xScale(point.x);
-      const py = yScale(point.y);
-
-      // 跳过超出画布太多的点（只检查 X 方向）
-      if (px < -1000 || px > canvasSize.width + 1000) {
-        continue;
-      }
-
-      if (!started) {
-        ctx.moveTo(px, py);
-        started = true;
-      } else {
-        ctx.lineTo(px, py);
-      }
+    // 跳过完全超出画布的线段
+    if (
+      (px1 < -100 && px2 < -100) ||
+      (px1 > canvasSize.width + 100 && px2 > canvasSize.width + 100)
+    ) {
+      continue;
     }
 
-    ctx.stroke();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
   }
+  ctx.stroke();
 
   // 清除阴影再画一遍增强
   ctx.shadowBlur = 0;
+  ctx.beginPath();
+  for (const seg of segments) {
+    const px1 = xScale(seg.x1);
+    const py1 = yScale(seg.y1);
+    const px2 = xScale(seg.x2);
+    const py2 = yScale(seg.y2);
 
-  for (const pathPoints of paths) {
-    if (pathPoints.length < 2) continue;
-
-    const smoothPoints = catmullRomSpline(pathPoints, 8);
-
-    ctx.beginPath();
-
-    let started = false;
-    for (const point of smoothPoints) {
-      const px = xScale(point.x);
-      const py = yScale(point.y);
-
-      if (px < -1000 || px > canvasSize.width + 1000) {
-        continue;
-      }
-
-      if (!started) {
-        ctx.moveTo(px, py);
-        started = true;
-      } else {
-        ctx.lineTo(px, py);
-      }
+    if (
+      (px1 < -100 && px2 < -100) ||
+      (px1 > canvasSize.width + 100 && px2 > canvasSize.width + 100)
+    ) {
+      continue;
     }
 
-    ctx.stroke();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
   }
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -129,10 +103,9 @@ export function drawImplicitCurveSimple(
     const px2 = xScale(seg.x2);
     const py2 = yScale(seg.y2);
 
-    // 只检查 X 方向
     if (
-      (px1 < -100 || px1 > canvasSize.width + 100) &&
-      (px2 < -100 || px2 > canvasSize.width + 100)
+      (px1 < -100 && px2 < -100) ||
+      (px1 > canvasSize.width + 100 && px2 > canvasSize.width + 100)
     ) {
       continue;
     }
@@ -216,36 +189,25 @@ export function drawImplicitCurveWithGlow(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // 使用平滑路径
-  const paths = connectSegmentsSmooth(segments);
+  // 直接绘制所有线段
+  ctx.beginPath();
+  for (const seg of segments) {
+    const px1 = xScale(seg.x1);
+    const py1 = yScale(seg.y1);
+    const px2 = xScale(seg.x2);
+    const py2 = yScale(seg.y2);
 
-  for (const pathPoints of paths) {
-    if (pathPoints.length < 2) continue;
-
-    const smoothPoints = catmullRomSpline(pathPoints, 8);
-
-    ctx.beginPath();
-
-    let started = false;
-    for (const point of smoothPoints) {
-      const px = xScale(point.x);
-      const py = yScale(point.y);
-
-      // 只检查 X 方向
-      if (px < -1000 || px > canvasSize.width + 1000) {
-        continue;
-      }
-
-      if (!started) {
-        ctx.moveTo(px, py);
-        started = true;
-      } else {
-        ctx.lineTo(px, py);
-      }
+    if (
+      (px1 < -100 && px2 < -100) ||
+      (px1 > canvasSize.width + 100 && px2 > canvasSize.width + 100)
+    ) {
+      continue;
     }
 
-    ctx.stroke();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
   }
+  ctx.stroke();
 
   ctx.restore();
 }
