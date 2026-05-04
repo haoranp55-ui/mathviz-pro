@@ -210,8 +210,6 @@ export interface IntegralResult {
 // 微分方程系统
 // ============================================
 
-export type SystemType = 'function' | 'differential';
-
 export interface DifferentialEquation {
   id: string;
   expression: string;           // "dy/dx = x^2 + y" 或 "y' = sin(x)*y"
@@ -260,3 +258,34 @@ export interface PolarFunction {
 
 // 侧边栏 Tab 类型（扩展）
 export type SidebarTab = 'normal' | 'parametric' | 'implicit' | 'polar';
+
+// ============================================
+// 3D 函数支持 z = f(x, y)
+// ============================================
+
+// 系统类型（2D / 3D 系统切换）
+export type PlotSystemType = '2d' | '3d';
+
+export interface ThreeDFunction {
+  id: string;
+  expression: string;                           // "sin(sqrt(x*x + y*y))"
+  compiled: (x: number, y: number) => number;   // z = f(x, y)
+  color: string;
+  visible: boolean;
+  wireframe: boolean;                           // 线框模式
+  resolution: number;                           // 网格分段数，默认 64
+  error?: string;
+}
+
+export const THREE_D_RESOLUTION_PRESETS = [32, 64, 96, 128, 192, 256] as const;
+export const THREE_D_DEFAULT_RESOLUTION = 64;
+
+export const THREE_D_MAX_FUNCTIONS = 6;
+
+// 全局采样精度 → 3D 默认分辨率映射
+export const THREE_D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
+  fast: 32,
+  normal: 64,
+  fine: 128,
+  ultra: 256,
+};

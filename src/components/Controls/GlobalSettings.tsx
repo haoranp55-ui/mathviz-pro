@@ -1,7 +1,8 @@
 // src/components/Controls/GlobalSettings.tsx
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
+import { getThreeDRenderManager } from '../../lib/threeD/threeDRenderManager';
 import type { SamplePreset } from '../../types';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
@@ -18,12 +19,23 @@ export const GlobalSettings: React.FC = () => {
     viewPort,
     showGrid,
     samplePreset,
+    systemType,
     setViewPort,
     toggleGrid,
     setSamplePreset,
+    bumpThreeDVersion,
     resetView,
     exportImage,
   } = useAppStore();
+
+  const handleReset = useCallback(() => {
+    if (systemType === '3d') {
+      getThreeDRenderManager().resetCamera();
+      bumpThreeDVersion();
+    } else {
+      resetView();
+    }
+  }, [systemType, resetView, bumpThreeDVersion]);
 
   return (
     <div className="p-4 border-t border-white/[0.06] space-y-4 relative glass-subtle">
@@ -139,7 +151,7 @@ export const GlobalSettings: React.FC = () => {
       {/* 操作按钮 */}
       <div className="space-y-2 pt-1">
         <button
-          onClick={resetView}
+          onClick={handleReset}
           className="w-full py-2.5 text-xs text-gray-300 btn-glass-secondary active:scale-[0.98] flex items-center justify-center gap-2"
         >
           <span className="text-cyan-400">↻</span>

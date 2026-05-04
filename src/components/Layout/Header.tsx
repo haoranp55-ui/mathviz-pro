@@ -1,9 +1,12 @@
 // src/components/Layout/Header.tsx
 import React, { useState } from 'react';
 import { FunctionHelp } from '../Controls/FunctionHelp';
+import { useAppStore } from '../../store/useAppStore';
 
 export const Header: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
+  const systemType = useAppStore(s => s.systemType);
+  const setSystemType = useAppStore(s => s.setSystemType);
 
   return (
     <>
@@ -47,6 +50,30 @@ export const Header: React.FC = () => {
             </h1>
             <span className="text-[10px] text-gray-500 tracking-widest -mt-0.5 uppercase">Mathematical Visualization</span>
           </div>
+        </div>
+
+        {/* 系统切换器 - 居中 */}
+        <div className="flex items-center gap-1 p-0.5 rounded-xl border border-white/[0.06] bg-white/[0.02] relative z-10">
+          <button
+            onClick={() => setSystemType('2d')}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+              systemType === '2d'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            2D 系统
+          </button>
+          <button
+            onClick={() => setSystemType('3d')}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+              systemType === '3d'
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            3D 系统
+          </button>
         </div>
 
         <div className="flex items-center gap-2 relative z-10">

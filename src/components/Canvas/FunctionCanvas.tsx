@@ -16,6 +16,7 @@ import { detectKeyPoints } from '../../lib/keyPointDetector';
 import { drawKeyPoints, drawKeyPointTooltip, findHoveredKeyPoint } from './KeyPointRenderer';
 import { createDerivativeFunction } from '../../lib/derivative';
 import { SAMPLE_PRESETS, POLAR_SAMPLE_PRESETS } from '../../types';
+import { getThreeDRenderManager } from '../../lib/threeD/threeDRenderManager';
 import type { ContourSegment, KeyPoint } from '../../types';
 
 /**
@@ -70,6 +71,9 @@ export const FunctionCanvas: React.FC = () => {
     showKeyPoints,
     selectedFunctionId,
     evaluateX,
+    systemType,
+    threeDFunctions,
+    threeDVersion,
     setHoverPoint,
     setDragging,
     setViewPort,
@@ -83,6 +87,42 @@ export const FunctionCanvas: React.FC = () => {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // 3D 渲染缓存：采用 Three.js 官方 "Rendering on Demand" 模式
+  const threeDCacheRef = useRef<HTMLCanvasElement | null>(null);
+  const threeDRenderRequested = useRef(false);
+
+  // 请求 3D 重渲染（渲染完直接画到主 canvas，不依赖 React 重渲染）
+  const request3DRender = useCallback(() => {
+    if (threeDRenderRequested.current) return;
+    threeDRenderRequested.current = true;
+    requestAnimationFrame(() => {
+      threeDRenderRequested.current = false;
+      const ctx = getContext();
+      if (!ctx || canvasSize.width === 0) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const threeDManager = getThreeDRenderManager();
+      const visible3D = threeDFunctions.filter(f => f.visible && !f.error);
+      const glCanvas = threeDManager.renderToCanvas(visible3D, {
+        width: Math.round(canvasSize.width * dpr),
+        height: Math.round(canvasSize.height * dpr),
+      });
+      threeDCacheRef.current = glCanvas;
+
+      // 直接画到主 canvas，确保即时刷新
+      clearCanvas();
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+      if (glCanvas) {
+        ctx.drawImage(glCanvas, 0, 0);
+      }
+    });
+  }, [canvasSize, threeDFunctions, getContext, clearCanvas]);
+
+  // 3D 函数/画布/系统切换时触发重渲染
+  useEffect(() => {
+    if (systemType === '3d') request3DRender();
+  }, [threeDFunctions, canvasSize.width, canvasSize.height, systemType, threeDVersion, request3DRender]);
   // 缓存关键点哈希，避免 RAF 内频繁 setKeyPoints 触发不必要的重渲染
   const lastKeyPointsHashRef = useRef<Map<string, string>>(new Map());
 
@@ -119,6 +159,16 @@ export const FunctionCanvas: React.FC = () => {
     // 填充背景
     ctx.fillStyle = '#0F172A';
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+    // 3D 系统渲染路径（持续循环但只做 drawImage，开销极低）
+    if (systemType === '3d') {
+      if (threeDCacheRef.current) {
+        ctx.drawImage(threeDCacheRef.current, 0, 0);
+      }
+      // 3D 模式需要持续自循环以保证即时响应（request3DRender 负责实际 Three.js 渲染）
+      animationFrameRef.current = requestAnimationFrame(render);
+      return; // 跳过所有 2D 渲染
+    }
 
     // 创建统一的渲染上下文（解决采样范围和渲染范围不同步的问题）
     const renderCtx = createRenderContext(viewPort, canvasSize, aspectRatioMode);
@@ -640,7 +690,7 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, setKeyPoints]);
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, systemType, threeDFunctions, setKeyPoints]);
 
   // 使用 requestAnimationFrame 渲染
   useEffect(() => {
@@ -667,6 +717,30 @@ export const FunctionCanvas: React.FC = () => {
     const py = e.clientY - rect.top;
 
     mousePosRef.current = { x: px, y: py };
+
+    // 3D 模式：轨道旋转 / 平移
+    if (systemType === '3d') {
+      if (lastMousePosRef.current) {
+        const dx = px - lastMousePosRef.current.x;
+        const dy = py - lastMousePosRef.current.y;
+        const mgr = getThreeDRenderManager();
+        let moved = false;
+        if (e.buttons === 1) {
+          if (e.shiftKey) {
+            mgr.handlePan(dx, dy);
+          } else {
+            mgr.handleMouseDrag(dx, dy);
+          }
+          moved = true;
+        } else if (e.buttons === 2) {
+          mgr.handlePan(dx, dy);
+          moved = true;
+        }
+        if (moved) request3DRender();
+      }
+      lastMousePosRef.current = { x: px, y: py };
+      return;
+    }
 
     if (interaction.isDragging && lastMousePosRef.current) {
       const scales = createScales(viewPort, canvasSize, aspectRatioMode);
@@ -814,7 +888,7 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     setHoverPoint(closestPoint ? { x: closestPoint.x, y: closestPoint.y, functionId: closestPoint.functionId } : null);
-  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint]);
+  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint, systemType, request3DRender]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -825,8 +899,11 @@ export const FunctionCanvas: React.FC = () => {
     const py = e.clientY - rect.top;
 
     lastMousePosRef.current = { x: px, y: py };
+
+    if (systemType === '3d') return; // 3D 模式不触发 2D drag
+
     setDragging(true, { x: px, y: py });
-  }, [canvasRef, setDragging]);
+  }, [canvasRef, setDragging, systemType]);
 
   const handleMouseUp = useCallback(() => {
     lastMousePosRef.current = null;
@@ -849,6 +926,18 @@ export const FunctionCanvas: React.FC = () => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
 
+      // 3D 模式：光标中心缩放
+      if (systemType === '3d') {
+        const rect = canvas.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const ndcX = (px / canvasSize.width) * 2 - 1;
+        const ndcY = -(py / canvasSize.height) * 2 + 1;
+        getThreeDRenderManager().handleZoom(e.deltaY, ndcX, ndcY);
+        request3DRender();
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
@@ -869,7 +958,7 @@ export const FunctionCanvas: React.FC = () => {
 
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
-  }, [canvasRef, canvasSize, viewPort, aspectRatioMode, setViewPort]);
+  }, [canvasRef, canvasSize, viewPort, aspectRatioMode, setViewPort, systemType, request3DRender]);
 
   const handleDoubleClick = useCallback(() => {
     useAppStore.getState().resetView();
@@ -885,6 +974,7 @@ export const FunctionCanvas: React.FC = () => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={(e) => { if (systemType === '3d') e.preventDefault(); }}
       />
     </div>
   );

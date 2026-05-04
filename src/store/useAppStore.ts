@@ -14,14 +14,19 @@ import type {
   ImplicitFunction,
   PolarFunction,
   SidebarTab,
+  ThreeDFunction,
+  PlotSystemType,
 } from '../types';
 import {
   DEFAULT_VIEWPORT,
   FUNCTION_COLORS,
+  THREE_D_MAX_FUNCTIONS,
+  THREE_D_PRESET_RESOLUTION,
 } from '../types';
 import { parseExpression, parseParametricExpression } from '../lib/parser';
 import { parseImplicitExpression } from '../lib/implicitParser';
 import { parsePolarExpression } from '../lib/polarParser';
+import { parseThreeDExpression } from '../lib/threeDParser';
 import { updateParameterValue } from '../lib/paramParser';
 import { numericalDerivative } from '../lib/derivative';
 
@@ -37,6 +42,12 @@ interface AppState {
 
   // 极坐标函数列表（最多3个）
   polarFunctions: PolarFunction[];
+
+  // 系统类型: 2D 或 3D
+  systemType: PlotSystemType;
+
+  // 3D 函数列表（最多6个）
+  threeDFunctions: ThreeDFunction[];
 
   // 当前侧边栏 Tab
   sidebarTab: SidebarTab;
@@ -127,6 +138,19 @@ interface AppState {
   isSliderActive: boolean;
   setSliderActive: (active: boolean) => void;
 
+  // 3D 渲染版本号（用于外部触发重渲染，如重置视图）
+  threeDVersion: number;
+
+  // 3D 函数 Actions
+  setSystemType: (systemType: PlotSystemType) => void;
+  addThreeDFunction: (expression: string) => void;
+  removeThreeDFunction: (id: string) => void;
+  toggleThreeDVisibility: (id: string) => void;
+  toggleWireframe: (id: string) => void;
+  updateThreeDResolution: (id: string, resolution: number) => void;
+  updateThreeDExpression: (id: string, expression: string) => void;
+  bumpThreeDVersion: () => void;
+
   // 标记点 Actions（普通函数和参数化函数共用）
   addMarkedPoint: (functionId: string, x: number, isParametric: boolean) => void;
   removeMarkedPoint: (functionId: string, pointId: string, isParametric: boolean) => void;
@@ -138,6 +162,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   parametricFunctions: [],
   implicitFunctions: [],
   polarFunctions: [],
+  systemType: '2d',
+  threeDFunctions: [],
+  threeDVersion: 0,
   sidebarTab: 'normal',
   viewPort: { ...DEFAULT_VIEWPORT },
   interaction: {
@@ -264,7 +291,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setSamplePreset: (preset: SamplePreset) => {
-    set({ samplePreset: preset });
+    const newRes = THREE_D_PRESET_RESOLUTION[preset];
+    set({
+      samplePreset: preset,
+      // 同步 3D 函数分辨率
+      threeDFunctions: get().threeDFunctions.map(f => ({ ...f, resolution: newRes })),
+    });
   },
 
   setAspectRatioMode: (mode: AspectRatioMode) => {
@@ -810,7 +842,109 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  bumpThreeDVersion: () => {
+    set({ threeDVersion: get().threeDVersion + 1 });
+  },
+
   setSliderActive: (active: boolean) => {
     set({ isSliderActive: active });
+  },
+
+  // 3D 函数 Actions
+  setSystemType: (systemType: PlotSystemType) => {
+    set({ systemType });
+  },
+
+  addThreeDFunction: (expression: string) => {
+    const { threeDFunctions, samplePreset } = get();
+    if (threeDFunctions.length >= THREE_D_MAX_FUNCTIONS) return;
+
+    const colorIndex = threeDFunctions.length % FUNCTION_COLORS.length;
+    const color = FUNCTION_COLORS[colorIndex];
+    const defaultRes = THREE_D_PRESET_RESOLUTION[samplePreset];
+
+    const result = parseThreeDExpression(expression);
+
+    if (result instanceof Error) {
+      const errorFn: ThreeDFunction = {
+        id: uuidv4(),
+        expression,
+        compiled: () => NaN,
+        color,
+        visible: true,
+        wireframe: false,
+        resolution: defaultRes,
+        error: result.message,
+      };
+      set({ threeDFunctions: [...threeDFunctions, errorFn] });
+    } else {
+      set({
+        threeDFunctions: [
+          ...threeDFunctions,
+          {
+            ...result,
+            expression,
+            id: uuidv4(),
+            color,
+            visible: true,
+            wireframe: false,
+            resolution: defaultRes,
+          },
+        ],
+      });
+    }
+  },
+
+  removeThreeDFunction: (id: string) => {
+    set({
+      threeDFunctions: get().threeDFunctions.filter(f => f.id !== id),
+    });
+  },
+
+  toggleThreeDVisibility: (id: string) => {
+    set({
+      threeDFunctions: get().threeDFunctions.map(f =>
+        f.id === id ? { ...f, visible: !f.visible } : f,
+      ),
+    });
+  },
+
+  toggleWireframe: (id: string) => {
+    set({
+      threeDFunctions: get().threeDFunctions.map(f =>
+        f.id === id ? { ...f, wireframe: !f.wireframe } : f,
+      ),
+    });
+  },
+
+  updateThreeDResolution: (id: string, resolution: number) => {
+    set({
+      threeDFunctions: get().threeDFunctions.map(f =>
+        f.id === id ? { ...f, resolution } : f,
+      ),
+    });
+  },
+
+  updateThreeDExpression: (id: string, expression: string) => {
+    const { threeDFunctions } = get();
+    const result = parseThreeDExpression(expression);
+    const fn = threeDFunctions.find(f => f.id === id);
+
+    if (!fn) return;
+
+    if (result instanceof Error) {
+      set({
+        threeDFunctions: threeDFunctions.map(f =>
+          f.id === id ? { ...f, expression, error: result.message } : f,
+        ),
+      });
+    } else {
+      const { compiled } = result;
+      set({
+        threeDFunctions: threeDFunctions.map(f =>
+          f.id === id ? { ...f, compiled, expression, error: undefined } : f,
+        ),
+      });
+    }
   },
 }));

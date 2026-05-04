@@ -13,10 +13,13 @@ import { ImplicitList } from '../Controls/ImplicitList';
 import { PolarInput } from '../Controls/PolarInput';
 import { PolarList } from '../Controls/PolarList';
 import { GlobalSettings } from '../Controls/GlobalSettings';
+import { ThreeDInput } from '../Controls/ThreeDInput';
+import { ThreeDList } from '../Controls/ThreeDList';
 import { useAppStore } from '../../store/useAppStore';
 
 export const MainLayout: React.FC = () => {
   const sidebarTab = useAppStore(state => state.sidebarTab);
+  const systemType = useAppStore(state => state.systemType);
 
   return (
     <div className="w-full h-full flex flex-col bg-canvas-bg relative overflow-hidden">
@@ -80,31 +83,51 @@ export const MainLayout: React.FC = () => {
             }}
           />
 
-          <SidebarTabs />
-
-          <div className="flex-1 overflow-hidden relative z-10">
-            {sidebarTab === 'normal' ? (
-              <>
-                <FunctionInput />
-                <FunctionList />
-              </>
-            ) : sidebarTab === 'parametric' ? (
-              <>
-                <ParametricInput />
-                <ParametricList />
-              </>
-            ) : sidebarTab === 'implicit' ? (
-              <>
-                <ImplicitInput />
-                <ImplicitList />
-              </>
-            ) : (
-              <>
-                <PolarInput />
-                <PolarList />
-              </>
-            )}
-          </div>
+          {systemType === '2d' ? (
+            <>
+              <SidebarTabs />
+              <div className="flex-1 overflow-hidden relative z-10">
+                {sidebarTab === 'normal' ? (
+                  <>
+                    <FunctionInput />
+                    <FunctionList />
+                  </>
+                ) : sidebarTab === 'parametric' ? (
+                  <>
+                    <ParametricInput />
+                    <ParametricList />
+                  </>
+                ) : sidebarTab === 'implicit' ? (
+                  <>
+                    <ImplicitInput />
+                    <ImplicitList />
+                  </>
+                ) : (
+                  <>
+                    <PolarInput />
+                    <PolarList />
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 3D 系统侧边栏头部 */}
+              <div className="flex items-center border-b border-white/10 bg-white/[0.03] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
+                  <span className="text-sm font-medium text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                    3D 曲面
+                  </span>
+                </div>
+                <span className="ml-auto text-xs text-gray-500">z = f(x, y)</span>
+              </div>
+              <div className="flex-1 overflow-hidden relative z-10">
+                <ThreeDInput />
+                <ThreeDList />
+              </div>
+            </>
+          )}
 
           {/* 全局设置（所有 Tab 共用） */}
           <div className="relative z-10">
