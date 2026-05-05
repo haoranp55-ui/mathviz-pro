@@ -50,7 +50,7 @@ export const FunctionInput: React.FC = () => {
 
   return (
     <>
-      <div className="p-4 border-b border-white/[0.06] relative">
+      <div className="p-4 border-b border-white/[0.08] relative">
         {/* 标题栏 */}
         <div className="text-xs text-gray-500 mb-2.5 flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
@@ -92,7 +92,7 @@ export const FunctionInput: React.FC = () => {
             {/* 函数选择器下拉 */}
             {showPicker && (
               <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto border border-white/10">
-                <div className="bg-gradient-to-r from-blue-600/15 to-cyan-600/15 px-3 py-2.5 border-b border-white/[0.06]">
+                <div className="bg-gradient-to-r from-blue-600/15 to-cyan-600/15 px-3 py-2.5 border-b border-white/[0.08]">
                   <span className="text-xs text-blue-300 font-medium">选择函数模板</span>
                 </div>
                 {FUNCTION_LIST.map(group => (

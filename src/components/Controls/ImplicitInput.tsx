@@ -46,7 +46,7 @@ export const ImplicitInput: React.FC = () => {
   const canAdd = implicitFunctions.length < 3;
 
   return (
-    <div className="p-4 border-b border-white/[0.06] relative" ref={pickerRef}>
+    <div className="p-4 border-b border-white/[0.08] relative" ref={pickerRef}>
       {/* 标题栏 */}
       <div className="text-xs text-gray-500 mb-2.5 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-gradient-to-br from-green-400 to-teal-400 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
@@ -93,7 +93,7 @@ export const ImplicitInput: React.FC = () => {
           {/* 函数选择器下拉 */}
           {showPicker && (
             <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto border border-white/10">
-              <div className="bg-gradient-to-r from-green-600/15 to-teal-600/15 px-3 py-2.5 border-b border-white/[0.06]">
+              <div className="bg-gradient-to-r from-green-600/15 to-teal-600/15 px-3 py-2.5 border-b border-white/[0.08]">
                 <span className="text-xs text-green-300 font-medium">选择隐函数曲线</span>
               </div>
               {IMPLICIT_FUNCTION_LIST.map(group => (

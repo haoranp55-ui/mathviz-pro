@@ -274,11 +274,24 @@ export interface ThreeDFunction {
   visible: boolean;
   wireframe: boolean;                           // 线框模式
   resolution: number;                           // 网格分段数，默认 64
+  xMin: number;                                 // X 定义域下限
+  xMax: number;                                 // X 定义域上限
+  yMin: number;                                 // Y 定义域下限
+  yMax: number;                                 // Y 定义域上限
+  zMin?: number;                                // Z 显示范围下限（可选）
+  zMax?: number;                                // Z 显示范围上限（可选）
   error?: string;
 }
 
 export const THREE_D_RESOLUTION_PRESETS = [32, 64, 96, 128, 192, 256] as const;
 export const THREE_D_DEFAULT_RESOLUTION = 64;
+
+export const THREE_D_DEFAULT_DOMAIN = {
+  xMin: -10,
+  xMax: 10,
+  yMin: -10,
+  yMax: 10,
+};
 
 export const THREE_D_MAX_FUNCTIONS = 6;
 

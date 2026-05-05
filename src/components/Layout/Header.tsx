@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { FunctionHelp } from '../Controls/FunctionHelp';
 import { useAppStore } from '../../store/useAppStore';
+import { LineChart, Box, HelpCircle, ExternalLink } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
@@ -10,97 +11,68 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="h-14 glass border-b border-white/10 flex items-center px-4 justify-between select-none relative z-50">
-        {/* 顶部微妙渐变 */}
-        <div 
-          className="absolute inset-x-0 top-0 h-px"
-          style={{
-            background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.4), rgba(139,92,246,0.3), transparent)'
-          }}
-        />
-
-        <div className="flex items-center gap-3 relative z-10">
-          {/* Logo - 带发光动画 */}
-          <div className="relative w-8 h-8">
-            {/* 外发光 */}
-            <div 
-              className="absolute inset-[-4px] rounded-full animate-glow-pulse"
-              style={{ background: 'rgba(99,102,241,0.15)', filter: 'blur(6px)' }}
-            />
-            {/* 外圈 */}
-            <div className="absolute inset-0 rounded-full border-2 border-cyan-400/50"></div>
-            {/* 内圈 */}
-            <div className="absolute inset-1.5 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 opacity-80"></div>
-            {/* 曲线 */}
-            <svg className="absolute inset-0 w-8 h-8" viewBox="0 0 32 32" fill="none">
-              <path
-                d="M4 24 Q 8 8, 16 16 T 28 8"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                fill="none"
-                opacity="0.9"
-              />
-            </svg>
+      <header className="h-12 bg-[#1e293b] border-b border-white/[0.08] flex items-center px-4 justify-between select-none relative z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-[#273549] border border-white/[0.1] flex items-center justify-center">
+            <LineChart className="w-4 h-4 text-[#3B82F6]" />
           </div>
-
-          <div className="flex flex-col">
-            <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-purple-400 tracking-tight">
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-[15px] font-semibold text-[#E2E8F0] tracking-tight">
               MathViz Pro
             </h1>
-            <span className="text-[10px] text-gray-500 tracking-widest -mt-0.5 uppercase">Mathematical Visualization</span>
+            <span className="text-[11px] text-[#475569] hidden sm:inline">数学可视化</span>
           </div>
         </div>
 
-        {/* 系统切换器 - 居中 */}
-        <div className="flex items-center gap-1 p-0.5 rounded-xl border border-white/[0.06] bg-white/[0.02] relative z-10">
+        {/* 系统切换器 */}
+        <div className="relative flex items-center p-1 rounded-xl bg-[#0f172a] border border-white/[0.1] w-[180px] h-9 shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]">
+          {/* 滑动指示器 */}
+          <div
+            className={`absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+              systemType === '2d'
+                ? 'left-1 w-[calc(50%-4px)] bg-[#2563EB] shadow-lg shadow-blue-500/25'
+                : 'left-[calc(50%+2px)] w-[calc(50%-4px)] bg-[#7C3AED] shadow-lg shadow-purple-500/25'
+            }`}
+          />
           <button
             onClick={() => setSystemType('2d')}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
-              systemType === '2d'
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-semibold transition-colors duration-300 ${
+              systemType === '2d' ? 'text-white' : 'text-[#475569] hover:text-[#94A3B8]'
             }`}
           >
-            2D 系统
+            <LineChart className="w-4 h-4" />
+            2D
           </button>
           <button
             onClick={() => setSystemType('3d')}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
-              systemType === '3d'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/20'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-semibold transition-colors duration-300 ${
+              systemType === '3d' ? 'text-white' : 'text-[#475569] hover:text-[#94A3B8]'
             }`}
           >
-            3D 系统
+            <Box className="w-4 h-4" />
+            3D
           </button>
         </div>
 
-        <div className="flex items-center gap-2 relative z-10">
-          {/* 帮助按钮 */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHelp(true)}
-            className="btn-icon-glass"
+            className="w-9 h-9 rounded-xl bg-[#273549] border border-white/[0.1] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:bg-[#334155] hover:border-white/[0.15] transition-all"
             title="函数帮助"
             aria-label="帮助"
           >
-            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <HelpCircle className="w-5 h-5" />
           </button>
 
-          {/* GitHub 链接 */}
           <a
             href="https://github.com/haoranp55-ui/mathviz-pro"
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-icon-glass"
+            className="w-9 h-9 rounded-xl bg-[#273549] border border-white/[0.1] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:bg-[#334155] hover:border-white/[0.15] transition-all"
             title="GitHub 仓库"
             aria-label="GitHub"
           >
-            <svg className="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24">
-              <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-            </svg>
+            <ExternalLink className="w-5 h-5" />
           </a>
         </div>
       </header>

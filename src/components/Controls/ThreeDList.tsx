@@ -12,6 +12,8 @@ export const ThreeDList: React.FC = () => {
     toggleWireframe,
     updateThreeDResolution,
     updateThreeDExpression,
+    updateThreeDDomain,
+    updateThreeDZRange,
   } = useAppStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export const ThreeDList: React.FC = () => {
         {threeDFunctions.map((fn) => (
           <div
             key={fn.id}
-            className="glass rounded-xl p-3 border border-white/[0.06] hover:border-white/[0.1] transition-all"
+            className="glass rounded-xl p-3 border border-white/[0.08] hover:border-white/[0.12] transition-all"
           >
             {/* 顶行: 颜色条 + 表达式 */}
             <div className="flex items-start gap-2.5">
@@ -154,6 +156,71 @@ export const ThreeDList: React.FC = () => {
                   className="flex-1 h-1 accent-purple-500"
                 />
                 <span className="text-gray-400 w-7 text-right">{fn.resolution}</span>
+              </div>
+            </div>
+
+            {/* 定义域编辑 */}
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="text-gray-500 w-3">X</span>
+                <input
+                  type="number"
+                  value={fn.xMin}
+                  onChange={(e) => updateThreeDDomain(fn.id, { xMin: parseFloat(e.target.value) })}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+                <span className="text-gray-600">—</span>
+                <input
+                  type="number"
+                  value={fn.xMax}
+                  onChange={(e) => updateThreeDDomain(fn.id, { xMax: parseFloat(e.target.value) })}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+                <span className="text-gray-500 w-3 ml-1">Y</span>
+                <input
+                  type="number"
+                  value={fn.yMin}
+                  onChange={(e) => updateThreeDDomain(fn.id, { yMin: parseFloat(e.target.value) })}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+                <span className="text-gray-600">—</span>
+                <input
+                  type="number"
+                  value={fn.yMax}
+                  onChange={(e) => updateThreeDDomain(fn.id, { yMax: parseFloat(e.target.value) })}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="text-gray-500 w-3">Z</span>
+                <input
+                  type="number"
+                  value={fn.zMin ?? ''}
+                  placeholder="min"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateThreeDZRange(fn.id, val === '' ? undefined : parseFloat(val), fn.zMax);
+                  }}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+                <span className="text-gray-600">—</span>
+                <input
+                  type="number"
+                  value={fn.zMax ?? ''}
+                  placeholder="max"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateThreeDZRange(fn.id, fn.zMin, val === '' ? undefined : parseFloat(val));
+                  }}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                  step="any"
+                />
+                <span className="text-gray-500 text-[9px] ml-1">留空不裁剪</span>
               </div>
             </div>
           </div>

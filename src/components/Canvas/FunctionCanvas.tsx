@@ -87,6 +87,10 @@ export const FunctionCanvas: React.FC = () => {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // WASD + 垂直移动 键盘状态
+  const wasdRef = useRef({ w: false, a: false, s: false, d: false, x: false, space: false });
+  const wasdLoopRef = useRef<number | undefined>(undefined);
+
   // 3D 渲染缓存：采用 Three.js 官方 "Rendering on Demand" 模式
   const threeDCacheRef = useRef<HTMLCanvasElement | null>(null);
   const threeDRenderRequested = useRef(false);
@@ -111,7 +115,7 @@ export const FunctionCanvas: React.FC = () => {
 
       // 直接画到主 canvas，确保即时刷新
       clearCanvas();
-      ctx.fillStyle = '#0F172A';
+      ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
       if (glCanvas) {
         ctx.drawImage(glCanvas, 0, 0);
@@ -123,6 +127,101 @@ export const FunctionCanvas: React.FC = () => {
   useEffect(() => {
     if (systemType === '3d') request3DRender();
   }, [threeDFunctions, canvasSize.width, canvasSize.height, systemType, threeDVersion, request3DRender]);
+
+  // WASD 键盘事件监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === 'w' || key === 'a' || key === 's' || key === 'd' || key === 'x') {
+        e.preventDefault();
+        if (key === 'w') wasdRef.current.w = true;
+        else if (key === 'a') wasdRef.current.a = true;
+        else if (key === 's') wasdRef.current.s = true;
+        else if (key === 'd') wasdRef.current.d = true;
+        else if (key === 'x') wasdRef.current.x = true;
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        wasdRef.current.space = true;
+      }
+      if (key === 'f') {
+        e.preventDefault();
+        if (useAppStore.getState().systemType === '3d') {
+          getThreeDRenderManager().resetCamera();
+          useAppStore.getState().bumpThreeDVersion();
+        } else {
+          useAppStore.getState().resetView();
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (key === 'w') wasdRef.current.w = false;
+      else if (key === 'a') wasdRef.current.a = false;
+      else if (key === 's') wasdRef.current.s = false;
+      else if (key === 'd') wasdRef.current.d = false;
+      else if (key === 'x') wasdRef.current.x = false;
+      if (e.key === ' ') wasdRef.current.space = false;
+    };
+
+    const handleBlur = () => {
+      wasdRef.current = { w: false, a: false, s: false, d: false, x: false, space: false };
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  // WASD 移动循环（仅在 3D 模式）
+  useEffect(() => {
+    if (systemType !== '3d') {
+      wasdRef.current = { w: false, a: false, s: false, d: false, x: false, space: false };
+      return;
+    }
+
+    const loop = () => {
+      const keys = wasdRef.current;
+      const forward = (keys.w ? 1 : 0) - (keys.s ? 1 : 0);
+      const right = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+      const vertical = (keys.space ? 1 : 0) - (keys.x ? 1 : 0);
+
+      if (forward !== 0 || right !== 0) {
+        getThreeDRenderManager().handleWASDMovement(forward, right);
+      }
+      if (vertical !== 0) {
+        getThreeDRenderManager().handleVerticalMovement(vertical);
+      }
+      if (forward !== 0 || right !== 0 || vertical !== 0) {
+        request3DRender();
+      }
+
+      wasdLoopRef.current = requestAnimationFrame(loop);
+    };
+
+    wasdLoopRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      if (wasdLoopRef.current) {
+        cancelAnimationFrame(wasdLoopRef.current);
+      }
+    };
+  }, [systemType, request3DRender]);
   // 缓存关键点哈希，避免 RAF 内频繁 setKeyPoints 触发不必要的重渲染
   const lastKeyPointsHashRef = useRef<Map<string, string>>(new Map());
 
@@ -157,7 +256,7 @@ export const FunctionCanvas: React.FC = () => {
     clearCanvas();
 
     // 填充背景
-    ctx.fillStyle = '#0F172A';
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
     // 3D 系统渲染路径（持续循环但只做 drawImage，开销极低）
@@ -965,7 +1064,7 @@ export const FunctionCanvas: React.FC = () => {
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-canvas-bg">
+    <div ref={containerRef} className="w-full h-full bg-[#0f172a]">
       <canvas
         ref={canvasRef}
         className="w-full h-full cursor-crosshair"

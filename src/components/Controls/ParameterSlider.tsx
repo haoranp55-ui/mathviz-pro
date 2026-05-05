@@ -3,6 +3,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import type { Parameter } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import type { LinkedParameterInfo } from '../../hooks/useLinkedParameters';
+import { Settings } from 'lucide-react';
 
 interface ParameterSliderProps {
   parameter: Parameter;
@@ -24,7 +25,6 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   const [showConfig, setShowConfig] = useState(false);
   const setSliderActive = useAppStore((state) => state.setSliderActive);
 
-  // 使用 RAF 节流
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     pendingValueRef.current = value;
@@ -37,18 +37,14 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
     }
   }, [onChange]);
 
-  // 滑动开始 - 设置活跃状态（用于优化隐函数渲染）
   const handleMouseDown = useCallback(() => {
     setSliderActive(true);
   }, [setSliderActive]);
 
-  // 滑动结束 - 恢复状态
   const handleMouseUp = useCallback(() => {
     setSliderActive(false);
   }, [setSliderActive]);
 
-  // 全局监听：鼠标/触摸释放时恢复 slider 状态
-  // 解决鼠标拖出滑块外松开时 handleMouseUp 不触发的问题
   React.useEffect(() => {
     const handleGlobalUp = () => setSliderActive(false);
     window.addEventListener('mouseup', handleGlobalUp);
@@ -62,7 +58,6 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
     };
   }, [setSliderActive]);
 
-  // 手动输入当前值
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     if (!isNaN(value) && value >= parameter.min && value <= parameter.max) {
@@ -70,7 +65,6 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
     }
   }, [onChange, parameter.min, parameter.max]);
 
-  // 配置输入
   const handleConfigChange = useCallback((field: 'min' | 'max' | 'step', e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onConfigChange || !functionId) return;
     const value = parseFloat(e.target.value);
@@ -80,19 +74,19 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   }, [onConfigChange, functionId, parameter.name]);
 
   return (
-    <div className="parameter-slider">
+    <div>
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-mono text-gray-300">{parameter.name}</span>
+          <span className="text-xs font-mono text-[#94A3B8]">{parameter.name}</span>
           {linkedInfo?.isLinked && (
             <span
-              className="inline-flex items-center gap-0.5 ml-0.5"
-              title={`共享参数 ${parameter.name}：${linkedInfo.linkedWith.map(l => l.expression).join('、')}`}
+              className="inline-flex items-center gap-0.5"
+              title={`共享参数 ${parameter.name}`}
             >
               {linkedInfo.linkedWith.map(linked => (
                 <span
                   key={linked.functionId}
-                  className="w-2 h-2 rounded-full inline-block ring-1 ring-white/20"
+                  className="w-1.5 h-1.5 rounded-full inline-block"
                   style={{ backgroundColor: linked.color }}
                 />
               ))}
@@ -100,51 +94,50 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           )}
           <button
             onClick={() => setShowConfig(!showConfig)}
-            className="text-gray-500 hover:text-gray-300 text-xs px-1 py-0.5 rounded hover:bg-white/5 transition-all"
+            className="text-[#475569] hover:text-[#94A3B8] p-0.5 rounded transition-colors"
             title="配置参数范围"
           >
-            ⚙
+            <Settings className="w-3 h-3" />
           </button>
         </div>
         <input
           type="number"
           value={parameter.currentValue.toFixed(2)}
           onChange={handleInputChange}
-          className="w-16 px-1.5 py-0.5 input-glass text-center text-xs"
+          className="w-16 px-1.5 py-0.5 input-base text-center text-xs"
           step={parameter.step}
           min={parameter.min}
           max={parameter.max}
         />
       </div>
 
-      {/* 配置面板 */}
       {showConfig && (
-        <div className="flex items-center gap-2 mb-2 p-2 glass-subtle rounded-lg border border-white/[0.04] text-xs">
-          <label className="flex items-center gap-1 text-gray-400">
+        <div className="flex items-center gap-2 mb-2 p-2 panel-subtle text-xs">
+          <label className="flex items-center gap-1 text-[#64748B]">
             <span>最小:</span>
             <input
               type="number"
               value={parameter.min}
               onChange={(e) => handleConfigChange('min', e)}
-              className="w-12 px-1 py-0.5 input-glass text-xs"
+              className="w-12 px-1 py-0.5 input-base text-xs"
             />
           </label>
-          <label className="flex items-center gap-1 text-gray-400">
+          <label className="flex items-center gap-1 text-[#64748B]">
             <span>最大:</span>
             <input
               type="number"
               value={parameter.max}
               onChange={(e) => handleConfigChange('max', e)}
-              className="w-12 px-1 py-0.5 input-glass text-xs"
+              className="w-12 px-1 py-0.5 input-base text-xs"
             />
           </label>
-          <label className="flex items-center gap-1 text-gray-400">
+          <label className="flex items-center gap-1 text-[#64748B]">
             <span>步长:</span>
             <input
               type="number"
               value={parameter.step}
               onChange={(e) => handleConfigChange('step', e)}
-              className="w-12 px-1 py-0.5 input-glass text-xs"
+              className="w-12 px-1 py-0.5 input-base text-xs"
               step="any"
             />
           </label>
@@ -152,7 +145,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
       )}
 
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-gray-500 w-8 text-right font-mono">{parameter.min}</span>
+        <span className="text-[11px] text-[#475569] w-8 text-right font-mono">{parameter.min}</span>
         <input
           type="range"
           min={parameter.min}
@@ -164,9 +157,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           onMouseUp={handleMouseUp}
           onTouchStart={handleMouseDown}
           onTouchEnd={handleMouseUp}
-          className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer ${linkedInfo?.isLinked ? 'slider-linked' : ''}`}
+          className="flex-1"
         />
-        <span className="text-[11px] text-gray-500 w-8 font-mono">{parameter.max}</span>
+        <span className="text-[11px] text-[#475569] w-8 font-mono">{parameter.max}</span>
       </div>
     </div>
   );

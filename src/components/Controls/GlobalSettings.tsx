@@ -38,7 +38,7 @@ export const GlobalSettings: React.FC = () => {
   }, [systemType, resetView, bumpThreeDVersion]);
 
   return (
-    <div className="p-4 border-t border-white/[0.06] space-y-4 relative glass-subtle">
+    <div className="p-4 border-t border-white/[0.08] space-y-4 relative glass-subtle">
       {/* 标题 */}
       <div className="text-xs text-gray-500 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>

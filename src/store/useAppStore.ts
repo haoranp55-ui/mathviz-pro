@@ -20,6 +20,7 @@ import type {
 import {
   DEFAULT_VIEWPORT,
   FUNCTION_COLORS,
+  THREE_D_DEFAULT_DOMAIN,
   THREE_D_MAX_FUNCTIONS,
   THREE_D_PRESET_RESOLUTION,
 } from '../types';
@@ -149,6 +150,8 @@ interface AppState {
   toggleWireframe: (id: string) => void;
   updateThreeDResolution: (id: string, resolution: number) => void;
   updateThreeDExpression: (id: string, expression: string) => void;
+  updateThreeDDomain: (id: string, domain: Partial<Pick<ThreeDFunction, 'xMin' | 'xMax' | 'yMin' | 'yMax'>>) => void;
+  updateThreeDZRange: (id: string, zMin?: number, zMax?: number) => void;
   bumpThreeDVersion: () => void;
 
   // 标记点 Actions（普通函数和参数化函数共用）
@@ -874,6 +877,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         visible: true,
         wireframe: false,
         resolution: defaultRes,
+        ...THREE_D_DEFAULT_DOMAIN,
         error: result.message,
       };
       set({ threeDFunctions: [...threeDFunctions, errorFn] });
@@ -889,6 +893,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             visible: true,
             wireframe: false,
             resolution: defaultRes,
+            ...THREE_D_DEFAULT_DOMAIN,
           },
         ],
       });
@@ -946,5 +951,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         ),
       });
     }
+  },
+
+  updateThreeDDomain: (id: string, domain) => {
+    set({
+      threeDFunctions: get().threeDFunctions.map(f =>
+        f.id === id ? { ...f, ...domain } : f,
+      ),
+    });
+  },
+
+  updateThreeDZRange: (id: string, zMin?: number, zMax?: number) => {
+    set({
+      threeDFunctions: get().threeDFunctions.map(f =>
+        f.id === id ? { ...f, zMin, zMax } : f,
+      ),
+    });
   },
 }));

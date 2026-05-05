@@ -32,7 +32,7 @@ export class ThreeDRenderManager {
     });
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#0F172A');
+    this.scene.background = new THREE.Color('#0f172a');
 
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
     this.updateCameraPosition();
@@ -221,6 +221,44 @@ export class ThreeDRenderManager {
     this.updateCameraPosition();
   }
 
+  handleWASDMovement(forward: number, right: number): void {
+    // forward: +1=W前进, -1=S后退
+    // right: +1=D右移, -1=A左移
+
+    const cameraDir = this.target.clone().sub(this.camera.position).normalize();
+    cameraDir.y = 0;
+
+    let forwardDir: THREE.Vector3;
+    if (cameraDir.length() < 0.001) {
+      // 垂直俯视/仰视时，默认朝 +Z 方向前进
+      forwardDir = new THREE.Vector3(0, 0, 1);
+    } else {
+      forwardDir = cameraDir.normalize();
+    }
+
+    const rightDir = new THREE.Vector3().crossVectors(
+      forwardDir,
+      new THREE.Vector3(0, 1, 0),
+    ).normalize();
+
+    const moveSpeed = this.spherical.radius * 0.015;
+
+    const moveDelta = new THREE.Vector3()
+      .addScaledVector(forwardDir, forward * moveSpeed)
+      .addScaledVector(rightDir, right * moveSpeed);
+
+    this.target.add(moveDelta);
+    this.updateCameraPosition();
+  }
+
+  handleVerticalMovement(up: number): void {
+    // up: +1=上移, -1=下移
+    const moveSpeed = this.spherical.radius * 0.015;
+    const moveDelta = new THREE.Vector3(0, up * moveSpeed, 0);
+    this.target.add(moveDelta);
+    this.updateCameraPosition();
+  }
+
   resetCamera(): void {
     this.spherical = { theta: -Math.PI / 6, phi: Math.PI / 4, radius: 22 };
     this.target.set(2, 0, -8);
@@ -255,7 +293,7 @@ export class ThreeDRenderManager {
   }
 
   private updateOrCreateMesh(fn: ThreeDFunction): void {
-    const meshKey = `${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}`;
+    const meshKey = `${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}-${fn.xMin}-${fn.xMax}-${fn.yMin}-${fn.yMax}-${fn.zMin}-${fn.zMax}`;
     const existing = this.meshes.get(fn.id);
 
     if (existing && existing.meshKey === meshKey) {
@@ -268,17 +306,26 @@ export class ThreeDRenderManager {
     this.removeMesh(fn.id);
 
     const res = fn.resolution;
-    const size = 20; // X/Y 范围 [-10, 10]
-    const geometry = new THREE.PlaneGeometry(size, size, res, res);
+    const xRange = fn.xMax - fn.xMin;
+    const yRange = fn.yMax - fn.yMin;
+    const geometry = new THREE.PlaneGeometry(xRange, yRange, res, res);
     geometry.rotateX(-Math.PI / 2); // 放平到 XZ 平面
 
     const positions = geometry.attributes.position;
+    const xCenter = (fn.xMin + fn.xMax) / 2;
+    const yCenter = (fn.yMin + fn.yMax) / 2;
 
     for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i);
-      const z = positions.getZ(i);
-      const y = fn.compiled(x, -z); // Y轴正方向=世界-Z=朝观察者，故取反
-      positions.setY(i, Number.isFinite(y) ? y : 0);
+      const localX = positions.getX(i);
+      const localZ = positions.getZ(i);
+      const mathX = localX + xCenter;
+      const mathY = -localZ + yCenter;
+      let z = fn.compiled(mathX, mathY);
+      if (!Number.isFinite(z)) z = 0;
+      if (fn.zMin !== undefined && fn.zMax !== undefined) {
+        z = Math.max(fn.zMin, Math.min(fn.zMax, z));
+      }
+      positions.setY(i, z);
     }
 
     geometry.computeVertexNormals();
@@ -293,6 +340,8 @@ export class ThreeDRenderManager {
     });
 
     const mesh = new THREE.Mesh(geometry, material);
+    // 将 mesh 定位到定义域中心
+    mesh.position.set(xCenter, 0, -yCenter);
     this.scene.add(mesh);
 
     this.meshes.set(fn.id, { mesh, meshKey });

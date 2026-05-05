@@ -37,7 +37,7 @@ export const ThreeDHelp: React.FC<Props> = ({ isOpen, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] bg-white/[0.03]">
           <h2 className="text-base font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
             3D 曲面帮助
           </h2>
@@ -49,7 +49,7 @@ export const ThreeDHelp: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* 交互操作说明 */}
-        <div className="px-5 py-3 border-b border-white/[0.04] bg-white/[0.01]">
+        <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
           <h3 className="text-xs text-gray-400 mb-2 uppercase tracking-wider">交互操作</h3>
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
@@ -74,10 +74,30 @@ export const ThreeDHelp: React.FC<Props> = ({ isOpen, onClose }) => {
               <span className="text-[10px] text-gray-500">Shift+拖拽 / 右键</span>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
+              <div className="flex gap-0.5">
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">W</span>
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">A</span>
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">S</span>
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">D</span>
+              </div>
+              <span className="text-xs text-gray-300">水平移动</span>
+              <span className="text-[10px] text-gray-500">前/后/左/右</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-white/[0.03] border border-white/[0.04]">
+              <div className="flex gap-0.5">
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">Space</span>
+                <span className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] text-purple-300 font-mono border border-white/[0.08]">X</span>
+              </div>
+              <span className="text-xs text-gray-300">垂直移动</span>
+              <span className="text-[10px] text-gray-500">上/下</span>
+            </div>
+          </div>
         </div>
 
         {/* 语法说明 */}
-        <div className="px-5 py-3 border-b border-white/[0.04] bg-white/[0.01]">
+        <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
           <h3 className="text-xs text-gray-400 mb-2 uppercase tracking-wider">语法说明</h3>
           <div className="text-xs text-gray-300 space-y-1.5">
             <p>• 表达式形式：<span className="text-purple-300 font-mono">z = f(x, y)</span>，直接输入右侧即可</p>
@@ -89,7 +109,7 @@ export const ThreeDHelp: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* 渲染精度说明 */}
-        <div className="px-5 py-3 border-b border-white/[0.04] bg-white/[0.01]">
+        <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
           <h3 className="text-xs text-gray-400 mb-2 uppercase tracking-wider">渲染精度</h3>
           <div className="text-xs text-gray-300 space-y-1.5">
             <p>• 下方「全局设置 → 采样精度」联动控制 3D 网格分辨率</p>
