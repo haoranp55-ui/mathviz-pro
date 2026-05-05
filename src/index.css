@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  /* 核心画布配色 - 更纯净深邃 */
+  /* 核心画布配色 */
   --color-canvas-bg: #0f172a;
   --color-canvas-panel: #1e293b;
   --color-canvas-panelLight: #273549;
   --color-canvas-input: rgba(255, 255, 255, 0.04);
   --color-canvas-grid: #334155;
 
-  /* 曲线颜色 - 保持原有鲜艳度 */
+  /* 曲线颜色 */
   --color-curve-1: #60A5FA;
   --color-curve-2: #34D399;
   --color-curve-3: #F472B6;
@@ -18,12 +18,12 @@
   --color-curve-7: #22D3EE;
   --color-curve-8: #FB923C;
 
-  /* 强调色 - 统一为简洁的蓝 */
-  --color-accent-primary: #2563EB;
-  --color-accent-primaryHover: #3B82F6;
+  /* 强调色 - 统一蓝青色 */
+  --color-accent-primary: #0ea5e9;
+  --color-accent-primaryHover: #38bdf8;
   --color-accent-secondary: #64748B;
 
-  /* 动画 - 保留基础动画 */
+  /* 动画 */
   --animate-fade-in: fadeIn 0.2s ease-out;
   --animate-slide-in: slideIn 0.2s ease-out;
 }
@@ -55,18 +55,35 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========== 面板样式 ========== */
+/* ========== Glass & Panel ========== */
+
+.glass {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.glass-strong {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
 
 .panel {
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
 }
 
 .panel-subtle {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
 }
 
 /* ========== 输入框样式 ========== */
@@ -85,22 +102,46 @@ html, body, #root {
 }
 
 .input-base:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
 }
 
 .input-base:focus {
   outline: none;
-  border-color: #2563EB;
+  border-color: #0ea5e9;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.input-glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #E2E8F0;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.input-glass::placeholder {
+  color: #475569;
+}
+
+.input-glass:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.input-glass:focus {
+  outline: none;
+  border-color: #0ea5e9;
   background: rgba(255, 255, 255, 0.05);
 }
 
 /* ========== 按钮样式 ========== */
 
 .btn-primary {
-  background: #2563EB;
+  background: #0ea5e9;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: white;
   font-size: 13px;
   font-weight: 500;
@@ -109,7 +150,7 @@ html, body, #root {
 }
 
 .btn-primary:hover {
-  background: #3B82F6;
+  background: #38bdf8;
 }
 
 .btn-primary:active {
@@ -125,7 +166,7 @@ html, body, #root {
 .btn-secondary {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 10px;
   color: #94A3B8;
   font-size: 13px;
   transition: all 0.15s ease;
@@ -134,12 +175,49 @@ html, body, #root {
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #E2E8F0;
 }
 
 .btn-secondary:active {
   transform: scale(0.98);
+}
+
+.btn-glass {
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 10px;
+  color: #7dd3fc;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-glass:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #bae6fd;
+}
+
+.btn-glass:active {
+  transform: scale(0.98);
+}
+
+.btn-glass-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #94A3B8;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-glass-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #E2E8F0;
 }
 
 .btn-icon {
@@ -176,12 +254,12 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ========== 复选框样式 ========== */
@@ -199,8 +277,8 @@ html, body, #root {
 }
 
 .custom-checkbox:checked {
-  background: #2563EB;
-  border-color: #2563EB;
+  background: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .custom-checkbox:checked::after {
@@ -238,7 +316,7 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
-  background: #E2E8F0;
+  background: #94a3b8;
   border-radius: 50%;
   margin-top: -5px;
   border: 2px solid #0f172a;
@@ -247,7 +325,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  background: white;
+  background: #e2e8f0;
 }
 
 /* ========== 列表项样式 ========== */
@@ -267,7 +345,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* ========== 分隔线 ========== */
 
 .divider {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* ========== 标签/徽章 ========== */
@@ -275,13 +353,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 1px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   color: #64748B;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* ========== 下拉面板 ========== */
@@ -289,7 +367,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .dropdown-panel {
   background: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -299,14 +377,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: flex;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 3px;
 }
 
 .tab-switcher-btn {
   flex: 1;
   padding: 6px 0;
-  border-radius: 6px;
+  border-radius: 7px;
   font-size: 12px;
   font-weight: 500;
   color: #64748B;

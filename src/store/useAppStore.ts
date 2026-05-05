@@ -18,6 +18,9 @@ import type {
   Implicit3DFunction,
   ThreeDTab,
   PlotSystemType,
+  EquationSystem,
+  SolverConfig,
+  VariableName,
 } from '../types';
 import {
   DEFAULT_VIEWPORT,
@@ -28,6 +31,8 @@ import {
   IMPLICIT3D_DEFAULT_DOMAIN,
   IMPLICIT3D_MAX_FUNCTIONS,
   IMPLICIT3D_PRESET_RESOLUTION,
+  DEFAULT_SOLVER_CONFIG,
+  DEFAULT_SEARCH_RANGE,
 } from '../types';
 import { parseExpression, parseParametricExpression } from '../lib/parser';
 import { parseImplicitExpression } from '../lib/implicitParser';
@@ -36,6 +41,8 @@ import { parseThreeDExpression } from '../lib/threeDParser';
 import { parseImplicit3DExpression } from '../lib/implicit3DParser';
 import { updateParameterValue } from '../lib/paramParser';
 import { numericalDerivative } from '../lib/derivative';
+import { parseEquation, parseEquationSystem } from '../lib/equationParser';
+import { solveEquationSystem } from '../lib/equationSolver';
 
 interface AppState {
   // 函数列表
@@ -180,6 +187,17 @@ interface AppState {
   addMarkedPoint: (functionId: string, x: number, isParametric: boolean) => void;
   removeMarkedPoint: (functionId: string, pointId: string, isParametric: boolean) => void;
   updateMarkedPoint: (functionId: string, pointId: string, x: number, isParametric: boolean) => void;
+
+  // 方程系统 Actions
+  equationSystems: EquationSystem[];
+  solverConfig: SolverConfig;
+  addEquationSystem: (expressions: string[], variables: VariableName[]) => void;
+  removeEquationSystem: (id: string) => void;
+  solveEquationSystem: (id: string) => void;
+  updateEquationSystemSearchRange: (id: string, variableIndex: number, min: number, max: number) => void;
+  updateEquationExpression: (systemId: string, equationId: string, expression: string) => void;
+  updateSolverConfig: (config: Partial<SolverConfig>) => void;
+  clearEquationSystemSolutions: (id: string) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -1099,6 +1117,141 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       threeDFunctions: get().threeDFunctions.map(f =>
         f.id === id ? { ...f, zMin, zMax } : f,
+      ),
+    });
+  },
+
+  // 方程系统 Actions
+  equationSystems: [],
+  solverConfig: DEFAULT_SOLVER_CONFIG,
+
+  addEquationSystem: (expressions: string[], variables: VariableName[]) => {
+    const { equationSystems } = get();
+
+    const result = parseEquationSystem(expressions, variables);
+
+    if (result instanceof Error) {
+      // 创建带错误的方程系统
+      const errorSystem: EquationSystem = {
+        id: uuidv4(),
+        equations: expressions.map(expr => ({
+          id: uuidv4(),
+          expression: expr,
+          compiled: () => NaN,
+          error: result.message,
+        })),
+        variables,
+        solutions: null,
+        status: 'error',
+        error: result.message,
+        initialGuess: variables.map(() => 0),
+        searchRange: variables.map(() => ({ ...DEFAULT_SEARCH_RANGE })),
+      };
+      set({ equationSystems: [...equationSystems, errorSystem] });
+    } else {
+      set({ equationSystems: [...equationSystems, result] });
+    }
+  },
+
+  removeEquationSystem: (id: string) => {
+    set({
+      equationSystems: get().equationSystems.filter(sys => sys.id !== id),
+    });
+  },
+
+  solveEquationSystem: (id: string) => {
+    const { equationSystems, solverConfig } = get();
+    const system = equationSystems.find(sys => sys.id === id);
+
+    if (!system || system.equations.some(eq => eq.error)) return;
+
+    // 设置求解状态
+    set({
+      equationSystems: equationSystems.map(sys =>
+        sys.id === id ? { ...sys, status: 'solving', error: undefined } : sys
+      ),
+    });
+
+    try {
+      // 构建求解函数数组
+      const fns = system.equations.map(eq =>
+        (vars: number[]) => {
+          const varsMap: Record<string, number> = {};
+          system.variables.forEach((v, i) => {
+            varsMap[v] = vars[i];
+          });
+          return eq.compiled(varsMap);
+        }
+      );
+
+      // 执行求解
+      const solutions = solveEquationSystem(fns, system.searchRange, solverConfig);
+
+      set({
+        equationSystems: get().equationSystems.map(sys =>
+          sys.id === id
+            ? {
+                ...sys,
+                solutions,
+                status: solutions.length > 0 ? 'solved' : 'error',
+                error: solutions.length === 0 ? '未找到解' : undefined,
+              }
+            : sys
+        ),
+      });
+    } catch (e) {
+      set({
+        equationSystems: get().equationSystems.map(sys =>
+          sys.id === id
+            ? { ...sys, status: 'error', error: `求解错误: ${(e as Error).message}` }
+            : sys
+        ),
+      });
+    }
+  },
+
+  updateEquationSystemSearchRange: (id: string, variableIndex: number, min: number, max: number) => {
+    set({
+      equationSystems: get().equationSystems.map(sys => {
+        if (sys.id !== id) return sys;
+        const newRange = [...sys.searchRange];
+        newRange[variableIndex] = { min, max };
+        return { ...sys, searchRange: newRange };
+      }),
+    });
+  },
+
+  updateEquationExpression: (systemId: string, equationId: string, expression: string) => {
+    set({
+      equationSystems: get().equationSystems.map(sys => {
+        if (sys.id !== systemId) return sys;
+        const result = parseEquation(expression, sys.variables);
+        const newEquations = sys.equations.map(eq => {
+          if (eq.id !== equationId) return eq;
+          if (result instanceof Error) {
+            return { ...eq, expression, error: result.message };
+          }
+          return { ...eq, expression: result.expression, compiled: result.compiled, error: undefined };
+        });
+        return {
+          ...sys,
+          equations: newEquations,
+          solutions: null,
+          status: 'idle' as const,
+          error: undefined,
+        };
+      }),
+    });
+  },
+
+  updateSolverConfig: (config: Partial<SolverConfig>) => {
+    set({ solverConfig: { ...get().solverConfig, ...config } });
+  },
+
+  clearEquationSystemSolutions: (id: string) => {
+    set({
+      equationSystems: get().equationSystems.map(sys =>
+        sys.id === id ? { ...sys, solutions: null, status: 'idle', error: undefined } : sys
       ),
     });
   },

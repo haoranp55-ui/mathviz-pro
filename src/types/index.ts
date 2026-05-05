@@ -263,8 +263,8 @@ export type SidebarTab = 'normal' | 'parametric' | 'implicit' | 'polar';
 // 3D 函数支持 z = f(x, y)
 // ============================================
 
-// 系统类型（2D / 3D 系统切换）
-export type PlotSystemType = '2d' | '3d';
+// 系统类型（2D / 3D / 方程系统切换）
+export type PlotSystemType = '2d' | '3d' | 'equation';
 
 export interface ThreeDFunction {
   id: string;
@@ -341,3 +341,78 @@ export const IMPLICIT3D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
 
 // 3D 侧边栏子 Tab
 export type ThreeDTab = 'explicit' | 'implicit';
+
+// ============================================
+// 解方程系统支持 (最多 5 个未知数)
+// ============================================
+
+// 求解方法
+export type SolverMethod = 'newton' | 'broyden' | 'bisection';
+
+// 求解状态
+export type SolverStatus = 'idle' | 'solving' | 'solved' | 'error';
+
+// 单个方程
+export interface Equation {
+  id: string;
+  expression: string;              // 原始表达式 "x^2 + y^2 = 1"
+  compiled: (vars: Record<string, number>) => number;  // 返回 F(x,y,...) 值
+  error?: string;
+}
+
+// 解的类型
+export interface Solution {
+  values: number[];                // [x, y, z, ...] 的值
+  isReal: boolean;                 // 是否为实数解
+  type: 'exact' | 'approximate';   // 精确解/近似解
+  precision: number;               // 精度 |f(x)|
+}
+
+// 搜索范围
+export interface SearchRange {
+  min: number;
+  max: number;
+}
+
+// 求解器配置
+export interface SolverConfig {
+  method: SolverMethod;
+  tolerance: number;               // 收敛容差，默认 1e-10
+  maxIterations: number;           // 最大迭代次数，默认 100
+  multiStart: boolean;             // 是否多起点搜索
+  gridDensity: number;             // 网格密度 (多起点搜索)，每个维度 3-10
+}
+
+// 默认求解器配置
+export const DEFAULT_SOLVER_CONFIG: SolverConfig = {
+  method: 'newton',
+  tolerance: 1e-10,
+  maxIterations: 100,
+  multiStart: true,
+  gridDensity: 5,
+};
+
+// 方程系统
+export interface EquationSystem {
+  id: string;
+  equations: Equation[];           // 方程列表
+  variables: string[];             // 变量名列表 ['x', 'y', 'z', ...]
+  solutions: Solution[] | null;    // 解列表
+  status: SolverStatus;
+  error?: string;
+  initialGuess: number[];          // 初始猜测值
+  searchRange: SearchRange[];      // 搜索范围
+}
+
+// 默认搜索范围
+export const DEFAULT_SEARCH_RANGE: SearchRange = {
+  min: -10,
+  max: 10,
+};
+
+// 最大变量数
+export const MAX_VARIABLES = 5;
+
+// 支持的变量名
+export const VARIABLE_NAMES = ['x', 'y', 'z', 'u', 'v'] as const;
+export type VariableName = typeof VARIABLE_NAMES[number];

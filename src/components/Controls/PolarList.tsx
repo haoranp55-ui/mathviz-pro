@@ -96,7 +96,7 @@ export const PolarList: React.FC = () => {
                   onChange={(e) => setEditExpression(e.target.value)}
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-[#FBBF24]/50 focus:outline-none focus:border-[#FBBF24] text-[#E2E8F0]"
+                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-cyan-500/40 focus:outline-none focus:border-cyan-500 text-[#E2E8F0]"
                   placeholder="输入表达式"
                 />
               ) : (
@@ -122,7 +122,7 @@ export const PolarList: React.FC = () => {
                 {!fn.error && gpuAvailable && (
                   <button
                     onClick={() => togglePolarGPURendering(fn.id)}
-                    className={`btn-icon w-7 h-7 ${fn.useGPURendering ? 'opacity-100 text-[#FBBF24] bg-[#FBBF24]/10' : 'opacity-0 group-hover:opacity-100'}`}
+                    className={`btn-icon w-7 h-7 ${fn.useGPURendering ? 'opacity-100 text-cyan-400 bg-cyan-500/10' : 'opacity-0 group-hover:opacity-100'}`}
                     title={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染'}
                   >
                     <Zap className="w-3.5 h-3.5" />
@@ -150,7 +150,7 @@ export const PolarList: React.FC = () => {
                 {!fn.error && (
                   <button
                     onClick={() => setExpandedConfig(expandedConfig === fn.id ? null : fn.id)}
-                    className={`btn-icon w-7 h-7 ${expandedConfig === fn.id ? 'opacity-100 text-[#FBBF24] bg-[#FBBF24]/10' : 'opacity-0 group-hover:opacity-100'}`}
+                    className={`btn-icon w-7 h-7 ${expandedConfig === fn.id ? 'opacity-100 text-cyan-400 bg-cyan-500/10' : 'opacity-0 group-hover:opacity-100'}`}
                     title="配置 theta 范围"
                   >
                     {expandedConfig === fn.id ? <ChevronUp className="w-3.5 h-3.5" /> : <Settings className="w-3.5 h-3.5" />}
@@ -192,7 +192,7 @@ export const PolarList: React.FC = () => {
               <div className="mt-1 mx-1 p-2.5 panel-subtle space-y-2">
                 <div className="text-xs text-[#94A3B8] mb-2 flex items-center gap-1">
                   <span>θ 范围</span>
-                  <span className="text-[#FBBF24] font-mono">
+                  <span className="text-cyan-400/70 font-mono">
                     [{(fn.thetaMin / Math.PI).toFixed(1)}π, {(fn.thetaMax / Math.PI).toFixed(1)}π]
                   </span>
                 </div>
@@ -204,7 +204,7 @@ export const PolarList: React.FC = () => {
                       onClick={() => updatePolarThetaRange(fn.id, 0, preset.value * Math.PI)}
                       className={`px-2 py-1 text-xs rounded transition-all ${
                         Math.abs(fn.thetaMax - preset.value * Math.PI) < 0.1
-                          ? 'bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20'
+                          ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                           : 'bg-white/[0.03] text-[#64748B] hover:bg-white/[0.06] hover:text-[#94A3B8] border border-transparent'
                       }`}
                     >

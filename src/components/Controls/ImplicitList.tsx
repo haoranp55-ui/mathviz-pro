@@ -87,7 +87,7 @@ export const ImplicitList: React.FC = () => {
                   onChange={(e) => setEditExpression(e.target.value)}
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-[#34D399]/50 focus:outline-none focus:border-[#34D399] text-[#E2E8F0]"
+                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-cyan-500/40 focus:outline-none focus:border-cyan-500 text-[#E2E8F0]"
                   placeholder="输入表达式"
                 />
               ) : (
@@ -112,7 +112,7 @@ export const ImplicitList: React.FC = () => {
                 {!fn.error && gpuAvailable && !fn.requiresCPU && (
                   <button
                     onClick={() => toggleImplicitGPURendering(fn.id)}
-                    className={`btn-icon w-7 h-7 ${fn.useGPURendering ? 'opacity-100 text-[#34D399] bg-[#34D399]/10' : 'opacity-0 group-hover:opacity-100'}`}
+                    className={`btn-icon w-7 h-7 ${fn.useGPURendering ? 'opacity-100 text-cyan-400 bg-cyan-500/10' : 'opacity-0 group-hover:opacity-100'}`}
                     title={fn.useGPURendering ? '关闭 GPU 渲染' : '开启 GPU 渲染'}
                   >
                     <Zap className="w-3.5 h-3.5" />

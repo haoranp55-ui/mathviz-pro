@@ -101,7 +101,7 @@ export const ParametricList: React.FC = () => {
                   onChange={(e) => setEditExpression(e.target.value)}
                   onBlur={saveEdit}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-[#A78BFA]/50 focus:outline-none focus:border-[#A78BFA] text-[#E2E8F0]"
+                  className="flex-1 text-[13px] font-mono bg-white/[0.05] px-2 py-1 rounded border border-cyan-500/40 focus:outline-none focus:border-cyan-500 text-[#E2E8F0]"
                   placeholder="输入表达式"
                 />
               ) : (
@@ -138,7 +138,7 @@ export const ParametricList: React.FC = () => {
                 {!fn.error && (
                   <button
                     onClick={() => toggleParametricDerivative(fn.id)}
-                    className={`btn-icon w-7 h-7 ${fn.showDerivative ? 'opacity-100 text-[#A78BFA] bg-[#A78BFA]/10' : 'opacity-0 group-hover:opacity-100'}`}
+                    className={`btn-icon w-7 h-7 ${fn.showDerivative ? 'opacity-100 text-cyan-400 bg-cyan-500/10' : 'opacity-0 group-hover:opacity-100'}`}
                     title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
                   >
                     <Sigma className="w-3.5 h-3.5" />

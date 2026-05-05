@@ -26,9 +26,9 @@ export const Implicit3DInput: React.FC = () => {
   return (
     <div className="p-4 border-b border-white/[0.06]">
       <div className="text-xs text-gray-500 mb-2.5 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>
+        <div className="w-2 h-2 rounded-full bg-cyan-400/70"></div>
         <span className="text-gray-400">隐函数输入</span>
-        <span className="text-amber-400 font-serif text-sm">f(x,y,z) = 0</span>
+        <span className="text-cyan-400/80 font-serif text-sm">f(x,y,z) = 0</span>
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-2">
@@ -47,7 +47,7 @@ export const Implicit3DInput: React.FC = () => {
           <button
             key={t.expr}
             onClick={() => setExpression(t.expr)}
-            className="text-[10px] text-gray-400 hover:text-white hover:bg-amber-500/10 px-2 py-1 rounded-md border border-white/[0.04] transition-all"
+            className="text-[10px] text-gray-400 hover:text-gray-200 hover:bg-cyan-500/10 px-2 py-1 rounded-md border border-white/[0.04] hover:border-cyan-500/20 transition-all"
             title={t.desc}
           >
             {t.desc}

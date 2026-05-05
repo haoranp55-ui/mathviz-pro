@@ -60,15 +60,15 @@ export const ThreeDInput: React.FC = () => {
 
   return (
     <>
-      <div className="p-4 border-b border-white/[0.08] relative">
+      <div className="p-4 border-b border-white/[0.06] relative">
         <div className="text-xs text-gray-500 mb-2.5 flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
+          <div className="w-2 h-2 rounded-full bg-cyan-400/70"></div>
           <span className="text-gray-400">3D 输入</span>
-          <span className="text-purple-400 font-serif text-sm">z = f(x, y)</span>
+          <span className="text-cyan-400/80 font-serif text-sm">z = f(x, y)</span>
           <button
             type="button"
             onClick={() => setShowHelp(true)}
-            className="ml-auto w-5 h-5 rounded-md bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 hover:text-purple-300 flex items-center justify-center transition-all border border-purple-500/20"
+            className="ml-auto w-5 h-5 rounded-md bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400/80 hover:text-cyan-300 flex items-center justify-center transition-all border border-cyan-500/15"
             title="查看帮助"
           >
             <span className="text-xs">?</span>
@@ -89,8 +89,8 @@ export const ThreeDInput: React.FC = () => {
               onClick={() => setShowPicker(!showPicker)}
               className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 flex items-center gap-0.5 rounded-md transition-all border ${
                 showPicker
-                  ? 'text-purple-400 bg-purple-500/20 border-purple-500/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5 border-transparent hover:border-white/10'
+                  ? 'text-cyan-400 bg-cyan-500/15 border-cyan-500/25'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-white/5 border-transparent hover:border-white/10'
               }`}
               title="函数选择器"
             >
@@ -99,13 +99,13 @@ export const ThreeDInput: React.FC = () => {
             </button>
 
             {showPicker && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto border border-white/10">
-                <div className="bg-gradient-to-r from-purple-600/15 to-pink-600/15 px-3 py-2.5 border-b border-white/[0.08]">
-                  <span className="text-xs text-purple-300 font-medium">选择曲面模板</span>
+              <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto border border-white/[0.08]">
+                <div className="bg-cyan-500/5 px-3 py-2.5 border-b border-white/[0.06]">
+                  <span className="text-xs text-cyan-300/80 font-medium">选择曲面模板</span>
                 </div>
                 {FUNCTION_LIST.map(group => (
                   <div key={group.category}>
-                    <div className="text-xs text-gray-500 px-3 py-1.5 bg-white/[0.03]">
+                    <div className="text-[11px] text-gray-500 px-3 py-1.5 bg-white/[0.02]">
                       {group.category}
                     </div>
                     <div className="p-2 space-y-1">
@@ -114,7 +114,7 @@ export const ThreeDInput: React.FC = () => {
                           key={fn}
                           type="button"
                           onClick={() => handleSelectFunction(fn)}
-                          className="w-full text-xs text-gray-300 hover:text-white hover:bg-purple-500/15 px-2 py-1.5 rounded-lg text-left font-mono transition-all"
+                          className="w-full text-xs text-gray-300 hover:text-white hover:bg-cyan-500/10 px-2 py-1.5 rounded-lg text-left font-mono transition-all"
                         >
                           {fn}
                         </button>
@@ -132,8 +132,8 @@ export const ThreeDInput: React.FC = () => {
             添加
           </button>
         </form>
-        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-          <span className="text-gray-600">输入 z = f(x, y) 右侧表达式</span>
+        <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
+          <span>输入 z = f(x, y) 右侧表达式</span>
         </p>
       </div>
 

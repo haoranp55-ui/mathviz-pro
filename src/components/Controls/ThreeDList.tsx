@@ -62,7 +62,7 @@ export const ThreeDList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></div>
+        <div className="w-2 h-2 rounded-full bg-cyan-400/70"></div>
         <span className="text-gray-400">曲面列表</span>
         <span className="ml-auto text-gray-600">{threeDFunctions.length}/6</span>
       </div>
@@ -71,16 +71,16 @@ export const ThreeDList: React.FC = () => {
         {threeDFunctions.map((fn) => (
           <div
             key={fn.id}
-            className="glass rounded-xl p-3 border border-white/[0.08] hover:border-white/[0.12] transition-all"
+            className="glass rounded-xl p-3 border border-white/[0.06] hover:border-white/[0.1] transition-all"
           >
             {/* 顶行: 颜色条 + 表达式 */}
             <div className="flex items-start gap-2.5">
               <button
                 onClick={() => toggleThreeDVisibility(fn.id)}
-                className="w-3 h-3 rounded-full mt-1 flex-shrink-0 transition-all hover:scale-110 border-2 border-white/20"
+                className="w-3 h-3 rounded-full mt-1 flex-shrink-0 transition-all hover:scale-110 border-2 border-white/15"
                 style={{
                   backgroundColor: fn.visible ? fn.color : 'transparent',
-                  boxShadow: fn.visible ? `0 0 8px ${fn.color}80` : 'none',
+                  boxShadow: fn.visible ? `0 0 8px ${fn.color}60` : 'none',
                 }}
                 title={fn.visible ? '点击隐藏' : '点击显示'}
               />
@@ -127,11 +127,10 @@ export const ThreeDList: React.FC = () => {
 
             {/* 控件行 */}
             <div className="mt-2.5 flex items-center gap-4 text-xs">
-              {/* 线框切换 */}
               <button
                 onClick={() => toggleWireframe(fn.id)}
                 className={`flex items-center gap-1.5 transition-colors ${
-                  fn.wireframe ? 'text-purple-400' : 'text-gray-500 hover:text-gray-300'
+                  fn.wireframe ? 'text-cyan-400' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,7 +140,6 @@ export const ThreeDList: React.FC = () => {
                 线框
               </button>
 
-              {/* 分辨率滑钮 */}
               <div className="flex items-center gap-1.5 flex-1">
                 <span className="text-gray-500">网格</span>
                 <input
@@ -153,7 +151,7 @@ export const ThreeDList: React.FC = () => {
                     const idx = parseInt(e.target.value);
                     updateThreeDResolution(fn.id, THREE_D_RESOLUTION_PRESETS[idx]);
                   }}
-                  className="flex-1 h-1 accent-purple-500"
+                  className="flex-1 h-1"
                 />
                 <span className="text-gray-400 w-7 text-right">{fn.resolution}</span>
               </div>
@@ -162,7 +160,7 @@ export const ThreeDList: React.FC = () => {
             {/* 定义域编辑 */}
             <div className="mt-2 space-y-1.5">
               <div className="flex items-center gap-1.5 text-[10px]">
-                <span className="text-gray-500 w-3">X</span>
+                <span className="text-gray-500 w-3 font-mono">X</span>
                 <input
                   type="number"
                   value={fn.xMin}
@@ -178,7 +176,7 @@ export const ThreeDList: React.FC = () => {
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                   step="any"
                 />
-                <span className="text-gray-500 w-3 ml-1">Y</span>
+                <span className="text-gray-500 w-3 font-mono ml-1">Y</span>
                 <input
                   type="number"
                   value={fn.yMin}
@@ -196,7 +194,7 @@ export const ThreeDList: React.FC = () => {
                 />
               </div>
               <div className="flex items-center gap-1.5 text-[10px]">
-                <span className="text-gray-500 w-3">Z</span>
+                <span className="text-gray-500 w-3 font-mono">Z</span>
                 <input
                   type="number"
                   value={fn.zMin ?? ''}

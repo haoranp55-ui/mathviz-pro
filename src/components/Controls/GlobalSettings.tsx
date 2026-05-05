@@ -7,11 +7,11 @@ import type { SamplePreset } from '../../types';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
 
-const PRESET_CONFIG: Record<SamplePreset, { label: string; icon: string; color: string }> = {
-  fast: { label: '快速', icon: '⚡', color: 'from-yellow-500 to-amber-500' },
-  normal: { label: '标准', icon: '◆', color: 'from-blue-500 to-cyan-500' },
-  fine: { label: '精细', icon: '✦', color: 'from-purple-500 to-pink-500' },
-  ultra: { label: '极致', icon: '✹', color: 'from-red-500 to-rose-500' },
+const PRESET_CONFIG: Record<SamplePreset, { label: string; icon: string }> = {
+  fast: { label: '快速', icon: '⚡' },
+  normal: { label: '标准', icon: '◆' },
+  fine: { label: '精细', icon: '✦' },
+  ultra: { label: '极致', icon: '✹' },
 };
 
 export const GlobalSettings: React.FC = () => {
@@ -38,19 +38,16 @@ export const GlobalSettings: React.FC = () => {
   }, [systemType, resetView, bumpThreeDVersion]);
 
   return (
-    <div className="p-4 border-t border-white/[0.08] space-y-4 relative glass-subtle">
-      {/* 标题 */}
+    <div className="p-4 border-t border-white/[0.06] space-y-4 relative glass-subtle">
       <div className="text-xs text-gray-500 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>
+        <div className="w-2 h-2 rounded-full bg-cyan-400/50"></div>
         <span className="text-gray-400">全局设置</span>
-        <span className="text-amber-400 font-serif text-sm">⚙</span>
       </div>
 
       {/* 坐标范围 */}
-      <div className="space-y-3">
-        {/* X 范围 */}
+      <div className="space-y-2.5">
         <div className="flex items-center gap-2">
-          <label className="text-xs text-cyan-400/80 w-14 font-mono">X<sub className="text-[10px]">min/max</sub></label>
+          <label className="text-xs text-cyan-400/60 w-14 font-mono">X<sub className="text-[10px]">min/max</sub></label>
           <input
             type="number"
             value={viewPort.xMin}
@@ -60,7 +57,7 @@ export const GlobalSettings: React.FC = () => {
             }}
             className="w-16 px-2 py-1.5 input-glass text-xs text-center"
           />
-          <span className="text-cyan-500/30 text-xs">→</span>
+          <span className="text-gray-600 text-xs">→</span>
           <input
             type="number"
             value={viewPort.xMax}
@@ -72,9 +69,8 @@ export const GlobalSettings: React.FC = () => {
           />
         </div>
 
-        {/* Y 范围 */}
         <div className="flex items-center gap-2">
-          <label className="text-xs text-green-400/80 w-14 font-mono">Y<sub className="text-[10px]">min/max</sub></label>
+          <label className="text-xs text-cyan-400/60 w-14 font-mono">Y<sub className="text-[10px]">min/max</sub></label>
           <input
             type="number"
             value={viewPort.yMin}
@@ -84,7 +80,7 @@ export const GlobalSettings: React.FC = () => {
             }}
             className="w-16 px-2 py-1.5 input-glass text-xs text-center"
           />
-          <span className="text-green-500/30 text-xs">→</span>
+          <span className="text-gray-600 text-xs">→</span>
           <input
             type="number"
             value={viewPort.yMax}
@@ -97,13 +93,13 @@ export const GlobalSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* 采样精度挡位 - 分段控制器风格 */}
+      {/* 采样精度挡位 */}
       <div className="param-group">
         <div className="flex items-center justify-between mb-2">
           <label className="text-xs text-gray-400">采样精度</label>
-          <span className="text-xs text-cyan-400 font-mono">max: {SAMPLE_PRESETS[samplePreset].maxCount}</span>
+          <span className="text-xs text-cyan-400/70 font-mono">max: {SAMPLE_PRESETS[samplePreset].maxCount}</span>
         </div>
-        <div className="flex gap-0.5 p-0.5 glass-subtle rounded-xl border border-white/[0.05]">
+        <div className="flex gap-0.5 p-0.5 glass rounded-xl border border-white/[0.05]">
           {PRESET_ORDER.map((preset) => {
             const isActive = samplePreset === preset;
             const config = PRESET_CONFIG[preset];
@@ -111,12 +107,11 @@ export const GlobalSettings: React.FC = () => {
               <button
                 key={preset}
                 onClick={() => setSamplePreset(preset)}
-                className={`flex-1 py-2 text-xs rounded-lg transition-all duration-300 flex items-center justify-center gap-1 ${
+                className={`flex-1 py-2 text-xs rounded-lg transition-all duration-200 flex items-center justify-center gap-1 ${
                   isActive
-                    ? `bg-gradient-to-r ${config.color} text-white shadow-lg`
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
                 }`}
-                style={isActive ? { boxShadow: `0 4px 15px rgba(0,0,0,0.3)` } : {}}
               >
                 <span>{config.icon}</span>
                 <span>{SAMPLE_PRESETS[preset].label}</span>
@@ -124,9 +119,9 @@ export const GlobalSettings: React.FC = () => {
             );
           })}
         </div>
-        <div className="text-xs text-gray-500 mt-1.5 text-center">
+        <div className="text-xs text-gray-600 mt-1.5 text-center">
           {samplePreset === 'ultra' && (
-            <span className="text-amber-400/70">⚠️ 极致模式可能较慢</span>
+            <span className="text-amber-400/60">⚠️ 极致模式可能较慢</span>
           )}
         </div>
       </div>
@@ -142,7 +137,7 @@ export const GlobalSettings: React.FC = () => {
             className="custom-checkbox"
           />
           <label htmlFor="showGrid" className="text-xs text-gray-300 cursor-pointer flex items-center gap-1.5">
-            <span className="text-cyan-400/70">▦</span>
+            <span className="text-cyan-400/50">▦</span>
             显示网格
           </label>
         </div>
@@ -154,13 +149,13 @@ export const GlobalSettings: React.FC = () => {
           onClick={handleReset}
           className="w-full py-2.5 text-xs text-gray-300 btn-glass-secondary active:scale-[0.98] flex items-center justify-center gap-2"
         >
-          <span className="text-cyan-400">↻</span>
+          <span className="text-cyan-400/70">↻</span>
           重置视图
         </button>
 
         <button
           onClick={() => exportImage()}
-          className="w-full py-2.5 text-xs text-white btn-glass active:scale-[0.98] flex items-center justify-center gap-2"
+          className="w-full py-2.5 text-xs text-cyan-200 btn-glass active:scale-[0.98] flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />

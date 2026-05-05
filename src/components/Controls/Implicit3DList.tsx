@@ -40,7 +40,7 @@ export const Implicit3DList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3">
       <div className="text-xs text-gray-500 px-2 mb-3 flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>
+        <div className="w-2 h-2 rounded-full bg-cyan-400/70"></div>
         <span className="text-gray-400">隐函数列表</span>
         <span className="ml-auto text-gray-600">{implicit3DFunctions.length}/6</span>
       </div>
@@ -51,10 +51,10 @@ export const Implicit3DList: React.FC = () => {
             <div className="flex items-start gap-2.5">
               <button
                 onClick={() => toggleImplicit3DVisibility(fn.id)}
-                className="w-3 h-3 rounded-full mt-1 flex-shrink-0 transition-all hover:scale-110 border-2 border-white/20"
+                className="w-3 h-3 rounded-full mt-1 flex-shrink-0 transition-all hover:scale-110 border-2 border-white/15"
                 style={{
                   backgroundColor: fn.visible ? fn.color : 'transparent',
-                  boxShadow: fn.visible ? `0 0 8px ${fn.color}80` : 'none',
+                  boxShadow: fn.visible ? `0 0 8px ${fn.color}60` : 'none',
                 }}
               />
 
@@ -67,13 +67,13 @@ export const Implicit3DList: React.FC = () => {
                   />
                 ) : (
                   <button onClick={() => { setEditingId(fn.id); setEditExpression(fn.expression); }}
-                    className="w-full text-left text-sm text-gray-200 font-mono truncate hover:text-white"
+                    className="w-full text-left text-sm text-gray-200 font-mono truncate hover:text-white transition-colors"
                   >{fn.expression}</button>
                 )}
               </div>
 
               <button onClick={() => removeImplicit3DFunction(fn.id)}
-                className="w-6 h-6 flex items-center justify-center rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                className="w-6 h-6 flex items-center justify-center rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0 transition-all"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -85,7 +85,7 @@ export const Implicit3DList: React.FC = () => {
 
             <div className="mt-2.5 flex items-center gap-4 text-xs">
               <button onClick={() => toggleImplicit3DWireframe(fn.id)}
-                className={`flex items-center gap-1.5 ${fn.wireframe ? 'text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}
+                className={`flex items-center gap-1.5 transition-colors ${fn.wireframe ? 'text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16M9 21v-4m6 4v-4" />
@@ -98,7 +98,7 @@ export const Implicit3DList: React.FC = () => {
                 <input type="range" min={0} max={IMPLICIT3D_MC_PRESETS.length - 1}
                   value={IMPLICIT3D_MC_PRESETS.indexOf(fn.resolution as any)}
                   onChange={e => updateImplicit3DResolution(fn.id, IMPLICIT3D_MC_PRESETS[parseInt(e.target.value)])}
-                  className="flex-1 h-1 accent-amber-500"
+                  className="flex-1 h-1"
                 />
                 <span className="text-gray-400 w-7 text-right">{fn.resolution}</span>
               </div>
