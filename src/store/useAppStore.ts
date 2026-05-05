@@ -15,6 +15,8 @@ import type {
   PolarFunction,
   SidebarTab,
   ThreeDFunction,
+  Implicit3DFunction,
+  ThreeDTab,
   PlotSystemType,
 } from '../types';
 import {
@@ -23,11 +25,15 @@ import {
   THREE_D_DEFAULT_DOMAIN,
   THREE_D_MAX_FUNCTIONS,
   THREE_D_PRESET_RESOLUTION,
+  IMPLICIT3D_DEFAULT_DOMAIN,
+  IMPLICIT3D_MAX_FUNCTIONS,
+  IMPLICIT3D_PRESET_RESOLUTION,
 } from '../types';
 import { parseExpression, parseParametricExpression } from '../lib/parser';
 import { parseImplicitExpression } from '../lib/implicitParser';
 import { parsePolarExpression } from '../lib/polarParser';
 import { parseThreeDExpression } from '../lib/threeDParser';
+import { parseImplicit3DExpression } from '../lib/implicit3DParser';
 import { updateParameterValue } from '../lib/paramParser';
 import { numericalDerivative } from '../lib/derivative';
 
@@ -47,8 +53,14 @@ interface AppState {
   // 系统类型: 2D 或 3D
   systemType: PlotSystemType;
 
-  // 3D 函数列表（最多6个）
+  // 3D 显函数列表（最多6个）
   threeDFunctions: ThreeDFunction[];
+
+  // 3D 隐函数列表（最多6个）
+  implicit3DFunctions: Implicit3DFunction[];
+
+  // 3D 侧边栏子 Tab
+  threeDTab: ThreeDTab;
 
   // 当前侧边栏 Tab
   sidebarTab: SidebarTab;
@@ -154,6 +166,16 @@ interface AppState {
   updateThreeDZRange: (id: string, zMin?: number, zMax?: number) => void;
   bumpThreeDVersion: () => void;
 
+  // 3D 隐函数 Actions
+  setThreeDTab: (tab: ThreeDTab) => void;
+  addImplicit3DFunction: (expression: string) => void;
+  removeImplicit3DFunction: (id: string) => void;
+  toggleImplicit3DVisibility: (id: string) => void;
+  toggleImplicit3DWireframe: (id: string) => void;
+  updateImplicit3DResolution: (id: string, resolution: number) => void;
+  updateImplicit3DDomain: (id: string, field: string, value: number) => void;
+  updateImplicit3DExpression: (id: string, expression: string) => void;
+
   // 标记点 Actions（普通函数和参数化函数共用）
   addMarkedPoint: (functionId: string, x: number, isParametric: boolean) => void;
   removeMarkedPoint: (functionId: string, pointId: string, isParametric: boolean) => void;
@@ -167,6 +189,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   polarFunctions: [],
   systemType: '2d',
   threeDFunctions: [],
+  implicit3DFunctions: [],
+  threeDTab: 'explicit' as ThreeDTab,
   threeDVersion: 0,
   sidebarTab: 'normal',
   viewPort: { ...DEFAULT_VIEWPORT },
@@ -295,10 +319,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSamplePreset: (preset: SamplePreset) => {
     const newRes = THREE_D_PRESET_RESOLUTION[preset];
+    const newMCRes = IMPLICIT3D_PRESET_RESOLUTION[preset];
     set({
       samplePreset: preset,
-      // 同步 3D 函数分辨率
+      // 同步 3D 显函数分辨率
       threeDFunctions: get().threeDFunctions.map(f => ({ ...f, resolution: newRes })),
+      // 同步 3D 隐函数 MC 分辨率
+      implicit3DFunctions: get().implicit3DFunctions.map(f => ({ ...f, resolution: newMCRes })),
     });
   },
 
@@ -847,6 +874,113 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   bumpThreeDVersion: () => {
     set({ threeDVersion: get().threeDVersion + 1 });
+  },
+
+  // 3D 隐函数 Actions
+  setThreeDTab: (tab: ThreeDTab) => {
+    set({ threeDTab: tab });
+  },
+
+  addImplicit3DFunction: (expression: string) => {
+    const { implicit3DFunctions, samplePreset } = get();
+    if (implicit3DFunctions.length >= IMPLICIT3D_MAX_FUNCTIONS) return;
+
+    const colorIndex = implicit3DFunctions.length % FUNCTION_COLORS.length;
+    const color = FUNCTION_COLORS[colorIndex];
+    const defaultRes = IMPLICIT3D_PRESET_RESOLUTION[samplePreset];
+
+    const result = parseImplicit3DExpression(expression);
+
+    if (result instanceof Error) {
+      const errorFn: Implicit3DFunction = {
+        id: uuidv4(),
+        expression,
+        compiled: () => NaN,
+        color,
+        visible: true,
+        wireframe: false,
+        resolution: defaultRes,
+        ...IMPLICIT3D_DEFAULT_DOMAIN,
+        error: result.message,
+      };
+      set({ implicit3DFunctions: [...implicit3DFunctions, errorFn] });
+    } else {
+      set({
+        implicit3DFunctions: [
+          ...implicit3DFunctions,
+          {
+            ...result,
+            expression,
+            id: uuidv4(),
+            color,
+            visible: true,
+            wireframe: false,
+            resolution: defaultRes,
+            ...IMPLICIT3D_DEFAULT_DOMAIN,
+          },
+        ],
+      });
+    }
+  },
+
+  removeImplicit3DFunction: (id: string) => {
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.filter(f => f.id !== id),
+    });
+  },
+
+  toggleImplicit3DVisibility: (id: string) => {
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.map(f =>
+        f.id === id ? { ...f, visible: !f.visible } : f,
+      ),
+    });
+  },
+
+  toggleImplicit3DWireframe: (id: string) => {
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.map(f =>
+        f.id === id ? { ...f, wireframe: !f.wireframe } : f,
+      ),
+    });
+  },
+
+  updateImplicit3DResolution: (id: string, resolution: number) => {
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.map(f =>
+        f.id === id ? { ...f, resolution } : f,
+      ),
+    });
+  },
+
+  updateImplicit3DDomain: (id: string, field: string, value: number) => {
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.map(f =>
+        f.id === id ? { ...f, [field]: value } : f,
+      ),
+    });
+  },
+
+  updateImplicit3DExpression: (id: string, expression: string) => {
+    const { implicit3DFunctions } = get();
+    const result = parseImplicit3DExpression(expression);
+    const fn = implicit3DFunctions.find(f => f.id === id);
+    if (!fn) return;
+
+    if (result instanceof Error) {
+      set({
+        implicit3DFunctions: implicit3DFunctions.map(f =>
+          f.id === id ? { ...f, expression, error: result.message } : f,
+        ),
+      });
+    } else {
+      const { compiled } = result;
+      set({
+        implicit3DFunctions: implicit3DFunctions.map(f =>
+          f.id === id ? { ...f, compiled, expression, error: undefined } : f,
+        ),
+      });
+    }
   },
 
   setSliderActive: (active: boolean) => {

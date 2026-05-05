@@ -73,6 +73,7 @@ export const FunctionCanvas: React.FC = () => {
     evaluateX,
     systemType,
     threeDFunctions,
+    implicit3DFunctions,
     threeDVersion,
     setHoverPoint,
     setDragging,
@@ -86,6 +87,13 @@ export const FunctionCanvas: React.FC = () => {
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // 3D 渲染回调引用（给 manager 异步 MC 完成时使用）
+  const request3DRenderRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    getThreeDRenderManager().onNeedsRender = () => request3DRenderRef.current();
+    return () => { getThreeDRenderManager().onNeedsRender = null; };
+  }, []);
 
   // WASD + 垂直移动 键盘状态
   const wasdRef = useRef({ w: false, a: false, s: false, d: false, x: false, space: false });
@@ -107,7 +115,7 @@ export const FunctionCanvas: React.FC = () => {
       const dpr = window.devicePixelRatio || 1;
       const threeDManager = getThreeDRenderManager();
       const visible3D = threeDFunctions.filter(f => f.visible && !f.error);
-      const glCanvas = threeDManager.renderToCanvas(visible3D, {
+      const glCanvas = threeDManager.renderToCanvas(visible3D, implicit3DFunctions, {
         width: Math.round(canvasSize.width * dpr),
         height: Math.round(canvasSize.height * dpr),
       });
@@ -121,12 +129,13 @@ export const FunctionCanvas: React.FC = () => {
         ctx.drawImage(glCanvas, 0, 0);
       }
     });
-  }, [canvasSize, threeDFunctions, getContext, clearCanvas]);
+  }, [canvasSize, threeDFunctions, implicit3DFunctions, getContext, clearCanvas]);
+  request3DRenderRef.current = request3DRender;
 
   // 3D 函数/画布/系统切换时触发重渲染
   useEffect(() => {
     if (systemType === '3d') request3DRender();
-  }, [threeDFunctions, canvasSize.width, canvasSize.height, systemType, threeDVersion, request3DRender]);
+  }, [threeDFunctions, implicit3DFunctions, canvasSize.width, canvasSize.height, systemType, threeDVersion, request3DRender]);
 
   // WASD 键盘事件监听
   useEffect(() => {

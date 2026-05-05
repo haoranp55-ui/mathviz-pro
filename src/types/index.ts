@@ -302,3 +302,42 @@ export const THREE_D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
   fine: 128,
   ultra: 256,
 };
+
+// ============================================
+// 3D 隐函数支持 f(x, y, z) = 0
+// ============================================
+
+export interface Implicit3DFunction {
+  id: string;
+  expression: string;                               // "x^2 + y^2 + z^2 - 1 = 0"
+  compiled: (x: number, y: number, z: number) => number;
+  color: string;
+  visible: boolean;
+  wireframe: boolean;
+  resolution: number;                               // MC 网格分辨率，默认 48
+  xMin: number; xMax: number;                       // X 定义域
+  yMin: number; yMax: number;                       // Y 定义域
+  zMin: number; zMax: number;                       // Z 定义域
+  error?: string;
+}
+
+export const IMPLICIT3D_DEFAULT_RESOLUTION = 64;
+export const IMPLICIT3D_MC_PRESETS = [32, 40, 48, 56, 64, 80] as const;
+export const IMPLICIT3D_MAX_FUNCTIONS = 6;
+
+export const IMPLICIT3D_DEFAULT_DOMAIN = {
+  xMin: -5, xMax: 5,
+  yMin: -5, yMax: 5,
+  zMin: -5, zMax: 5,
+};
+
+// 采样精度 → 隐函数 MC 分辨率
+export const IMPLICIT3D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
+  fast: 32,
+  normal: 48,
+  fine: 64,
+  ultra: 80,
+};
+
+// 3D 侧边栏子 Tab
+export type ThreeDTab = 'explicit' | 'implicit';

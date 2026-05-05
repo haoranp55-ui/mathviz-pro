@@ -1,6 +1,7 @@
 // src/lib/threeD/threeDRenderManager.ts
 import * as THREE from 'three';
-import type { ThreeDFunction } from '../../types';
+import type { ThreeDFunction, Implicit3DFunction } from '../../types';
+import isosurface from 'isosurface';
 
 interface MeshEntry {
   mesh: THREE.Mesh;
@@ -13,7 +14,11 @@ export class ThreeDRenderManager {
   private camera!: THREE.PerspectiveCamera;
   private canvas: HTMLCanvasElement;
   private meshes = new Map<string, MeshEntry>();
+  private implicitMeshes = new Map<string, MeshEntry>();
+  private implicitComputing = new Set<string>(); // 防止并发 MC 计算
   private disposed = false;
+  public onNeedsRender: (() => void) | null = null;
+  public wasdSpeed = 1.0; // WASD 灵敏度，1.0=默认
 
   // 手动轨道控制
   // 初始视角：相机在第一卦限，目标点向Y正方向偏移6（世界Z=-6）
@@ -241,7 +246,7 @@ export class ThreeDRenderManager {
       new THREE.Vector3(0, 1, 0),
     ).normalize();
 
-    const moveSpeed = this.spherical.radius * 0.015;
+    const moveSpeed = this.spherical.radius * 0.015 * this.wasdSpeed;
 
     const moveDelta = new THREE.Vector3()
       .addScaledVector(forwardDir, forward * moveSpeed)
@@ -253,7 +258,7 @@ export class ThreeDRenderManager {
 
   handleVerticalMovement(up: number): void {
     // up: +1=上移, -1=下移
-    const moveSpeed = this.spherical.radius * 0.015;
+    const moveSpeed = this.spherical.radius * 0.015 * this.wasdSpeed;
     const moveDelta = new THREE.Vector3(0, up * moveSpeed, 0);
     this.target.add(moveDelta);
     this.updateCameraPosition();
@@ -267,29 +272,151 @@ export class ThreeDRenderManager {
 
   renderToCanvas(
     functions: ThreeDFunction[],
+    implicitFunctions: Implicit3DFunction[],
     size: { width: number; height: number },
   ): HTMLCanvasElement {
     if (this.disposed) return this.canvas;
 
     this.resize(size.width, size.height);
 
+    // 显函数曲面
     const activeIds = new Set<string>();
-
     for (const fn of functions) {
       if (!fn.visible || fn.error) continue;
       activeIds.add(fn.id);
       this.updateOrCreateMesh(fn);
     }
-
-    // 移除不在列表中的 mesh
     for (const [id] of this.meshes) {
-      if (!activeIds.has(id)) {
-        this.removeMesh(id);
-      }
+      if (!activeIds.has(id)) this.removeMesh(id);
+    }
+
+    // 隐函数曲面 (Marching Cubes)
+    const activeImplicitIds = new Set<string>();
+    for (const fn of implicitFunctions) {
+      if (!fn.visible || fn.error) continue;
+      activeImplicitIds.add(fn.id);
+      this.updateOrCreateImplicitMesh(fn);
+    }
+    for (const [id] of this.implicitMeshes) {
+      if (!activeImplicitIds.has(id)) this.removeImplicitMesh(id);
     }
 
     this.renderer.render(this.scene, this.camera);
     return this.canvas;
+  }
+
+  private updateOrCreateImplicitMesh(fn: Implicit3DFunction): void {
+    const meshKey = `impl-${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}-${fn.xMin}-${fn.xMax}-${fn.yMin}-${fn.yMax}-${fn.zMin}-${fn.zMax}`;
+    const existing = this.implicitMeshes.get(fn.id);
+
+    if (existing && existing.meshKey === meshKey) {
+      (existing.mesh.material as THREE.MeshPhongMaterial).color.set(fn.color);
+      existing.mesh.visible = true;
+      return;
+    }
+
+    // 防止同一函数并发计算
+    if (this.implicitComputing.has(fn.id)) return;
+    this.implicitComputing.add(fn.id);
+
+    // 保留旧 mesh，等新的算完再替换。新函数先放不可见占位保证 map 有记录
+    const oldEntry = existing ?? null;
+    if (!oldEntry) {
+      const dGeo = new THREE.SphereGeometry(0.01);
+      const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
+      const d = new THREE.Mesh(dGeo, dMat);
+      d.visible = false;
+      this.scene.add(d);
+      this.implicitMeshes.set(fn.id, { mesh: d, meshKey });
+    }
+
+    // 异步 MC（setTimeout 0 让出主线程）
+    const snap = {
+      compiled: fn.compiled,
+      resolution: fn.resolution,
+      xMin: fn.xMin, xMax: fn.xMax,
+      yMin: fn.yMin, yMax: fn.yMax,
+      zMin: fn.zMin, zMax: fn.zMax,
+      color: fn.color,
+      wireframe: fn.wireframe,
+    };
+
+    setTimeout(() => {
+      const sampler = (x: number, y: number, z: number) => {
+        const val = snap.compiled(x, -z, y);
+        return Number.isFinite(val) ? val : 1;
+      };
+
+      const dims: [number, number, number] = [snap.resolution, snap.resolution, snap.resolution];
+      const bounds: [[number, number, number], [number, number, number]] = [
+        [snap.xMin, -snap.yMax, snap.zMin],
+        [snap.xMax, -snap.yMin, snap.zMax],
+      ];
+
+      const result = isosurface.surfaceNets(dims, sampler, bounds);
+
+      // 删掉旧 mesh（无论之前是真实mesh还是占位）
+      if (oldEntry) {
+        this.scene.remove(oldEntry.mesh);
+        oldEntry.mesh.geometry.dispose();
+        (oldEntry.mesh.material as THREE.Material).dispose();
+      }
+      this.implicitComputing.delete(fn.id);
+
+      if (this.disposed) return;
+
+      if (!result.positions.length || !result.cells.length) {
+        const dGeo = new THREE.SphereGeometry(0.01);
+        const dMat = new THREE.MeshPhongMaterial({ color: snap.color, wireframe: snap.wireframe, side: THREE.DoubleSide });
+        const d = new THREE.Mesh(dGeo, dMat);
+        d.visible = false;
+        this.scene.add(d);
+        this.implicitMeshes.set(fn.id, { mesh: d, meshKey });
+        this.onNeedsRender?.();
+        return;
+      }
+
+      // 转换 isosurface 输出到 THREE.BufferGeometry
+      const posArr = new Float32Array(result.positions.length * 3);
+      for (let i = 0; i < result.positions.length; i++) {
+        posArr[i * 3] = result.positions[i][0];
+        posArr[i * 3 + 1] = result.positions[i][1];
+        posArr[i * 3 + 2] = result.positions[i][2];
+      }
+
+      const idxArr: number[] = [];
+      for (const cell of result.cells) {
+        idxArr.push(cell[0], cell[1], cell[2]);
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+      geometry.setIndex(idxArr);
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshPhongMaterial({
+        color: snap.color,
+        wireframe: snap.wireframe,
+        side: THREE.DoubleSide,
+        shininess: 30,
+        specular: new THREE.Color(0x111111),
+        flatShading: false,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      this.scene.add(mesh);
+      this.implicitMeshes.set(fn.id, { mesh, meshKey });
+      this.onNeedsRender?.();
+    }, 0);
+  }
+
+  private removeImplicitMesh(id: string): void {
+    const entry = this.implicitMeshes.get(id);
+    if (!entry) return;
+    this.scene.remove(entry.mesh);
+    entry.mesh.geometry.dispose();
+    (entry.mesh.material as THREE.Material).dispose();
+    this.implicitMeshes.delete(id);
   }
 
   private updateOrCreateMesh(fn: ThreeDFunction): void {
@@ -362,9 +489,8 @@ export class ThreeDRenderManager {
   }
 
   dispose(): void {
-    for (const [id] of this.meshes) {
-      this.removeMesh(id);
-    }
+    for (const [id] of this.meshes) this.removeMesh(id);
+    for (const [id] of this.implicitMeshes) this.removeImplicitMesh(id);
     this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
     this.renderer.dispose();
     this.disposed = true;
