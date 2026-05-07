@@ -30,8 +30,8 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   const isPlayingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const speedRef = useRef<number>(1);
-  const [speed, setSpeed] = useState(1);
+  const periodRef = useRef<number>(2);
+  const [period, setPeriod] = useState(2);
 
   // Refs for latest values (avoid stale closures in RAF)
   const onChangeRef = useRef(onChange);
@@ -51,9 +51,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
     const animate = (now: number) => {
       if (!isPlayingRef.current) return;
       const elapsed = (now - startTimeRef.current) / 1000;
-      const speedVal = speedRef.current;
+      const periodVal = periodRef.current;
       const { min, max, step } = paramRef.current;
-      const phase = (elapsed * speedVal) % 1;
+      const phase = (elapsed / periodVal) % 1;
       const progress = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
       let value = min + progress * (max - min);
       if (step > 0) {
@@ -112,11 +112,11 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
     setSliderActive(false);
   }, [setSliderActive]);
 
-  const handleSpeedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePeriodChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    if (!isNaN(val) && val > 0 && val <= 20) {
-      speedRef.current = val;
-      setSpeed(val);
+    if (!isNaN(val) && val >= 0.5 && val <= 30) {
+      periodRef.current = val;
+      setPeriod(val);
     }
   }, []);
 
@@ -238,17 +238,17 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
           </label>
           {canAnimate && (
             <label className="flex items-center gap-1 text-[#64748B]">
-              <span>速度:</span>
+              <span>周期:</span>
               <input
                 type="number"
-                value={speed}
-                onChange={handleSpeedChange}
+                value={period}
+                onChange={handlePeriodChange}
                 className="w-12 px-1 py-0.5 input-base text-xs"
-                step="0.1"
-                min="0.1"
-                max="20"
+                step="0.5"
+                min="0.5"
+                max="30"
               />
-              <span className="text-[#475569]">周期/秒</span>
+              <span className="text-[#475569]">秒</span>
             </label>
           )}
         </div>
