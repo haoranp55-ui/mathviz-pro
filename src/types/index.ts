@@ -207,22 +207,42 @@ export interface IntegralResult {
 }
 
 // ============================================
-// 微分方程系统
+// 微分方程系统（线性常系数微分方程求解器）
 // ============================================
 
+import type { DifferentialSolution } from '../lib/differentialSolver';
+
+export interface DifferentialEquationInput {
+  id: string;
+
+  // 方程系数（从高阶到低阶）
+  yCoeffs: number[];  // y 的系数，如 [1, 3, 2] 表示 y'' + 3y' + 2y
+  xCoeffs: number[];  // x 的系数，如 [1, 0, 0] 表示 x
+
+  // x(t) 表达式
+  xFunction: string;  // 默认 "t"
+
+  // 初始条件（根据阶数决定个数）
+  initialConditions: number[];  // [y(0), y'(0), y''(0)]
+
+  // 求解结果
+  solution?: DifferentialSolution;
+
+  // 状态
+  isValid: boolean;
+  error?: string;
+}
+
+// 保留旧类型以兼容（后续可删除）
 export interface DifferentialEquation {
   id: string;
-  expression: string;           // "dy/dx = x^2 + y" 或 "y' = sin(x)*y"
-  compiled: (x: number, y: number) => number;  // dy/dx = f(x, y)
+  expression: string;
+  compiled: (x: number, y: number) => number;
   color: string;
   visible: boolean;
   error?: string;
-
-  // 初始条件
   initialX: number;
   initialY: number;
-
-  // 求解参数
   method: 'euler' | 'runge-kutta';
   stepSize: number;
   xMin: number;
@@ -231,7 +251,7 @@ export interface DifferentialEquation {
 
 export interface SolutionCurve {
   equationId: string;
-  points: SampledPoints;        // 解曲线的采样点
+  points: SampledPoints;
 }
 
 // ============================================
@@ -256,7 +276,7 @@ export interface PolarFunction {
   stepsPerRadian?: number;     // 每弧度采样密度，默认 32
 }
 
-// 侧边栏 Tab 类型（扩展）
+// 侧边栏 Tab 类型
 export type SidebarTab = 'normal' | 'parametric' | 'implicit' | 'polar';
 
 // ============================================

@@ -77,6 +77,11 @@ export const MainLayout: React.FC = () => {
                     <ImplicitInput />
                     <ImplicitList />
                   </>
+                ) : sidebarTab === 'polar' ? (
+                  <>
+                    <PolarInput />
+                    <PolarList />
+                  </>
                 ) : (
                   <>
                     <PolarInput />

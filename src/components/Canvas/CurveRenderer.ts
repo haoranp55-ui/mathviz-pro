@@ -332,3 +332,49 @@ export function drawCoordinateTooltip(
 
   ctx.restore();
 }
+
+// 绘制微分方程初始点标记
+export function drawInitialPoint(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  viewPort: ViewPort,
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
+): void {
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
+
+  const px = xScale(x);
+  const py = yScale(y);
+
+  // 检查是否在画布范围内
+  if (px < 0 || px > canvasSize.width || py < 0 || py > canvasSize.height) {
+    return;
+  }
+
+  ctx.save();
+
+  // 外圈发光
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(px, py, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 内圈白色
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 中心点
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(px, py, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}

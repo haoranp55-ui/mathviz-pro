@@ -103,6 +103,9 @@ export const FunctionCanvas: React.FC = () => {
   const threeDCacheRef = useRef<HTMLCanvasElement | null>(null);
   const threeDRenderRequested = useRef(false);
 
+  // 渲染函数引用（用于递归调用）
+  const renderRef = useRef<() => void>(() => {});
+
   // 请求 3D 重渲染（渲染完直接画到主 canvas，不依赖 React 重渲染）
   const request3DRender = useCallback(() => {
     if (threeDRenderRequested.current) return;
@@ -130,7 +133,11 @@ export const FunctionCanvas: React.FC = () => {
       }
     });
   }, [canvasSize, threeDFunctions, implicit3DFunctions, getContext, clearCanvas]);
-  request3DRenderRef.current = request3DRender;
+
+  // 使用 useEffect 更新 ref，避免渲染期间访问
+  useEffect(() => {
+    request3DRenderRef.current = request3DRender;
+  }, [request3DRender]);
 
   // 3D 函数/画布/系统切换时触发重渲染
   useEffect(() => {
@@ -274,7 +281,7 @@ export const FunctionCanvas: React.FC = () => {
         ctx.drawImage(threeDCacheRef.current, 0, 0);
       }
       // 3D 模式需要持续自循环以保证即时响应（request3DRender 负责实际 Three.js 渲染）
-      animationFrameRef.current = requestAnimationFrame(render);
+      animationFrameRef.current = requestAnimationFrame(renderRef.current);
       return; // 跳过所有 2D 渲染
     }
 
@@ -798,7 +805,12 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, showKeyPoints, selectedFunctionId, evaluateX, isSliderActive, systemType, threeDFunctions, setKeyPoints]);
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, selectedFunctionId, evaluateX, isSliderActive, systemType, setKeyPoints]);
+
+  // 更新 render ref
+  useEffect(() => {
+    renderRef.current = render;
+  }, [render]);
 
   // 使用 requestAnimationFrame 渲染
   useEffect(() => {
@@ -996,7 +1008,7 @@ export const FunctionCanvas: React.FC = () => {
     }
 
     setHoverPoint(closestPoint ? { x: closestPoint.x, y: closestPoint.y, functionId: closestPoint.functionId } : null);
-  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint, systemType, request3DRender]);
+  }, [canvasRef, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, interaction.isDragging, setHoverPoint, setViewPort, keyPoints, hoverKeyPoint, showKeyPoints, setHoverKeyPoint, systemType, request3DRender, aspectRatioMode]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
