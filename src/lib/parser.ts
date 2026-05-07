@@ -1,6 +1,6 @@
 // src/lib/parser.ts
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
 import type { ParsedFunction, ParametricFunction } from '../types';
 import { extractParameters, createDefaultParams, validateParamCount } from './paramParser';
 
@@ -68,7 +68,7 @@ export function parseExpression(expression: string): ParsedFunction | Error {
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -76,7 +76,7 @@ export function parseExpression(expression: string): ParsedFunction | Error {
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 
@@ -184,7 +184,7 @@ export function parseParametricExpression(
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -192,7 +192,7 @@ export function parseParametricExpression(
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 

@@ -1,6 +1,6 @@
 // src/lib/threeDParser.ts
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
 
 const math = create(all);
 
@@ -52,7 +52,7 @@ export function parseThreeDExpression(raw: string):
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -60,7 +60,7 @@ export function parseThreeDExpression(raw: string):
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 

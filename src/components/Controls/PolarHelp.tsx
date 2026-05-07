@@ -83,7 +83,7 @@ export const PolarHelp: React.FC<PolarHelpProps> = ({ isOpen, onClose }) => {
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key as 'rules' | 'examples' | 'config')}
               className={`px-5 py-3 text-sm transition-all ${
                 activeTab === tab.key
                   ? 'text-amber-400 border-b-2 border-amber-400 bg-canvas-panelLight/30'

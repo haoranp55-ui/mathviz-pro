@@ -23,7 +23,7 @@ describe('adaptiveSample', () => {
     });
 
     it('应正确采样常数函数 y = 5', () => {
-      const fn = (x: number) => 5;
+      const fn = (_x: number) => 5;
       const result = adaptiveSample(fn, defaultOptions);
 
       // 所有 y 值应为 5
@@ -74,7 +74,7 @@ describe('adaptiveSample', () => {
     });
 
     it('应处理 NaN 函数返回全 NaN', () => {
-      const fn = (x: number) => NaN;
+      const fn = (_x: number) => NaN;
       const result = adaptiveSample(fn, defaultOptions);
 
       expect(result.x.length).toBeGreaterThan(0);

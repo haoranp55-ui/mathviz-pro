@@ -43,10 +43,10 @@ export function parseCoefficients(input: string, isYCoeffs: boolean = true): num
  * 解析 x(t) 表达式
  */
 export function parseXFunction(input: string): string | Error {
-  let trimmed = input.trim();
+  const trimmed = input.trim();
   if (!trimmed) return 't';
 
-  const allowedChars = /^[\d\.\+\-\*\/\(\)\^a-zδ\s]+$/i;
+  const allowedChars = /^[\d.+\-*/()^a-zδ\s]+$/i;
   if (!allowedChars.test(trimmed)) return new Error('表达式包含非法字符');
 
   let parenCount = 0;
@@ -89,7 +89,7 @@ export function parseInitialConditions(input: string, expectedOrder: number): {
     const trimmedPart = part.trim();
 
     // 匹配 y(0-)=value, y(0+)=value, y(t)=value 或 y'(t)=value 或 y''(t)=value
-    const match = trimmedPart.match(/^y('*)\((0-|0\+|[^)]+)\)\s*=\s*(-?[\d\.]+)$/);
+    const match = trimmedPart.match(/^y('*)\((0-|0\+|[^)]+)\)\s*=\s*(-?[\d.]+)$/);
     if (!match) {
       return { conditions: [], conditionType: 'default', error: `格式错误: "${trimmedPart}"，正确格式如 y(0-)=1 或 y(0+)=0 或 y'(0)=0` };
     }
@@ -99,7 +99,7 @@ export function parseInitialConditions(input: string, expectedOrder: number): {
     const value = parseFloat(match[3]);
 
     // 解析时间点和类型
-    let t = 0;
+    let t: number;
     if (tStr === '0-') {
       t = 0;
       conditionType = '0-';

@@ -805,7 +805,7 @@ export const FunctionCanvas: React.FC = () => {
       }
     }
 
-  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, selectedFunctionId, evaluateX, isSliderActive, systemType, setKeyPoints]);
+  }, [getContext, clearCanvas, canvasSize, viewPort, functions, parametricFunctions, implicitFunctions, polarFunctions, showGrid, samplePreset, aspectRatioMode, interaction.hoverPoint, keyPoints, hoverKeyPoint, selectedFunctionId, evaluateX, systemType, setKeyPoints]);
 
   // 更新 render ref
   useEffect(() => {
@@ -826,6 +826,22 @@ export const FunctionCanvas: React.FC = () => {
       }
     };
   }, [render]);
+
+  // 滑块/动画播放时的自循环（独立于 render effect，避免被 render 重建打断）
+  useEffect(() => {
+    if (!isSliderActive) return;
+
+    let rafId: number;
+    const loop = () => {
+      renderRef.current();
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [isSliderActive]);
 
   // 鼠标移动处理
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {

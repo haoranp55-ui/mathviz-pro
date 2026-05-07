@@ -5,7 +5,7 @@
  */
 
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode } from 'mathjs';
 import type { ViewPort } from '../../types';
 import { mathNodeToGLSL } from './glslCompiler';
 
@@ -160,8 +160,8 @@ function detectUnsupportedFunctions(node: MathNode): string[] {
 
   node.traverse((n: MathNode) => {
     if (n.type === 'FunctionNode') {
-      const fnNode = n as any;
-      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn?.name;
+      const fnNode = n as FunctionNode;
+      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn.name;
       if (UNSUPPORTED.includes(fnName)) {
         found.push(fnName);
       }
@@ -178,7 +178,7 @@ function detectUnsupportedFunctions(node: MathNode): string[] {
 export function compilePolarToGLSL(expression: string): PolarGLSLResult {
   try {
     // 预处理
-    let cleaned = expression.trim().replace(/\bln\b/g, 'log');
+    const cleaned = expression.trim().replace(/\bln\b/g, 'log');
 
     // 解析为 AST
     const node = math.parse(cleaned);

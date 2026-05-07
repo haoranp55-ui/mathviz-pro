@@ -6,7 +6,7 @@
  */
 
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, ConstantNode, SymbolNode, ParenthesisNode, OperatorNode, FunctionNode, ConditionalNode } from 'mathjs';
 import { hexToRGB } from './webglUtils';
 
 const math = create(all);
@@ -89,12 +89,12 @@ export interface ExpressionCompileResult {
 export function mathNodeToGLSL(node: MathNode, params: Set<string> = new Set()): string {
   switch (node.type) {
     case 'ConstantNode': {
-      const n = node as any;
-      return formatNumber(n.value);
+      const n = node as ConstantNode;
+      return formatNumber(n.value as number);
     }
 
     case 'SymbolNode': {
-      const n = node as any;
+      const n = node as SymbolNode;
       const name = n.name;
 
       if (CONSTANT_MAP[name]) {
@@ -110,14 +110,14 @@ export function mathNodeToGLSL(node: MathNode, params: Set<string> = new Set()):
     }
 
     case 'ParenthesisNode': {
-      const n = node as any;
+      const n = node as ParenthesisNode;
       return `(${mathNodeToGLSL(n.content, params)})`;
     }
 
     case 'OperatorNode': {
-      const n = node as any;
+      const n = node as OperatorNode;
       const op = n.op;
-      const args = n.args as MathNode[];
+      const args = n.args;
 
       if (args.length === 1) {
         const arg = mathNodeToGLSL(args[0], params);
@@ -141,9 +141,9 @@ export function mathNodeToGLSL(node: MathNode, params: Set<string> = new Set()):
     }
 
     case 'FunctionNode': {
-      const n = node as any;
-      const fnName = typeof n.fn === 'string' ? n.fn : n.fn?.name;
-      const args = n.args as MathNode[];
+      const n = node as FunctionNode;
+      const fnName = typeof n.fn === 'string' ? n.fn : n.fn.name;
+      const args = n.args;
 
       switch (fnName) {
         case 'sec': {
@@ -215,7 +215,7 @@ export function mathNodeToGLSL(node: MathNode, params: Set<string> = new Set()):
     }
 
     case 'ConditionalNode': {
-      const n = node as any;
+      const n = node as ConditionalNode;
       const cond = mathNodeToGLSL(n.condition, params);
       const trueExpr = mathNodeToGLSL(n.trueExpr, params);
       const falseExpr = mathNodeToGLSL(n.falseExpr, params);
@@ -249,8 +249,8 @@ function detectUnsupportedFunctions(node: MathNode): string[] {
 
   node.traverse((n: MathNode) => {
     if (n.type === 'FunctionNode') {
-      const fnNode = n as any;
-      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn?.name;
+      const fnNode = n as FunctionNode;
+      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn.name;
 
       // 这些函数在 GLSL 中无法实现或实现成本过高
       const UNSUPPORTED_IN_GLSL = [
@@ -368,7 +368,7 @@ export function compileExpressionToGLSL(
   color: string = '#00ffff'
 ): GLSLCompileResult {
   try {
-    let cleaned = expression.trim().replace(/\bln\b/g, 'log');
+    const cleaned = expression.trim().replace(/\bln\b/g, 'log');
 
     if (!cleaned.includes('=')) {
       return { success: false, error: '隐函数必须包含等号' };

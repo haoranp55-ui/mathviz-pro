@@ -7,13 +7,14 @@ import {
   cachedSamplePolar,
   clearPolarCache,
 } from '../lib/polarParser';
+import type { PolarFunction } from '../types';
 
 describe('parsePolarExpression', () => {
   describe('正常表达式解析', () => {
     it('应正确解析简单极坐标函数 sin(x)', () => {
       const result = parsePolarExpression('sin(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(0, {})).toBeCloseTo(0, 10);
       expect(fn.compiled(Math.PI / 2, {})).toBeCloseTo(1, 10);
     });
@@ -21,35 +22,35 @@ describe('parsePolarExpression', () => {
     it('应正确解析 r = sin(3x) 形式', () => {
       const result = parsePolarExpression('r = sin(3*x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(0, {})).toBeCloseTo(0, 10);
     });
 
     it('应支持 theta 变量替换', () => {
       const result = parsePolarExpression('sin(theta)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(Math.PI / 2, {})).toBeCloseTo(1, 10);
     });
 
     it('应支持 t 变量替换', () => {
       const result = parsePolarExpression('sin(t)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(Math.PI / 2, {})).toBeCloseTo(1, 10);
     });
 
     it('应支持 θ 符号', () => {
       const result = parsePolarExpression('sin(θ)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(Math.PI / 2, {})).toBeCloseTo(1, 10);
     });
 
     it('应正确解析玫瑰曲线 sin(5*x)', () => {
       const result = parsePolarExpression('sin(5*x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       // 5 叶玫瑰曲线
       expect(fn.compiled(0, {})).toBeCloseTo(0, 10);
       // sin(5 * PI/10) = sin(PI/2) = 1
@@ -59,7 +60,7 @@ describe('parsePolarExpression', () => {
     it('应正确解析阿基米德螺线 x/2', () => {
       const result = parsePolarExpression('x/2');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(0, {})).toBeCloseTo(0, 10);
       expect(fn.compiled(Math.PI, {})).toBeCloseTo(Math.PI / 2, 10);
     });
@@ -67,7 +68,7 @@ describe('parsePolarExpression', () => {
     it('应正确解析心形曲线 1 + cos(x)', () => {
       const result = parsePolarExpression('1 + cos(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(0, {})).toBeCloseTo(2, 10);
       expect(fn.compiled(Math.PI, {})).toBeCloseTo(0, 10);
     });
@@ -77,7 +78,7 @@ describe('parsePolarExpression', () => {
     it('应正确解析带参数的表达式 a*sin(x)', () => {
       const result = parsePolarExpression('a*sin(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.parameters.length).toBe(1);
       expect(fn.parameters[0].name).toBe('a');
     });
@@ -85,7 +86,7 @@ describe('parsePolarExpression', () => {
     it('应正确计算带参数的表达式', () => {
       const result = parsePolarExpression('a*sin(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.compiled(Math.PI / 2, { a: 2 })).toBeCloseTo(2, 10);
       expect(fn.compiled(Math.PI / 2, { a: 3 })).toBeCloseTo(3, 10);
     });
@@ -119,7 +120,7 @@ describe('parsePolarExpression', () => {
     it('应设置正确的默认 theta 范围', () => {
       const result = parsePolarExpression('sin(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as PolarFunction;
       expect(fn.thetaMin).toBe(0);
       expect(fn.thetaMax).toBeCloseTo(2 * Math.PI, 10);
     });
@@ -160,7 +161,7 @@ describe('polarToCartesian', () => {
 
 describe('samplePolarFunction', () => {
   it('应采样圆 r = 1', () => {
-    const fn = (theta: number) => 1;
+    const fn = (_theta: number) => 1;
     const points = samplePolarFunction(fn, {}, 0, 2 * Math.PI, 100);
 
     expect(points.length).toBeGreaterThan(0);
@@ -200,7 +201,7 @@ describe('samplePolarFunction', () => {
 
 describe('samplePolarFunctionFast', () => {
   it('应快速采样圆 r = 1', () => {
-    const fn = (theta: number) => 1;
+    const fn = (_theta: number) => 1;
     const points = samplePolarFunctionFast(fn, {}, 0, 2 * Math.PI, 60);
 
     expect(points.length).toBe(61); // steps + 1

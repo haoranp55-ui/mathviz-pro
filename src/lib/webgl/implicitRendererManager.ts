@@ -38,7 +38,7 @@ export class ImplicitWebGLManager {
     if (this.cpuRequiredFunctions.has(fn.id)) return { success: false, requiresCPU: true };
 
     try {
-      let cleaned = fn.expression.trim().replace(/\bln\b/g, 'log');
+      const cleaned = fn.expression.trim().replace(/\bln\b/g, 'log');
       const parts = cleaned.split('=');
       if (parts.length !== 2) return { success: false };
 

@@ -23,7 +23,7 @@ function createParticle(w: number, h: number): Particle {
   const typeRoll = Math.random();
   let type: Particle['type'];
   let content = '';
-  let size = 0;
+  let size: number;
 
   if (typeRoll < 0.5) {
     type = 'dot';

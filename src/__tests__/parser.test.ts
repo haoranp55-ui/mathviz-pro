@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { parseExpression, parseParametricExpression, suggestRange } from '../lib/parser';
+import type { ParsedFunction, ParametricFunction, Parameter } from '../types';
 
 describe('parseExpression', () => {
   describe('正常表达式解析', () => {
     it('应正确解析简单多项式 x^2', () => {
       const result = parseExpression('x^2');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.expression).toBe('x^2');
       expect(fn.compiled(0)).toBe(0);
       expect(fn.compiled(2)).toBe(4);
@@ -16,7 +17,7 @@ describe('parseExpression', () => {
     it('应正确解析三角函数 sin(x)', () => {
       const result = parseExpression('sin(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(0)).toBeCloseTo(0, 10);
       expect(fn.compiled(Math.PI / 2)).toBeCloseTo(1, 10);
     });
@@ -24,7 +25,7 @@ describe('parseExpression', () => {
     it('应正确解析指数函数 exp(x)', () => {
       const result = parseExpression('exp(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(0)).toBe(1);
       expect(fn.compiled(1)).toBeCloseTo(Math.E, 10);
     });
@@ -32,32 +33,32 @@ describe('parseExpression', () => {
     it('应正确解析对数函数 log(x) 和 ln(x)', () => {
       const logResult = parseExpression('log(x)');
       expect(logResult).not.toBeInstanceOf(Error);
-      const logFn = logResult as any;
+      const logFn = logResult as ParsedFunction;
       expect(logFn.compiled(1)).toBe(0);
       expect(logFn.compiled(Math.E)).toBeCloseTo(1, 10);
 
       const lnResult = parseExpression('ln(x)');
       expect(lnResult).not.toBeInstanceOf(Error);
-      const lnFn = lnResult as any;
+      const lnFn = lnResult as ParsedFunction;
       expect(lnFn.compiled(Math.E)).toBeCloseTo(1, 10);
     });
 
     it('应正确解析常量 pi 和 e', () => {
       const piResult = parseExpression('sin(pi)');
       expect(piResult).not.toBeInstanceOf(Error);
-      const piFn = piResult as any;
+      const piFn = piResult as ParsedFunction;
       expect(piFn.compiled(0)).toBeCloseTo(0, 10);
 
       const eResult = parseExpression('e^x');
       expect(eResult).not.toBeInstanceOf(Error);
-      const eFn = eResult as any;
+      const eFn = eResult as ParsedFunction;
       expect(eFn.compiled(1)).toBeCloseTo(Math.E, 10);
     });
 
     it('应正确解析复合函数 sin(x)^2 + cos(x)^2', () => {
       const result = parseExpression('sin(x)^2 + cos(x)^2');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(0)).toBeCloseTo(1, 10);
       expect(fn.compiled(1)).toBeCloseTo(1, 10);
     });
@@ -65,7 +66,7 @@ describe('parseExpression', () => {
     it('应正确解析平方根 sqrt(x)', () => {
       const result = parseExpression('sqrt(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(4)).toBe(2);
       expect(fn.compiled(9)).toBe(3);
     });
@@ -73,7 +74,7 @@ describe('parseExpression', () => {
     it('应正确解析绝对值 abs(x)', () => {
       const result = parseExpression('abs(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(-5)).toBe(5);
       expect(fn.compiled(3)).toBe(3);
     });
@@ -94,21 +95,21 @@ describe('parseExpression', () => {
     it('应处理超出定义域的值返回 NaN', () => {
       const result = parseExpression('sqrt(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(-1)).toBeNaN();
     });
 
     it('应处理 log(0) 返回 NaN', () => {
       const result = parseExpression('log(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(0)).toBeNaN();
     });
 
     it('应处理 tan(pi/2) 返回极大值或 NaN', () => {
       const result = parseExpression('tan(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       // 注意：由于浮点精度，tan(pi/2) 可能返回极大值而非 NaN
       const val = fn.compiled(Math.PI / 2);
       expect(Math.abs(val) > 1e10 || Number.isNaN(val)).toBe(true);
@@ -139,7 +140,7 @@ describe('parseExpression', () => {
     it('应支持阶乘函数 factorial(x)', () => {
       const result = parseExpression('factorial(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(5)).toBe(120);
       expect(fn.compiled(0)).toBe(1);
     });
@@ -147,7 +148,7 @@ describe('parseExpression', () => {
     it('应支持 gamma 函数', () => {
       const result = parseExpression('gamma(x)');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParsedFunction;
       expect(fn.compiled(1)).toBeCloseTo(1, 5);
     });
   });
@@ -158,8 +159,8 @@ describe('parseParametricExpression', () => {
     it('应正确解析 y = ax + b 形式', () => {
       const result = parseParametricExpression('a*x + b');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
-      const paramNames = fn.parameters.map((p: any) => p.name);
+      const fn = result as ParametricFunction;
+      const paramNames = fn.parameters.map((p: Parameter) => p.name);
       expect(paramNames).toContain('a');
       expect(paramNames).toContain('b');
       expect(fn.compiled(1, { a: 2, b: 3 })).toBe(5);
@@ -168,7 +169,7 @@ describe('parseParametricExpression', () => {
     it('应正确解析 y = ax^2 + bx + c 形式', () => {
       const result = parseParametricExpression('a*x^2 + b*x + c');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParametricFunction;
       expect(fn.parameters.length).toBe(3);
       expect(fn.compiled(2, { a: 1, b: 0, c: 0 })).toBe(4);
     });
@@ -176,7 +177,7 @@ describe('parseParametricExpression', () => {
     it('无参数表达式应正常工作', () => {
       const result = parseParametricExpression('x^2');
       expect(result).not.toBeInstanceOf(Error);
-      const fn = result as any;
+      const fn = result as ParametricFunction;
       expect(fn.parameters.length).toBe(0);
     });
   });
@@ -218,14 +219,14 @@ describe('suggestRange', () => {
   });
 
   it('应为常数函数返回带填充的范围', () => {
-    const fn = (x: number) => 5;
+    const fn = (_x: number) => 5;
     const range = suggestRange(fn);
     expect(range.yMin).toBeLessThan(5);
     expect(range.yMax).toBeGreaterThan(5);
   });
 
   it('应为全 NaN 函数返回默认范围', () => {
-    const fn = (x: number) => NaN;
+    const fn = (_x: number) => NaN;
     const range = suggestRange(fn);
     expect(range.xMin).toBe(-10);
     expect(range.xMax).toBe(10);

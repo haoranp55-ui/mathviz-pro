@@ -294,7 +294,7 @@ function expandDifferentialOperator(
 ): ExpandedExcitation {
   const order = xCoeffs.length - 1;
 
-  let expMatch = xFunc.match(/e\^\(?(-?[\d.]*)\)?t/i) || xFunc.match(/exp\((-?[\d.]*)\*?t\)/i);
+  const expMatch = xFunc.match(/e\^\(?(-?[\d.]*)\)?t/i) || xFunc.match(/exp\((-?[\d.]*)\*?t\)/i);
   const sinMatch = xFunc.match(/sin\(([\\d.]*)\*?t\)/i);
   const cosMatch = xFunc.match(/cos\(([\\d.]*)\*?t\)/i);
   const isU_t = xFunc.includes('u(t)');
@@ -472,8 +472,8 @@ function expandDifferentialOperator(
 
   // 情况 5: x(t) = t
   if (xFunc === 't') {
-    let tCoeff = xCoeffs[xCoeffs.length - 1] || 0;
-    let constCoeff = xCoeffs.length >= 2 ? xCoeffs[xCoeffs.length - 2] : 0;
+    const tCoeff = xCoeffs[xCoeffs.length - 1] || 0;
+    const constCoeff = xCoeffs.length >= 2 ? xCoeffs[xCoeffs.length - 2] : 0;
 
     const terms: string[] = [];
     if (Math.abs(tCoeff) > 1e-10) {
@@ -696,7 +696,7 @@ function solveParticularSolution(
  */
 function computeHomogeneousBasis(roots: CharacteristicRoot[], t: number, maxOrder: number): number[][] {
   const basis: number[][] = [];
-  let cIndex = 0;
+  let _cIndex = 0;
 
   const processedRoots: CharacteristicRoot[] = [];
   const seenImaginary: Set<string> = new Set();
@@ -742,7 +742,7 @@ function computeHomogeneousBasis(roots: CharacteristicRoot[], t: number, maxOrde
 
         basis.push(cosTerm);
         basis.push(sinTerm);
-        cIndex += 2;
+        _cIndex += 2;
       }
     } else {
       const r = root.value;
@@ -766,7 +766,7 @@ function computeHomogeneousBasis(roots: CharacteristicRoot[], t: number, maxOrde
           }
         }
         basis.push(term);
-        cIndex++;
+        _cIndex++;
       }
     }
   }
@@ -1087,7 +1087,7 @@ function formatCharacteristicEquation(coeffs: number[]): string {
     if (Math.abs(coeff) < 1e-10) continue;
 
     const power = order - i;
-    let term = '';
+    let term: string;
 
     if (Math.abs(coeff - 1) < 1e-10) {
       term = '';
@@ -1485,14 +1485,12 @@ export function solveDifferentialEquation(
       ? homogeneous
       : `${homogeneous} + ${particular}`;
 
-    let initialConditionsMinus = initialConditions;
+    const initialConditionsMinus = initialConditions;
     let initialConditionsPlus = initialConditions;
     let zeroInputResponse: ZeroInputResponse | undefined;
     let zeroStateResponse: ZeroStateResponse | undefined;
     let completeResponse: string | undefined;
-    let impulseResponse: ImpulseResponse | undefined;
-
-    impulseResponse = computeImpulseResponse(yCoeffs, roots, _xCoeffs);
+    const impulseResponse = computeImpulseResponse(yCoeffs, roots, _xCoeffs);
 
     const hasInitialConditions = initialConditions.length > 0;
 
@@ -1593,7 +1591,7 @@ export function formatEquation(yCoeffs: number[], xCoeffs: number[], xFunc: stri
     if (Math.abs(coeff) < 1e-10) continue;
 
     const deriv = order - i;
-    let term = '';
+    let term: string;
     if (Math.abs(coeff - 1) < 1e-10) {
       term = '';
     } else if (Math.abs(coeff + 1) < 1e-10) {

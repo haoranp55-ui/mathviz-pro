@@ -1,6 +1,6 @@
 // src/lib/polarParser.ts
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
 import type { PolarFunction } from '../types';
 import { extractParameters, createDefaultParams, validateParamCount } from './paramParser';
 
@@ -190,7 +190,7 @@ export function parsePolarExpression(
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -198,7 +198,7 @@ export function parsePolarExpression(
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 

@@ -147,7 +147,7 @@ export const FunctionHelp: React.FC<FunctionHelpProps> = ({ isOpen, onClose }) =
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key as 'operators' | 'functions' | 'examples')}
               className={`px-5 py-3 text-sm transition-all ${
                 activeTab === tab.key
                   ? 'text-accent-primary border-b-2 border-accent-primary bg-canvas-panelLight/30'

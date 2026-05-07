@@ -96,7 +96,7 @@ export const Implicit3DList: React.FC = () => {
               <div className="flex items-center gap-1.5 flex-1">
                 <span className="text-gray-500">MC</span>
                 <input type="range" min={0} max={IMPLICIT3D_MC_PRESETS.length - 1}
-                  value={IMPLICIT3D_MC_PRESETS.indexOf(fn.resolution as any)}
+                  value={IMPLICIT3D_MC_PRESETS.indexOf(fn.resolution as (typeof IMPLICIT3D_MC_PRESETS)[number])}
                   onChange={e => updateImplicit3DResolution(fn.id, IMPLICIT3D_MC_PRESETS[parseInt(e.target.value)])}
                   className="flex-1 h-1"
                 />

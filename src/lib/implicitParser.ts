@@ -1,6 +1,6 @@
 // src/lib/implicitParser.ts
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode, SymbolNode, OperatorNode } from 'mathjs';
 import type { ImplicitFunction } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { extractParameters, createDefaultParams, validateParamCount } from './paramParser';
@@ -47,7 +47,7 @@ const ALLOWED_FUNCTIONS = [
 function convertSingularityFunctions(node: MathNode): MathNode {
   return node.transform((n: MathNode) => {
     if (n.type === 'FunctionNode') {
-      const fnNode = n as any;
+      const fnNode = n as FunctionNode;
       const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn?.name;
       const args = fnNode.args as MathNode[];
 
@@ -90,14 +90,14 @@ function collectDenominators(node: MathNode): MathNode[] {
 
   node.traverse((n: MathNode) => {
     if (n.type === 'OperatorNode') {
-      const opNode = n as any;
+      const opNode = n as OperatorNode;
       if (opNode.op === '/' || opNode.fn === 'divide') {
         const args = opNode.args as MathNode[];
         denominators.push(args[1]); // 分母
       }
     }
     if (n.type === 'FunctionNode') {
-      const fnNode = n as any;
+      const fnNode = n as FunctionNode;
       const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn?.name;
       if (fnName === 'divide') {
         const args = fnNode.args as MathNode[];
@@ -165,7 +165,7 @@ export function parseImplicitExpression(
     const originalFunctions = new Set<string>();
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         const fnName = typeof fn === 'string' ? fn : fn?.name;
         if (fnName) originalFunctions.add(fnName);
       }
@@ -212,7 +212,7 @@ export function parseImplicitExpression(
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -220,7 +220,7 @@ export function parseImplicitExpression(
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 

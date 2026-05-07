@@ -301,7 +301,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } else {
       // 保留原有颜色和 ID
-      const { color, id: _, ...restResult } = result;
+      const { color: _color, id: _, ...restResult } = result;
       set({
         functions: functions.map(f =>
           f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
@@ -532,7 +532,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } else {
       // 保留原有颜色和 ID
-      const { color, id: _, ...restResult } = result;
+      const { color: _color, id: _, ...restResult } = result;
       set({
         parametricFunctions: parametricFunctions.map(f =>
           f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
@@ -763,7 +763,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } else {
       // 保留原有颜色和 ID
-      const { color, id: _, ...restResult } = result;
+      const { color: _color, id: _, ...restResult } = result;
       set({
         implicitFunctions: implicitFunctions.map(f =>
           f.id === id ? { ...f, ...restResult, expression, error: undefined } : f
@@ -882,7 +882,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } else {
       // 保留原有颜色、ID 和 theta 范围
-      const { color, id: _, thetaMin, thetaMax, ...restResult } = result;
+      const { color: _color, id: _, thetaMin: _thetaMin, thetaMax: _thetaMax, ...restResult } = result;
       set({
         polarFunctions: polarFunctions.map(f =>
           f.id === id ? { ...f, ...restResult, expression, error: undefined } : f

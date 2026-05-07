@@ -63,7 +63,7 @@ export const ParametricHelp: React.FC<ParametricHelpProps> = ({ isOpen, onClose 
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key as 'rules' | 'examples' | 'config')}
               className={`px-5 py-3 text-sm transition-all ${
                 activeTab === tab.key
                   ? 'text-purple-400 border-b-2 border-purple-400 bg-canvas-panelLight/30'

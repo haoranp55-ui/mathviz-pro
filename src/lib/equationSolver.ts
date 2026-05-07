@@ -31,7 +31,7 @@ export function bisection(
   let right = b;
 
   let fLeft = fn(left);
-  let fRight = fn(right);
+  const fRight = fn(right);
 
   // 检查端点是否已经是解
   if (Math.abs(fLeft) < tolerance) return left;
@@ -52,7 +52,6 @@ export function bisection(
 
     if (fLeft * fMid < 0) {
       right = mid;
-      fRight = fMid;
     } else {
       left = mid;
       fLeft = fMid;
@@ -263,7 +262,7 @@ export function broyden(
   }
 
   // 计算初始雅可比矩阵的逆近似
-  let B = computeJacobian(fns, x);
+  const B = computeJacobian(fns, x);
 
   // 检查是否有效
   if (B.some(row => row.some(val => isNaN(val)))) {
@@ -271,7 +270,7 @@ export function broyden(
   }
 
   // 使用单位矩阵作为初始逆雅可比近似
-  let H: number[][] = [];
+  const H: number[][] = [];
   for (let i = 0; i < n; i++) {
     H[i] = [];
     for (let j = 0; j < n; j++) {

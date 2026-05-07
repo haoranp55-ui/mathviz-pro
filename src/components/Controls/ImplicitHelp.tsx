@@ -74,7 +74,7 @@ export const ImplicitHelp: React.FC<ImplicitHelpProps> = ({ isOpen, onClose }) =
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key as 'rules' | 'examples' | 'gpu')}
               className={`px-5 py-3 text-sm transition-all ${
                 activeTab === tab.key
                   ? 'text-green-400 border-b-2 border-green-400 bg-canvas-panelLight/30'

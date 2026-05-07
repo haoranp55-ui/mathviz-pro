@@ -1,6 +1,6 @@
 // src/lib/equationParser.ts
 import { create, all } from 'mathjs';
-import type { MathNode } from 'mathjs';
+import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
 import type { Equation, EquationSystem, SearchRange, VariableName } from '../types';
 import { VARIABLE_NAMES, DEFAULT_SEARCH_RANGE } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -96,7 +96,7 @@ export function parseEquation(
 
     node.traverse((n: MathNode) => {
       if (n.type === 'FunctionNode') {
-        const fn = (n as any).fn;
+        const fn = (n as FunctionNode).fn;
         if (typeof fn === 'string') {
           usedFunctions.add(fn);
         } else if (fn?.name) {
@@ -104,7 +104,7 @@ export function parseEquation(
         }
       }
       if (n.type === 'SymbolNode') {
-        usedVariables.add((n as any).name);
+        usedVariables.add((n as SymbolNode).name);
       }
     });
 
@@ -221,7 +221,7 @@ export function detectVariables(expressions: string[]): VariableName[] {
       const node = math.parse(expr);
       node.traverse((n: MathNode) => {
         if (n.type === 'SymbolNode') {
-          const name = (n as any).name;
+          const name = (n as SymbolNode).name;
           if (VARIABLE_NAMES.includes(name as VariableName)) {
             allVariables.add(name);
           }

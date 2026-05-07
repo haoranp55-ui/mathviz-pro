@@ -430,6 +430,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
   50% { opacity: 0.8; }
 }
 
+/* ========== 动画播放器 ========== */
+
+input[type="range"].animating-slider::-webkit-slider-thumb {
+  background: #0ea5e9;
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.5);
+}
+
 /* ========== 响应式优化 ========== */
 
 @media (max-width: 768px) {

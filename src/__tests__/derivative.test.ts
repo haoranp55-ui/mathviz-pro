@@ -44,7 +44,7 @@ describe('numericalDerivative', () => {
     });
 
     it('应正确计算常数函数的导数（应为 0）', () => {
-      const fn = (x: number) => 5;
+      const fn = (_x: number) => 5;
       const derivative = numericalDerivative(fn, 0);
       expect(derivative).toBeCloseTo(0, 4);
     });
@@ -173,7 +173,7 @@ describe('createSecondDerivativeFunction', () => {
   });
 
   it('应处理常数函数（二阶导数为 0）', () => {
-    const fn = (x: number) => 5;
+    const fn = (_x: number) => 5;
     const secondDerivativeFn = createSecondDerivativeFunction(fn);
 
     expect(secondDerivativeFn(0)).toBeCloseTo(0, 3);

@@ -146,7 +146,7 @@ export const ThreeDList: React.FC = () => {
                   type="range"
                   min={0}
                   max={THREE_D_RESOLUTION_PRESETS.length - 1}
-                  value={THREE_D_RESOLUTION_PRESETS.indexOf(fn.resolution as any)}
+                  value={THREE_D_RESOLUTION_PRESETS.indexOf(fn.resolution as (typeof THREE_D_RESOLUTION_PRESETS)[number])}
                   onChange={(e) => {
                     const idx = parseInt(e.target.value);
                     updateThreeDResolution(fn.id, THREE_D_RESOLUTION_PRESETS[idx]);
