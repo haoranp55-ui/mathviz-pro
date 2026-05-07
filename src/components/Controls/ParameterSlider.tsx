@@ -30,8 +30,8 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   const isPlayingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const speedRef = useRef<number>(0.5);
-  const [speed, setSpeed] = useState(0.5);
+  const speedRef = useRef<number>(1);
+  const [speed, setSpeed] = useState(1);
 
   // Refs for latest values (avoid stale closures in RAF)
   const onChangeRef = useRef(onChange);
@@ -114,7 +114,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
 
   const handleSpeedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    if (!isNaN(val) && val > 0 && val <= 5) {
+    if (!isNaN(val) && val > 0 && val <= 20) {
       speedRef.current = val;
       setSpeed(val);
     }
@@ -246,9 +246,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
                 className="w-12 px-1 py-0.5 input-base text-xs"
                 step="0.1"
                 min="0.1"
-                max="5"
+                max="20"
               />
-              <span className="text-[#475569]">Hz</span>
+              <span className="text-[#475569]">周期/秒</span>
             </label>
           )}
         </div>
