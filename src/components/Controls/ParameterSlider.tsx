@@ -32,6 +32,7 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   const startTimeRef = useRef<number>(0);
   const periodRef = useRef<number>(2);
   const [period, setPeriod] = useState(2);
+  const [periodInput, setPeriodInput] = useState('2');
 
   // Refs for latest values (avoid stale closures in RAF)
   const onChangeRef = useRef(onChange);
@@ -113,7 +114,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   }, [setSliderActive]);
 
   const handlePeriodChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
+    const raw = e.target.value;
+    setPeriodInput(raw);
+    const val = parseFloat(raw);
     if (!isNaN(val) && val >= 0.5 && val <= 30) {
       periodRef.current = val;
       setPeriod(val);
@@ -241,8 +244,9 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
               <span>周期:</span>
               <input
                 type="number"
-                value={period}
+                value={periodInput}
                 onChange={handlePeriodChange}
+                onBlur={() => setPeriodInput(String(period))}
                 className="w-12 px-1 py-0.5 input-base text-xs"
                 step="0.5"
                 min="0.5"
