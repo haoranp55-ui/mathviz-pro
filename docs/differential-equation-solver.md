@@ -207,4 +207,4 @@ aₙy⁽ⁿ⁾ + aₙ₋₁y⁽ⁿ⁻¹⁾ + ... + a₁y' + a₀y = bₘx⁽ᵐ�
 
 - **文件位置**：`src/lib/differentialSolver.ts`
 - **解析器**：`src/lib/differentialParser.ts`
-- **UI 组件**：`src/components/Layout/EquationLayout.tsx`
+- **UI 组件**：`src/components/Equation/EquationLayout.tsx`

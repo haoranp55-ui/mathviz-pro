@@ -20,7 +20,7 @@ import { Implicit3DInput } from '../Controls/Implicit3DInput';
 import { Implicit3DList } from '../Controls/Implicit3DList';
 import { getThreeDRenderManager } from '../../lib/threeD/threeDRenderManager';
 import { useAppStore } from '../../store/useAppStore';
-import { EquationLayout } from './EquationLayout';
+import { EquationLayout } from '../Equation/EquationLayout';
 
 export const MainLayout: React.FC = () => {
   const sidebarTab = useAppStore(state => state.sidebarTab);

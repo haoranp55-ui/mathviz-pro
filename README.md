@@ -103,7 +103,7 @@ src/
 │   │   └── GlobalSettings.tsx      # 全局设置（含 GPU 开关）
 │   └── Layout/           # 布局组件
 │       ├── MainLayout.tsx          # 主布局
-│       ├── EquationLayout.tsx      # 方程组求解布局
+│       ├── Equation/               # 方程系统组件
 │       └── EquationBackground.tsx  # 方程系统背景动画
 ├── lib/                  # 核心算法
 │   ├── parser.ts         # 表达式解析

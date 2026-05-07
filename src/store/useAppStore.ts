@@ -198,6 +198,7 @@ interface AppState {
   updateEquationExpression: (systemId: string, equationId: string, expression: string) => void;
   updateSolverConfig: (config: Partial<SolverConfig>) => void;
   clearEquationSystemSolutions: (id: string) => void;
+  clearAllEquationSystems: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -1254,5 +1255,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         sys.id === id ? { ...sys, solutions: null, status: 'idle', error: undefined } : sys
       ),
     });
+  },
+
+  clearAllEquationSystems: () => {
+    set({ equationSystems: [] });
   },
 }));
