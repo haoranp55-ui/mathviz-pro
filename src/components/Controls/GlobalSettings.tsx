@@ -2,7 +2,6 @@
 import React, { useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
-import { getThreeDRenderManager } from '../../lib/threeD/threeDRenderManager';
 import type { SamplePreset } from '../../types';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
@@ -28,8 +27,9 @@ export const GlobalSettings: React.FC = () => {
     exportImage,
   } = useAppStore();
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     if (systemType === '3d') {
+      const { getThreeDRenderManager } = await import('../../lib/threeD/threeDRenderManager');
       getThreeDRenderManager().resetCamera();
       bumpThreeDVersion();
     } else {

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import type { ThreeDFunction, Implicit3DFunction } from '../../types';
 import isosurface from 'isosurface';
+import { computeMeshVerticesAsync } from '../../workers/workerManager';
 
 interface MeshEntry {
   mesh: THREE.Mesh;
@@ -16,6 +17,7 @@ export class ThreeDRenderManager {
   private meshes = new Map<string, MeshEntry>();
   private implicitMeshes = new Map<string, MeshEntry>();
   private implicitComputing = new Set<string>(); // 防止并发 MC 计算
+  private vertexComputing = new Set<string>(); // 防止并发顶点计算
   private disposed = false;
   public onNeedsRender: (() => void) | null = null;
   public wasdSpeed = 1.0; // WASD 灵敏度，1.0=默认
@@ -429,33 +431,22 @@ export class ThreeDRenderManager {
       return;
     }
 
+    // 防止同一函数并发计算
+    if (this.vertexComputing.has(fn.id)) return;
+    this.vertexComputing.add(fn.id);
+
     // 移除旧 mesh（如果 key 变了）
     this.removeMesh(fn.id);
 
     const res = fn.resolution;
     const xRange = fn.xMax - fn.xMin;
     const yRange = fn.yMax - fn.yMin;
-    const geometry = new THREE.PlaneGeometry(xRange, yRange, res, res);
-    geometry.rotateX(-Math.PI / 2); // 放平到 XZ 平面
-
-    const positions = geometry.attributes.position;
     const xCenter = (fn.xMin + fn.xMax) / 2;
     const yCenter = (fn.yMin + fn.yMax) / 2;
 
-    for (let i = 0; i < positions.count; i++) {
-      const localX = positions.getX(i);
-      const localZ = positions.getZ(i);
-      const mathX = localX + xCenter;
-      const mathY = -localZ + yCenter;
-      let z = fn.compiled(mathX, mathY);
-      if (!Number.isFinite(z)) z = 0;
-      if (fn.zMin !== undefined && fn.zMax !== undefined) {
-        z = Math.max(fn.zMin, Math.min(fn.zMax, z));
-      }
-      positions.setY(i, z);
-    }
-
-    geometry.computeVertexNormals();
+    // 先创建占位几何体（不可见）
+    const geometry = new THREE.PlaneGeometry(xRange, yRange, res, res);
+    geometry.rotateX(-Math.PI / 2);
 
     const material = new THREE.MeshPhongMaterial({
       color: fn.color,
@@ -467,11 +458,41 @@ export class ThreeDRenderManager {
     });
 
     const mesh = new THREE.Mesh(geometry, material);
-    // 将 mesh 定位到定义域中心
     mesh.position.set(xCenter, 0, -yCenter);
+    mesh.visible = false; // 计算完成前不可见
     this.scene.add(mesh);
-
     this.meshes.set(fn.id, { mesh, meshKey });
+
+    // 异步计算顶点高度值
+    computeMeshVerticesAsync({
+      id: fn.id,
+      expression: fn.expression,
+      resolution: fn.resolution,
+      xMin: fn.xMin, xMax: fn.xMax,
+      yMin: fn.yMin, yMax: fn.yMax,
+      zMin: fn.zMin, zMax: fn.zMax,
+    }).then((heights) => {
+      this.vertexComputing.delete(fn.id);
+
+      // 确认 mesh 仍在（可能已被 remove）
+      const entry = this.meshes.get(fn.id);
+      if (!entry || entry.meshKey !== meshKey) return;
+
+      // 将 Worker 计算的高度值应用到几何体
+      const positions = geometry.attributes.position;
+      for (let i = 0; i < positions.count; i++) {
+        positions.setY(i, heights[i]);
+      }
+      geometry.computeVertexNormals();
+      positions.needsUpdate = true;
+
+      mesh.visible = true;
+
+      // 通知主线程需要重渲染
+      this.onNeedsRender?.();
+    }).catch(() => {
+      this.vertexComputing.delete(fn.id);
+    });
   }
 
   private removeMesh(id: string): void {

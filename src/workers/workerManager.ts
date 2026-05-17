@@ -1,0 +1,135 @@
+// src/workers/workerManager.ts
+// 统一管理 Web Worker 实例的生命周期和通信
+
+import type { SolverConfig, SearchRange, Solution, VariableName } from '../types';
+
+// ===== 方程求解 Worker =====
+
+type SolveCallback = (solutions: Solution[]) => void;
+type SolveErrorCallback = (message: string) => void;
+
+interface PendingSolve {
+  resolve: SolveCallback;
+  reject: SolveErrorCallback;
+}
+
+let equationWorker: Worker | null = null;
+const pendingSolves = new Map<string, PendingSolve>();
+
+function getEquationWorker(): Worker {
+  if (!equationWorker) {
+    equationWorker = new Worker(
+      new URL('./equationSolverWorker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    equationWorker.onmessage = (e) => {
+      const data = e.data;
+      const pending = pendingSolves.get(data.id);
+      if (!pending) return;
+      pendingSolves.delete(data.id);
+      if (data.type === 'result') {
+        pending.resolve(data.solutions);
+      } else if (data.type === 'error') {
+        pending.reject(data.message);
+      }
+    };
+  }
+  return equationWorker;
+}
+
+/**
+ * 异步求解方程系统（在 Worker 线程中执行）
+ */
+export function solveEquationAsync(
+  id: string,
+  expressions: string[],
+  variables: VariableName[],
+  searchRange: SearchRange[],
+  solverConfig: SolverConfig
+): Promise<Solution[]> {
+  return new Promise((resolve, reject) => {
+    pendingSolves.set(id, { resolve, reject });
+    const worker = getEquationWorker();
+    worker.postMessage({
+      type: 'solve',
+      id,
+      expressions,
+      variables,
+      searchRange,
+      solverConfig,
+    });
+  });
+}
+
+// ===== 3D 顶点计算 Worker =====
+
+interface PendingVertexCompute {
+  resolve: (heights: Float32Array) => void;
+  reject: (message: string) => void;
+}
+
+let meshWorker: Worker | null = null;
+const pendingVertexComputes = new Map<string, PendingVertexCompute>();
+
+function getMeshWorker(): Worker {
+  if (!meshWorker) {
+    meshWorker = new Worker(
+      new URL('./meshVertexWorker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    meshWorker.onmessage = (e) => {
+      const data = e.data;
+      const pending = pendingVertexComputes.get(data.id);
+      if (!pending) return;
+      pendingVertexComputes.delete(data.id);
+      if (data.type === 'result') {
+        pending.resolve(data.heights);
+      } else if (data.type === 'error') {
+        pending.reject(data.message);
+      }
+    };
+  }
+  return meshWorker;
+}
+
+export interface MeshVertexRequest {
+  id: string;
+  expression: string;
+  resolution: number;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  zMin?: number;
+  zMax?: number;
+}
+
+/**
+ * 异步计算3D显式函数的顶点高度值（在 Worker 线程中执行）
+ * 返回 Float32Array，可直接用于 BufferGeometry 的 Y 分量
+ */
+export function computeMeshVerticesAsync(req: MeshVertexRequest): Promise<Float32Array> {
+  return new Promise((resolve, reject) => {
+    pendingVertexComputes.set(req.id, { resolve, reject });
+    const worker = getMeshWorker();
+    worker.postMessage({
+      type: 'computeVertices',
+      ...req,
+    });
+  });
+}
+
+// ===== 清理 =====
+
+export function terminateWorkers(): void {
+  if (equationWorker) {
+    equationWorker.terminate();
+    equationWorker = null;
+  }
+  if (meshWorker) {
+    meshWorker.terminate();
+    meshWorker = null;
+  }
+  pendingSolves.clear();
+  pendingVertexComputes.clear();
+}

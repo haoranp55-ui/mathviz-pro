@@ -20,6 +20,9 @@ const FUNCTION_MAP: Record<string, string> = {
   'asin': 'asin',
   'acos': 'acos',
   'atan': 'atan',
+  'asinh': 'asinh',
+  'acosh': 'acosh',
+  'atanh': 'atanh',
   'sinh': 'sinh',
   'cosh': 'cosh',
   'tanh': 'tanh',
@@ -256,8 +259,7 @@ function detectUnsupportedFunctions(node: MathNode): string[] {
       const UNSUPPORTED_IN_GLSL = [
         'factorial', 'gamma', 'erf',
         'combinations', 'permutations',
-        'acosh', 'asinh', 'atanh',  // GLSL ES 3.0 不支持
-        'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',  // 反三角扩展
+        'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',  // 反三角扩展，GLSL 无原生支持
       ];
 
       if (UNSUPPORTED_IN_GLSL.includes(fnName)) {

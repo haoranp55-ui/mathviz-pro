@@ -2,7 +2,15 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import type { CanvasSize } from '../types';
 
-export function useCanvas() {
+export type CanvasHookResult = {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  canvasSize: CanvasSize;
+  getContext: () => CanvasRenderingContext2D | null;
+  clearCanvas: () => void;
+};
+
+export function useCanvas(): CanvasHookResult {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);

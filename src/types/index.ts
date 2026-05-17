@@ -49,6 +49,8 @@ export interface ParsedFunction {
   visible: boolean;
   showDerivative?: boolean; // 是否显示导数曲线
   showKeyPoints?: boolean;  // 是否显示关键点标注
+  showIntegralCurve?: boolean; // 是否显示积分曲线
+  curveBasePoint?: number;    // 积分曲线起点
   error?: string;
   markedPoints?: MarkedPoint[]; // 用户标记的点
 }
@@ -72,6 +74,8 @@ export interface ParametricFunction {
   visible: boolean;
   showDerivative?: boolean;
   showKeyPoints?: boolean;  // 是否显示关键点标注
+  showIntegralCurve?: boolean; // 是否显示积分曲线
+  curveBasePoint?: number;    // 积分曲线起点
   error?: string;
 
   // 参数化特有
@@ -188,6 +192,17 @@ export interface ContourSegment {
 
 export type IntegralType = 'definite' | 'indefinite';
 
+export const INTEGRAL_FILL_COLORS = [
+  'rgba(96, 165, 250, 0.25)',
+  'rgba(52, 211, 153, 0.25)',
+  'rgba(244, 114, 182, 0.25)',
+  'rgba(251, 191, 36, 0.25)',
+  'rgba(167, 139, 250, 0.25)',
+  'rgba(248, 113, 113, 0.25)',
+  'rgba(34, 211, 238, 0.25)',
+  'rgba(251, 146, 60, 0.25)',
+] as const;
+
 export interface IntegralConfig {
   id: string;
   functionId: string;           // 关联的函数 ID
@@ -196,7 +211,6 @@ export interface IntegralConfig {
   lowerBound: number;           // 定积分下限
   upperBound: number;           // 定积分上限
   showAreaFill: boolean;        // 显示填充区域
-  showIntegralCurve: boolean;   // 显示积分曲线（不定积分）
   color: string;                // 填充颜色
 }
 

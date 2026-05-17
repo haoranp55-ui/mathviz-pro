@@ -4,20 +4,28 @@ import { useAppStore } from '../../store/useAppStore';
 import { ParameterSlider } from './ParameterSlider';
 import { useLinkedParameters } from '../../hooks/useLinkedParameters';
 import { EmptyState } from '../UI/EmptyState';
-import { Eye, EyeOff, Trash2, Sigma, KeyRound, Plus } from 'lucide-react';
+import { Eye, EyeOff, Trash2, TrendingUp, Sigma, KeyRound, Plus, Percent } from 'lucide-react';
+import { simpsonIntegral } from '../../lib/integralSolver';
 
 export const ParametricList: React.FC = () => {
   const parametricFunctions = useAppStore(state => state.parametricFunctions);
+  const integrals = useAppStore(state => state.integrals);
   const updateParameter = useAppStore(state => state.updateParameter);
   const updateParametricParameter = useAppStore(state => state.updateParametricParameter);
   const toggleParametricVisibility = useAppStore(state => state.toggleParametricVisibility);
   const toggleParametricDerivative = useAppStore(state => state.toggleParametricDerivative);
   const toggleParametricKeyPoints = useAppStore(state => state.toggleParametricKeyPoints);
+  const toggleParametricIntegralCurve = useAppStore(state => state.toggleParametricIntegralCurve);
+  const updateParametricCurveBasePoint = useAppStore(state => state.updateParametricCurveBasePoint);
   const removeParametricFunction = useAppStore(state => state.removeParametricFunction);
   const addMarkedPoint = useAppStore(state => state.addMarkedPoint);
   const removeMarkedPoint = useAppStore(state => state.removeMarkedPoint);
   const updateMarkedPoint = useAppStore(state => state.updateMarkedPoint);
   const updateParametricExpression = useAppStore(state => state.updateParametricExpression);
+  const addIntegral = useAppStore(state => state.addIntegral);
+  const removeIntegral = useAppStore(state => state.removeIntegral);
+  const updateIntegralBounds = useAppStore(state => state.updateIntegralBounds);
+  const toggleIntegralAreaFill = useAppStore(state => state.toggleIntegralAreaFill);
 
   const [newPointX, setNewPointX] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -141,6 +149,16 @@ export const ParametricList: React.FC = () => {
                     className={`btn-icon w-7 h-7 ${fn.showDerivative ? 'opacity-100 text-cyan-400 bg-cyan-500/10' : 'opacity-0 group-hover:opacity-100'}`}
                     title={fn.showDerivative ? '隐藏导数曲线' : '显示导数曲线'}
                   >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {!fn.error && (
+                  <button
+                    onClick={() => toggleParametricIntegralCurve(fn.id)}
+                    className={`btn-icon w-7 h-7 ${fn.showIntegralCurve ? 'opacity-100 text-green-400 bg-green-500/10' : 'opacity-0 group-hover:opacity-100'}`}
+                    title={fn.showIntegralCurve ? '隐藏积分曲线' : '显示积分曲线'}
+                  >
                     <Sigma className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -169,6 +187,20 @@ export const ParametricList: React.FC = () => {
                         linkedInfo={linkedParams.get(`${fn.id}:${param.name}`)}
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* 积分曲线起点 */}
+                {fn.showIntegralCurve && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#64748B] font-mono">∫ 起点x₀=</span>
+                    <input
+                      type="number"
+                      value={fn.curveBasePoint ?? 0}
+                      onChange={(e) => updateParametricCurveBasePoint(fn.id, parseFloat(e.target.value) || 0)}
+                      className="w-16 px-2 py-1 input-base text-xs text-center"
+                      placeholder="0"
+                    />
                   </div>
                 )}
 
@@ -218,6 +250,63 @@ export const ParametricList: React.FC = () => {
                     ))}
                   </div>
                 )}
+
+                {/* 积分区域（仅面积填充） */}
+                <div className="border-t border-white/[0.06] pt-2 mt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-[#64748B]">积分区域</span>
+                    <button
+                      onClick={() => addIntegral(fn.id, 'parametric')}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      添加
+                    </button>
+                  </div>
+
+                  {integrals.filter(i => i.functionId === fn.id && i.functionType === 'parametric').map((integral) => (
+                    <div key={integral.id} className="p-2 panel-subtle space-y-2 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-[#64748B] font-mono">∫</span>
+                        <input
+                          type="number"
+                          value={integral.lowerBound}
+                          onChange={(e) => updateIntegralBounds(integral.id, parseFloat(e.target.value) || 0, integral.upperBound)}
+                          className="w-16 px-2 py-1 input-base text-xs text-center"
+                          placeholder="a"
+                        />
+                        <span className="text-[#475569] text-xs">→</span>
+                        <input
+                          type="number"
+                          value={integral.upperBound}
+                          onChange={(e) => updateIntegralBounds(integral.id, integral.lowerBound, parseFloat(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 input-base text-xs text-center"
+                          placeholder="b"
+                        />
+                        <button
+                          onClick={() => toggleIntegralAreaFill(integral.id)}
+                          className={`px-2 py-1 text-xs rounded ${integral.showAreaFill ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-[#475569]'}`}
+                          title={integral.showAreaFill ? '隐藏填充' : '显示填充'}
+                        >
+                          <Percent className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => removeIntegral(integral.id)}
+                          className="text-[#475569] hover:text-red-400"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#64748B] font-mono">
+                        值 = {simpsonIntegral((x) => {
+                          const currentParams: Record<string, number> = {};
+                          for (const p of fn.parameters) currentParams[p.name] = p.currentValue;
+                          return fn.compiled(x, currentParams);
+                        }, integral.lowerBound, integral.upperBound).toFixed(6)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

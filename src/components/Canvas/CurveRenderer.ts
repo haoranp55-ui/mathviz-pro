@@ -1,5 +1,5 @@
 // src/components/Canvas/CurveRenderer.ts
-import type { SampledPoints, ViewPort, CanvasSize, HoverPoint, AspectRatioMode } from '../../types';
+import type { SampledPoints, ViewPort, CanvasSize, HoverPoint, AspectRatioMode, IntegralConfig } from '../../types';
 import { createScales } from '../../lib/transformer';
 
 const CURVE_LINE_WIDTH = 2;
@@ -376,5 +376,62 @@ export function drawInitialPoint(
   ctx.arc(px, py, 2, 0, Math.PI * 2);
   ctx.fill();
 
+  ctx.restore();
+}
+
+export function drawIntegralArea(
+  ctx: CanvasRenderingContext2D,
+  compiledFn: (x: number) => number,
+  integral: IntegralConfig,
+  viewPort: ViewPort,
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
+): void {
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
+  const { lowerBound, upperBound, color, showAreaFill } = integral;
+
+  if (!showAreaFill || lowerBound === upperBound) return;
+
+  const a = Math.min(lowerBound, upperBound);
+  const b = Math.max(lowerBound, upperBound);
+
+  const sampleCount = 200;
+  const step = (b - a) / sampleCount;
+
+  ctx.save();
+
+  if (showAreaFill) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(xScale(a), yScale(0));
+
+    for (let i = 0; i <= sampleCount; i++) {
+      const x = a + i * step;
+      const y = compiledFn(x);
+      const px = xScale(x);
+      const py = isFinite(y) ? yScale(y) : yScale(0);
+      ctx.lineTo(px, py);
+    }
+
+    ctx.lineTo(xScale(b), yScale(0));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // 绘制边界线
+  ctx.strokeStyle = color.replace('0.25', '0.6');
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+
+  const pxA = xScale(a);
+  const pxB = xScale(b);
+  ctx.beginPath();
+  ctx.moveTo(pxA, 0);
+  ctx.lineTo(pxA, canvasSize.height);
+  ctx.moveTo(pxB, 0);
+  ctx.lineTo(pxB, canvasSize.height);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
   ctx.restore();
 }
