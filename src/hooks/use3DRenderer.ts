@@ -15,41 +15,51 @@ async function getThreeDRenderManager() {
 }
 
 export function use3DRenderer({ canvas, systemType }: Use3DRendererProps) {
-  const { canvasSize, getContext, clearCanvas } = canvas;
+  const { canvasSize } = canvas;
   const threeDFunctions = useAppStore(state => state.threeDFunctions);
   const implicit3DFunctions = useAppStore(state => state.implicit3DFunctions);
   const threeDVersion = useAppStore(state => state.threeDVersion);
 
   const threeDCacheRef = useRef<HTMLCanvasElement | null>(null);
   const threeDRenderRequested = useRef(false);
+  const threeDRenderNeeded = useRef(false);
   const request3DRenderRef = useRef<() => void>(() => {});
+
+  // 用 ref 存最新数据，避免 rAF 闭包捕获旧值
+  const latestDataRef = useRef({ threeDFunctions, implicit3DFunctions, canvasSize });
+  latestDataRef.current = { threeDFunctions, implicit3DFunctions, canvasSize };
 
   const wasdRef = useRef({ w: false, a: false, s: false, d: false, x: false, space: false });
   const wasdLoopRef = useRef<number | undefined>(undefined);
 
   const request3DRender = useCallback(() => {
-    if (threeDRenderRequested.current) return;
+    if (threeDRenderRequested.current) {
+      // 有渲染正在排队，标记需要补发
+      threeDRenderNeeded.current = true;
+      return;
+    }
     threeDRenderRequested.current = true;
     requestAnimationFrame(async () => {
       threeDRenderRequested.current = false;
-      const ctx = getContext();
-      if (!ctx || canvasSize.width === 0) return;
+
+      const { threeDFunctions: fns, implicit3DFunctions: implFns, canvasSize: size } = latestDataRef.current;
+      if (size.width === 0) return;
 
       const dpr = window.devicePixelRatio || 1;
       const threeDManager = await getThreeDRenderManager();
-      const visible3D = threeDFunctions.filter(f => f.visible && !f.error);
-      const glCanvas = threeDManager.renderToCanvas(visible3D, implicit3DFunctions, {
-        width: Math.round(canvasSize.width * dpr),
-        height: Math.round(canvasSize.height * dpr),
+      const glCanvas = threeDManager.renderToCanvas(fns, implFns, {
+        width: Math.round(size.width * dpr),
+        height: Math.round(size.height * dpr),
       });
       threeDCacheRef.current = glCanvas;
 
-      clearCanvas();
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-      if (glCanvas) ctx.drawImage(glCanvas, 0, 0);
+      // 如果在渲染期间有被跳过的请求，补发
+      if (threeDRenderNeeded.current) {
+        threeDRenderNeeded.current = false;
+        request3DRenderRef.current();
+      }
     });
-  }, [canvasSize, threeDFunctions, implicit3DFunctions, getContext, clearCanvas]);
+  }, []); // 无依赖，通过 ref 读取最新数据
 
   useEffect(() => {
     request3DRenderRef.current = request3DRender;

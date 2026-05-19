@@ -100,8 +100,6 @@ export interface MeshVertexRequest {
   xMax: number;
   yMin: number;
   yMax: number;
-  zMin?: number;
-  zMax?: number;
 }
 
 /**
@@ -119,6 +117,74 @@ export function computeMeshVerticesAsync(req: MeshVertexRequest): Promise<Float3
   });
 }
 
+// ===== 3D 隐函数 Marching Cubes Worker =====
+
+export interface Implicit3DResult {
+  positions: Float32Array;
+  normals: Float32Array;
+  indices: Uint32Array;
+}
+
+interface PendingImplicit3DCompute {
+  resolve: (result: Implicit3DResult) => void;
+  reject: (message: string) => void;
+}
+
+let implicit3DWorker: Worker | null = null;
+const pendingImplicit3DComputes = new Map<string, PendingImplicit3DCompute>();
+
+function getImplicit3DWorker(): Worker {
+  if (!implicit3DWorker) {
+    implicit3DWorker = new Worker(
+      new URL('./implicit3DWorker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    implicit3DWorker.onmessage = (e) => {
+      const data = e.data;
+      const pending = pendingImplicit3DComputes.get(data.id);
+      if (!pending) return;
+      pendingImplicit3DComputes.delete(data.id);
+      if (data.type === 'result') {
+        pending.resolve({
+          positions: data.positions,
+          normals: data.normals,
+          indices: data.indices,
+        });
+      } else if (data.type === 'error') {
+        pending.reject(data.message);
+      }
+    };
+  }
+  return implicit3DWorker;
+}
+
+export interface Implicit3DRequest {
+  id: string;
+  expression: string;
+  resolution: number;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  zMin: number;
+  zMax: number;
+}
+
+/**
+ * 异步计算3D隐函数的 Marching Cubes 网格（在 Worker 线程中执行）
+ * 返回 positions/normals/indices，可直接用于 BufferGeometry
+ */
+export function computeImplicit3DAsync(req: Implicit3DRequest): Promise<Implicit3DResult> {
+  return new Promise((resolve, reject) => {
+    pendingImplicit3DComputes.set(req.id, { resolve, reject });
+    const worker = getImplicit3DWorker();
+    worker.postMessage({
+      type: 'computeImplicit3D',
+      ...req,
+    });
+  });
+}
+
 // ===== 清理 =====
 
 export function terminateWorkers(): void {
@@ -130,6 +196,11 @@ export function terminateWorkers(): void {
     meshWorker.terminate();
     meshWorker = null;
   }
+  if (implicit3DWorker) {
+    implicit3DWorker.terminate();
+    implicit3DWorker = null;
+  }
   pendingSolves.clear();
   pendingVertexComputes.clear();
+  pendingImplicit3DComputes.clear();
 }

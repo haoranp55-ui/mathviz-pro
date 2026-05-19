@@ -4,6 +4,35 @@ import { useAppStore } from '../../store/useAppStore';
 import { IMPLICIT3D_MC_PRESETS } from '../../types';
 import { EmptyState } from '../UI/EmptyState';
 
+/** 定义域数字输入：focus 时用局部状态，blur 时提交，NaN 永远不进 store */
+const DomainInput: React.FC<{
+  value: number;
+  onChange: (v: number) => void;
+  className?: string;
+}> = ({ value, onChange, className }) => {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState('');
+
+  const commit = () => {
+    setEditing(false);
+    const v = parseFloat(local);
+    if (Number.isFinite(v) && v !== value) onChange(v);
+  };
+
+  return (
+    <input
+      type="number"
+      value={editing ? local : value}
+      onFocus={() => { setEditing(true); setLocal(String(value)); }}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); }}
+      className={className}
+      step="any"
+    />
+  );
+};
+
 export const Implicit3DList: React.FC = () => {
   const {
     implicit3DFunctions,
@@ -12,6 +41,7 @@ export const Implicit3DList: React.FC = () => {
     toggleImplicit3DWireframe,
     updateImplicit3DResolution,
     updateImplicit3DExpression,
+    updateImplicit3DDomain,
   } = useAppStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -101,6 +131,50 @@ export const Implicit3DList: React.FC = () => {
                   className="flex-1 h-1"
                 />
                 <span className="text-gray-400 w-7 text-right">{fn.resolution}</span>
+              </div>
+            </div>
+
+            {/* 定义域编辑 */}
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="text-gray-500 w-3 font-mono">X</span>
+                <DomainInput
+                  value={fn.xMin}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'xMin', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
+                <span className="text-gray-600">—</span>
+                <DomainInput
+                  value={fn.xMax}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'xMax', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
+                <span className="text-gray-500 w-3 font-mono ml-1">Y</span>
+                <DomainInput
+                  value={fn.yMin}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'yMin', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
+                <span className="text-gray-600">—</span>
+                <DomainInput
+                  value={fn.yMax}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'yMax', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="text-gray-500 w-3 font-mono">Z</span>
+                <DomainInput
+                  value={fn.zMin}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'zMin', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
+                <span className="text-gray-600">—</span>
+                <DomainInput
+                  value={fn.zMax}
+                  onChange={v => updateImplicit3DDomain(fn.id, 'zMax', v)}
+                  className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
+                />
               </div>
             </div>
           </div>

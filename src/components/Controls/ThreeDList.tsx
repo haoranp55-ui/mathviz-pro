@@ -4,6 +4,42 @@ import { useAppStore } from '../../store/useAppStore';
 import { THREE_D_RESOLUTION_PRESETS } from '../../types';
 import { EmptyState } from '../UI/EmptyState';
 
+/** 定义域数字输入：focus 时用局部状态，blur 时提交，NaN 永远不进 store */
+const DomainInput: React.FC<{
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  placeholder?: string;
+  className?: string;
+}> = ({ value, onChange, placeholder, className }) => {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState('');
+
+  const commit = () => {
+    setEditing(false);
+    if (local.trim() === '') {
+      if (value !== undefined) onChange(undefined);
+    } else {
+      const v = parseFloat(local);
+      if (Number.isFinite(v) && v !== value) onChange(v);
+    }
+  };
+
+  const displayValue = value !== undefined ? value : '';
+  return (
+    <input
+      type="number"
+      value={editing ? local : displayValue}
+      placeholder={placeholder}
+      onFocus={() => { setEditing(true); setLocal(displayValue === '' ? '' : String(displayValue)); }}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); }}
+      className={className}
+      step="any"
+    />
+  );
+};
+
 export const ThreeDList: React.FC = () => {
   const {
     threeDFunctions,
@@ -161,62 +197,44 @@ export const ThreeDList: React.FC = () => {
             <div className="mt-2 space-y-1.5">
               <div className="flex items-center gap-1.5 text-[10px]">
                 <span className="text-gray-500 w-3 font-mono">X</span>
-                <input
-                  type="number"
+                <DomainInput
                   value={fn.xMin}
-                  onChange={(e) => updateThreeDDomain(fn.id, { xMin: parseFloat(e.target.value) })}
+                  onChange={v => { if (v !== undefined) updateThreeDDomain(fn.id, { xMin: v }); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
                 <span className="text-gray-600">—</span>
-                <input
-                  type="number"
+                <DomainInput
                   value={fn.xMax}
-                  onChange={(e) => updateThreeDDomain(fn.id, { xMax: parseFloat(e.target.value) })}
+                  onChange={v => { if (v !== undefined) updateThreeDDomain(fn.id, { xMax: v }); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
                 <span className="text-gray-500 w-3 font-mono ml-1">Y</span>
-                <input
-                  type="number"
+                <DomainInput
                   value={fn.yMin}
-                  onChange={(e) => updateThreeDDomain(fn.id, { yMin: parseFloat(e.target.value) })}
+                  onChange={v => { if (v !== undefined) updateThreeDDomain(fn.id, { yMin: v }); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
                 <span className="text-gray-600">—</span>
-                <input
-                  type="number"
+                <DomainInput
                   value={fn.yMax}
-                  onChange={(e) => updateThreeDDomain(fn.id, { yMax: parseFloat(e.target.value) })}
+                  onChange={v => { if (v !== undefined) updateThreeDDomain(fn.id, { yMax: v }); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
               </div>
               <div className="flex items-center gap-1.5 text-[10px]">
                 <span className="text-gray-500 w-3 font-mono">Z</span>
-                <input
-                  type="number"
-                  value={fn.zMin ?? ''}
+                <DomainInput
+                  value={fn.zMin}
+                  onChange={v => updateThreeDZRange(fn.id, v, fn.zMax)}
                   placeholder="min"
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    updateThreeDZRange(fn.id, val === '' ? undefined : parseFloat(val), fn.zMax);
-                  }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
                 <span className="text-gray-600">—</span>
-                <input
-                  type="number"
-                  value={fn.zMax ?? ''}
+                <DomainInput
+                  value={fn.zMax}
+                  onChange={v => updateThreeDZRange(fn.id, fn.zMin, v)}
                   placeholder="max"
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    updateThreeDZRange(fn.id, fn.zMin, val === '' ? undefined : parseFloat(val));
-                  }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
-                  step="any"
                 />
                 <span className="text-gray-500 text-[9px] ml-1">留空不裁剪</span>
               </div>

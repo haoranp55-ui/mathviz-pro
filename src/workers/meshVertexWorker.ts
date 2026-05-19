@@ -1,6 +1,7 @@
 // src/workers/meshVertexWorker.ts
 // Web Worker: 在后台线程中计算3D显式函数的顶点高度值
 // 返回 Float32Array，主线程直接 setY 到 BufferGeometry
+// Z 裁剪由主线程的 clipping planes 实现，Worker 不做 clamp
 import { parseThreeDExpression } from '../lib/threeDParser';
 
 interface ComputeRequest {
@@ -12,8 +13,6 @@ interface ComputeRequest {
   xMax: number;
   yMin: number;
   yMax: number;
-  zMin?: number;
-  zMax?: number;
 }
 
 interface ComputeResponse {
@@ -29,7 +28,7 @@ interface ComputeError {
 }
 
 self.onmessage = (e: MessageEvent<ComputeRequest>) => {
-  const { type, id, expression, resolution, xMin, xMax, yMin, yMax, zMin, zMax } = e.data;
+  const { type, id, expression, resolution, xMin, xMax, yMin, yMax } = e.data;
 
   if (type !== 'computeVertices') return;
 
@@ -47,20 +46,15 @@ self.onmessage = (e: MessageEvent<ComputeRequest>) => {
     const xCenter = (xMin + xMax) / 2;
     const yCenter = (yMin + yMax) / 2;
 
-    // PlaneGeometry(resolution, resolution) 产生 (res+1)^2 个顶点
     const vertexCount = (resolution + 1) * (resolution + 1);
     const heights = new Float32Array(vertexCount);
 
-    // 模拟 PlaneGeometry 的顶点布局（rotateX(-PI/2) 后）
-    // PlaneGeometry 在 rotateX(-PI/2) 后: X方向=localX, Z方向=-localZ
-    // 顶点布局: 从左上到右下，行优先
     const halfWidth = xRange / 2;
     const halfHeight = yRange / 2;
 
     let idx = 0;
     for (let iy = 0; iy <= resolution; iy++) {
       for (let ix = 0; ix <= resolution; ix++) {
-        // PlaneGeometry 顶点: X从-halfWidth到+halfWidth, Z从+halfHeight到-halfHeight
         const localX = -halfWidth + (ix / resolution) * xRange;
         const localZ = halfHeight - (iy / resolution) * yRange;
 
@@ -69,9 +63,6 @@ self.onmessage = (e: MessageEvent<ComputeRequest>) => {
 
         let z = compiled(mathX, mathY);
         if (!Number.isFinite(z)) z = 0;
-        if (zMin !== undefined && zMax !== undefined) {
-          z = Math.max(zMin, Math.min(zMax, z));
-        }
         heights[idx++] = z;
       }
     }

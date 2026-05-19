@@ -70,29 +70,44 @@ export const ThreeDSidebar: React.FC = () => {
         )}
       </div>
 
-      {/* WASD 移动灵敏度 */}
-      <div className="px-4 py-2.5 border-t border-white/[0.05] bg-white/[0.01]">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-gray-500">WASD 灵敏度</span>
-          <span className="text-[10px] text-gray-400 tabular-nums">
-            {(() => {
-              const v = getThreeDRenderManager().wasdSpeed;
-              return v < 0.5 ? '🐢' : v > 2 ? '🐇' : '🚶';
-            })()}
-          </span>
+      {/* 相机灵敏度 */}
+      <div className="px-4 py-2.5 border-t border-white/[0.05] bg-white/[0.01] space-y-2">
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[10px] text-gray-500">鼠标灵敏度</span>
+            <span className="text-[10px] text-gray-400 tabular-nums" id="mouse-speed-val">1.0x</span>
+          </div>
+          <input
+            type="range"
+            min="0.1"
+            max="4"
+            step="0.1"
+            defaultValue={1}
+            onChange={(e) => {
+              getThreeDRenderManager().mouseSpeed = parseFloat(e.target.value);
+              document.getElementById('mouse-speed-val')!.textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+            }}
+            className="w-full h-1 accent-cyan-500"
+          />
         </div>
-        <input
-          type="range"
-          min="0.1"
-          max="4"
-          step="0.1"
-          defaultValue={1}
-          onChange={(e) => {
-            getThreeDRenderManager().wasdSpeed = parseFloat(e.target.value);
-            e.target.title = `${e.target.value}x`;
-          }}
-          className="w-full h-1 accent-cyan-500"
-        />
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[10px] text-gray-500">WASD 灵敏度</span>
+            <span className="text-[10px] text-gray-400 tabular-nums" id="wasd-speed-val">1.0x</span>
+          </div>
+          <input
+            type="range"
+            min="0.1"
+            max="4"
+            step="0.1"
+            defaultValue={1}
+            onChange={(e) => {
+              getThreeDRenderManager().wasdSpeed = parseFloat(e.target.value);
+              document.getElementById('wasd-speed-val')!.textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+            }}
+            className="w-full h-1 accent-cyan-500"
+          />
+        </div>
       </div>
     </>
   );

@@ -85,9 +85,15 @@ export const createThreeDSlice: StateCreator<AppStore, [], [], ThreeDSlice> = (s
     }
   },
 
-  updateThreeDDomain: (id, domain) => set({
-    threeDFunctions: get().threeDFunctions.map(f => f.id === id ? { ...f, ...domain } : f),
-  }),
+  updateThreeDDomain: (id, domain) => {
+    const filtered = Object.fromEntries(
+      Object.entries(domain).filter(([, v]) => Number.isFinite(v as number))
+    );
+    if (Object.keys(filtered).length === 0) return;
+    set({
+      threeDFunctions: get().threeDFunctions.map(f => f.id === id ? { ...f, ...filtered } : f),
+    });
+  },
 
   updateThreeDZRange: (id, zMin, zMax) => set({
     threeDFunctions: get().threeDFunctions.map(f => f.id === id ? { ...f, zMin, zMax } : f),
@@ -124,9 +130,12 @@ export const createThreeDSlice: StateCreator<AppStore, [], [], ThreeDSlice> = (s
     implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, resolution } : f),
   }),
 
-  updateImplicit3DDomain: (id, field, value) => set({
-    implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, [field]: value } : f),
-  }),
+  updateImplicit3DDomain: (id, field, value) => {
+    if (!Number.isFinite(value)) return;
+    set({
+      implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, [field]: value } : f),
+    });
+  },
 
   updateImplicit3DExpression: (id, expression) => {
     const { implicit3DFunctions } = get();
