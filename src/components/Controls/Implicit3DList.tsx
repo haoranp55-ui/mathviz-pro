@@ -39,6 +39,7 @@ export const Implicit3DList: React.FC = () => {
     removeImplicit3DFunction,
     toggleImplicit3DVisibility,
     toggleImplicit3DWireframe,
+    toggleImplicit3DGPUMode,
     updateImplicit3DResolution,
     updateImplicit3DExpression,
     updateImplicit3DDomain,
@@ -114,6 +115,15 @@ export const Implicit3DList: React.FC = () => {
             {fn.error && <div className="mt-1.5 text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded-md">{fn.error}</div>}
 
             <div className="mt-2.5 flex items-center gap-4 text-xs">
+              <button onClick={() => toggleImplicit3DGPUMode(fn.id)}
+                className={`flex items-center gap-1.5 transition-colors ${fn.useGPURayMarching ? 'text-emerald-400' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+                GPU
+              </button>
+
               <button onClick={() => toggleImplicit3DWireframe(fn.id)}
                 className={`flex items-center gap-1.5 transition-colors ${fn.wireframe ? 'text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
               >
@@ -124,13 +134,15 @@ export const Implicit3DList: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-1.5 flex-1">
-                <span className="text-gray-500">MC</span>
-                <input type="range" min={0} max={IMPLICIT3D_MC_PRESETS.length - 1}
-                  value={IMPLICIT3D_MC_PRESETS.indexOf(fn.resolution as (typeof IMPLICIT3D_MC_PRESETS)[number])}
-                  onChange={e => updateImplicit3DResolution(fn.id, IMPLICIT3D_MC_PRESETS[parseInt(e.target.value)])}
-                  className="flex-1 h-1"
-                />
-                <span className="text-gray-400 w-7 text-right">{fn.resolution}</span>
+                <span className="text-gray-500">{fn.useGPURayMarching ? 'Ray' : 'MC'}</span>
+                {!fn.useGPURayMarching && (
+                  <input type="range" min={0} max={IMPLICIT3D_MC_PRESETS.length - 1}
+                    value={IMPLICIT3D_MC_PRESETS.indexOf(fn.resolution as (typeof IMPLICIT3D_MC_PRESETS)[number])}
+                    onChange={e => updateImplicit3DResolution(fn.id, IMPLICIT3D_MC_PRESETS[parseInt(e.target.value)])}
+                    className="flex-1 h-1"
+                  />
+                )}
+                <span className="text-gray-400 w-7 text-right">{fn.useGPURayMarching ? 'GPU' : fn.resolution}</span>
               </div>
             </div>
 

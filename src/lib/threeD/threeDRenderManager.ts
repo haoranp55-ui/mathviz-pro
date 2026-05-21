@@ -2,12 +2,269 @@
 import * as THREE from 'three';
 import type { ThreeDFunction, Implicit3DFunction } from '../../types';
 import { computeMeshVerticesAsync, computeImplicit3DAsync } from '../../workers/workerManager';
+import { parse } from 'mathjs';
+import { mathNodeToGLSL } from '../webgl/glslCompiler';
 
 interface MeshEntry {
   mesh: THREE.Mesh;
   meshKey: string;
   zMin?: number;
   zMax?: number;
+  isRayMarch?: boolean;
+}
+
+// GPU Ray Marching 渲染器类
+class RayMarchingRenderer {
+  private scene: THREE.Scene;
+  private camera: THREE.PerspectiveCamera;
+  private meshMap = new Map<string, THREE.Mesh>();
+
+  constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, _renderer: THREE.WebGLRenderer) {
+    this.scene = scene;
+    this.camera = camera;
+  }
+
+  resize(_width: number, _height: number): void {}
+
+  /** 每帧调用，同步相机位置到所有 ray marching mesh 的 uniform */
+  syncCameraPosition(): void {
+    for (const [, mesh] of this.meshMap) {
+      if (!mesh.visible) continue;
+      const mat = mesh.material as THREE.ShaderMaterial;
+      const center = mesh.position;
+      mat.uniforms.u_cameraLocalPos.value.copy(
+        this.camera.position.clone().sub(center),
+      );
+    }
+  }
+
+  // 编译表达式为 GLSL
+  private compileToGLSL(expression: string): string | null {
+    try {
+      const cleaned = expression.trim().replace(/\bln\b/g, 'log');
+      const parts = cleaned.split('=');
+      if (parts.length !== 2) return null;
+
+      const combinedExpr = `(${parts[0].trim()}) - (${parts[1].trim()})`;
+      const node = parse(combinedExpr);
+
+      const params = new Set<string>();
+      const glsl = mathNodeToGLSL(node, params);
+
+      return glsl;
+    } catch (e) {
+      console.error('GLSL编译失败:', e);
+      return null;
+    }
+  }
+
+  update(fn: Implicit3DFunction): void {
+    const meshKey = `raymarch-${fn.id}-${fn.expression}`;
+    const existing = this.meshMap.get(fn.id);
+
+    // 更新颜色、可见性、相机位置
+    if (existing && (existing as any).meshKey === meshKey) {
+      (existing.material as THREE.ShaderMaterial).uniforms.u_color.value.set(fn.color);
+      existing.visible = fn.visible;
+      // 同步相机位置（关键修复：之前这里直接 return，不更新相机位置）
+      const center = existing.position;
+      (existing.material as THREE.ShaderMaterial).uniforms.u_cameraLocalPos.value.copy(
+        this.camera.position.clone().sub(center),
+      );
+      return;
+    }
+
+    // 删除旧 mesh
+    if (existing) {
+      this.scene.remove(existing);
+      existing.geometry.dispose();
+      (existing.material as THREE.ShaderMaterial).dispose();
+    }
+
+    if (!fn.visible) {
+      this.meshMap.delete(fn.id);
+      return;
+    }
+
+    // 编译表达式
+    const exprGLSL = this.compileToGLSL(fn.expression);
+    if (!exprGLSL) {
+      console.warn('表达式编译失败:', fn.expression);
+      return;
+    }
+
+    // 计算中心点和域大小
+    const center = new THREE.Vector3(
+      (fn.xMin + fn.xMax) / 2,
+      (fn.yMin + fn.yMax) / 2,
+      (fn.zMin + fn.zMax) / 2,
+    );
+    const halfSize = new THREE.Vector3(
+      (fn.xMax - fn.xMin) / 2,
+      (fn.yMax - fn.yMin) / 2,
+      (fn.zMax - fn.zMin) / 2,
+    );
+
+    // 自适应步长：域越大步长越大，保证 1000 步能覆盖整个域
+    const maxDim = Math.max(fn.xMax - fn.xMin, fn.yMax - fn.yMin, fn.zMax - fn.zMin);
+    const stepSize = Math.max(0.005, maxDim / 500);
+
+    // 解析颜色
+    const color = fn.color;
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+
+    // 相机位置转换到局部坐标系
+    const cameraLocalPos = this.camera.position.clone().sub(center);
+
+    const vertexShader = `
+      varying vec3 vPosition;
+      void main() {
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    // 关键修复：
+    // 1. F() 中做坐标映射：mathX=localX, mathY=-localZ, mathZ=localY（与 CPU 路径一致）
+    // 2. 加 u_domainOffset 把局部坐标还原为数学坐标（支持非原点对称的域）
+    // 3. 步长自适应域大小
+    const fragmentShader = `
+      precision highp float;
+
+      uniform vec3 u_color;
+      uniform vec3 u_domainMin;
+      uniform vec3 u_domainMax;
+      uniform vec3 u_cameraLocalPos;
+      uniform vec3 u_domainOffset;
+      uniform float u_stepSize;
+
+      varying vec3 vPosition;
+
+      float F(vec3 p) {
+        // 局部坐标 → 数学坐标
+        // CPU 路径映射: mathX=worldX, mathY=-worldZ, mathZ=worldY
+        // 局部坐标 = 世界坐标 - center, 所以 worldCoord = localCoord + center
+        float x = p.x + u_domainOffset.x;
+        float y = -(p.z + u_domainOffset.z);
+        float z = p.y + u_domainOffset.y;
+        return ${exprGLSL};
+      }
+
+      vec3 getNormal(vec3 p) {
+        float eps = 0.001;
+        float d = F(p);
+        return normalize(vec3(
+          F(p + vec3(eps, 0.0, 0.0)) - d,
+          F(p + vec3(0.0, eps, 0.0)) - d,
+          F(p + vec3(0.0, 0.0, eps)) - d
+        ));
+      }
+
+      void main() {
+        vec3 ro = u_cameraLocalPos;
+        vec3 rd = normalize(vPosition - ro);
+
+        vec3 invRd = 1.0 / rd;
+        vec3 t1 = (u_domainMin - ro) * invRd;
+        vec3 t2 = (u_domainMax - ro) * invRd;
+        vec3 tmin = min(t1, t2);
+        vec3 tmax = max(t1, t2);
+        float tNear = max(max(tmin.x, tmin.y), tmin.z);
+        float tFar = min(min(tmax.x, tmax.y), tmax.z);
+
+        if (tNear > tFar || tFar < 0.0) {
+          discard;
+        }
+
+        float tStart = max(tNear, 0.0);
+        float tEnd = tFar;
+        float t = tStart;
+
+        float prevSign = sign(F(ro + rd * t));
+        bool hit = false;
+        vec3 hitPoint;
+
+        for (int i = 0; i < 1000; i++) {
+          vec3 p = ro + rd * t;
+          float f = F(p);
+          float currSign = sign(f);
+
+          if (currSign != prevSign && prevSign != 0.0) {
+            float tLow = t - u_stepSize;
+            float tHigh = t;
+            for (int j = 0; j < 10; j++) {
+              float tMid = (tLow + tHigh) * 0.5;
+              vec3 pMid = ro + rd * tMid;
+              float fMid = F(pMid);
+              if (sign(fMid) == prevSign) {
+                tLow = tMid;
+              } else {
+                tHigh = tMid;
+              }
+            }
+            hitPoint = ro + rd * ((tLow + tHigh) * 0.5);
+            hit = true;
+            break;
+          }
+
+          prevSign = currSign;
+          t += u_stepSize;
+          if (t > tEnd) break;
+        }
+
+        if (hit) {
+          vec3 n = getNormal(hitPoint);
+          vec3 lightDir = normalize(vec3(1.0, 1.0, 0.5));
+          float diff = max(dot(n, lightDir), 0.0);
+          float amb = 0.35;
+          vec3 col = u_color * (amb + diff * 0.65);
+          gl_FragColor = vec4(col, 1.0);
+        } else {
+          discard;
+        }
+      }
+    `;
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms: {
+        u_color: { value: new THREE.Color(r, g, b) },
+        u_domainMin: { value: new THREE.Vector3(-halfSize.x, -halfSize.y, -halfSize.z) },
+        u_domainMax: { value: new THREE.Vector3(halfSize.x, halfSize.y, halfSize.z) },
+        u_cameraLocalPos: { value: cameraLocalPos },
+        u_domainOffset: { value: center },
+        u_stepSize: { value: stepSize },
+      },
+      side: THREE.DoubleSide,
+    });
+
+    const geometry = new THREE.BoxGeometry(fn.xMax - fn.xMin, fn.yMax - fn.yMin, fn.zMax - fn.zMin);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.copy(center);
+    (mesh as any).meshKey = meshKey;
+
+    this.scene.add(mesh);
+    this.meshMap.set(fn.id, mesh);
+  }
+
+  remove(id: string): void {
+    const mesh = this.meshMap.get(id);
+    if (mesh) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+      this.meshMap.delete(id);
+    }
+  }
+
+  dispose(): void {
+    for (const [id] of this.meshMap) {
+      this.remove(id);
+    }
+  }
 }
 
 export class ThreeDRenderManager {
@@ -18,6 +275,7 @@ export class ThreeDRenderManager {
   private meshes = new Map<string, MeshEntry>();
   private implicitMeshes = new Map<string, MeshEntry>();
   private disposed = false;
+  private rayMarchingRenderer: RayMarchingRenderer | null = null;
   public onNeedsRender: (() => void) | null = null;
   public wasdSpeed = 1.0;
   public mouseSpeed = 1.0;
@@ -46,6 +304,9 @@ export class ThreeDRenderManager {
 
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
     this.updateCameraPosition();
+
+    // 初始化 GPU Ray Marching 渲染器
+    this.rayMarchingRenderer = new RayMarchingRenderer(this.scene, this.camera, this.renderer);
 
     this.scene.add(new THREE.AmbientLight(0x404060, 2.0));
     const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
@@ -139,6 +400,7 @@ export class ThreeDRenderManager {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / Math.max(height, 1);
     this.camera.updateProjectionMatrix();
+    this.rayMarchingRenderer?.resize(width, height);
   }
 
   handleMouseDrag(dx: number, dy: number): void {
@@ -249,6 +511,9 @@ export class ThreeDRenderManager {
       if (!allImplicitIds.has(id)) this.removeImplicitMesh(id);
     }
 
+    // 每帧同步 ray marching 相机位置
+    this.rayMarchingRenderer?.syncCameraPosition();
+
     this.renderer.render(this.scene, this.camera);
     return this.canvas;
   }
@@ -256,8 +521,28 @@ export class ThreeDRenderManager {
   // ========== 隐函数 ==========
 
   private updateOrCreateImplicitMesh(fn: Implicit3DFunction): void {
+    // GPU Ray Marching 模式
+    if (fn.useGPURayMarching) {
+      // 删除旧的 CPU mesh
+      const existingCPU = this.implicitMeshes.get(fn.id);
+      if (existingCPU) {
+        this.scene.remove(existingCPU.mesh);
+        existingCPU.mesh.geometry.dispose();
+        (existingCPU.mesh.material as THREE.Material).dispose();
+        this.implicitMeshes.delete(fn.id);
+      }
+      // 使用 GPU Ray Marching 渲染
+      this.rayMarchingRenderer?.update(fn);
+      this.onNeedsRender?.();
+      return;
+    }
+
+    // CPU Marching Cubes 模式
     const meshKey = `impl-${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}-${fn.xMin}-${fn.xMax}-${fn.yMin}-${fn.yMax}-${fn.zMin}-${fn.zMax}`;
     const existing = this.implicitMeshes.get(fn.id);
+
+    // 删除 GPU mesh
+    this.rayMarchingRenderer?.remove(fn.id);
 
     // key 未变 → 只更新颜色和可见性
     if (existing && existing.meshKey === meshKey) {
@@ -336,12 +621,16 @@ export class ThreeDRenderManager {
   }
 
   private removeImplicitMesh(id: string): void {
+    // 删除 CPU mesh
     const entry = this.implicitMeshes.get(id);
-    if (!entry) return;
-    this.scene.remove(entry.mesh);
-    entry.mesh.geometry.dispose();
-    (entry.mesh.material as THREE.Material).dispose();
-    this.implicitMeshes.delete(id);
+    if (entry) {
+      this.scene.remove(entry.mesh);
+      entry.mesh.geometry.dispose();
+      (entry.mesh.material as THREE.Material).dispose();
+      this.implicitMeshes.delete(id);
+    }
+    // 删除 GPU Ray Marching mesh
+    this.rayMarchingRenderer?.remove(id);
     this.implicitPendingKey.delete(id);
   }
 
@@ -467,6 +756,7 @@ export class ThreeDRenderManager {
   dispose(): void {
     for (const [id] of this.meshes) this.removeMesh(id);
     for (const [id] of this.implicitMeshes) this.removeImplicitMesh(id);
+    this.rayMarchingRenderer?.dispose();
     this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
     this.renderer.dispose();
     this.disposed = true;

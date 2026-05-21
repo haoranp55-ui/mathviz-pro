@@ -172,7 +172,7 @@ export function calculateTickInterval(
   const roughInterval = range / targetTickCount;
 
   // 计算数量级
-  const magnitude = Math.pow(10, Math.floor(Math.log10(roughInterval)));
+  const magnitude = 10 ** Math.floor(Math.log10(roughInterval));
 
   // 标准化到 1, 2, 5
   const normalized = roughInterval / magnitude;

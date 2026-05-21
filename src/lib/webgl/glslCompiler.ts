@@ -104,7 +104,7 @@ export function mathNodeToGLSL(node: MathNode, params: Set<string> = new Set()):
         return CONSTANT_MAP[name];
       }
 
-      if (name === 'x' || name === 'y') {
+      if (name === 'x' || name === 'y' || name === 'z') {
         return name;
       }
 

@@ -304,36 +304,47 @@ function mergePoints(
   initial: SampledPoints,
   refined: Array<{ x: number; y: number }>
 ): SampledPoints {
-  // 使用 Map 去重（按 x 值）
-  const pointMap = new Map<number, number>();
+  const pointCount = initial.x.length + refined.length;
+  // 预分配数组，避免多次扩容
+  const xArray = new Float64Array(pointCount);
+  const yArray = new Float64Array(pointCount);
+  let idx = 0;
 
-  // 添加初始点
+  // 先添加初始点
   for (let i = 0; i < initial.x.length; i++) {
-    const x = initial.x[i];
-    if (isFinite(x) && isFinite(initial.y[i])) {
-      pointMap.set(x, initial.y[i]);
+    if (isFinite(initial.x[i]) && isFinite(initial.y[i])) {
+      xArray[idx] = initial.x[i];
+      yArray[idx] = initial.y[i];
+      idx++;
     }
   }
 
-  // 添加加密点
+  // 再添加加密点（使用插入排序思想，保持有序）
+  // 由于 refined 点数量较少，直接插入即可
   for (const p of refined) {
     if (isFinite(p.x) && isFinite(p.y)) {
-      pointMap.set(p.x, p.y);
+      xArray[idx] = p.x;
+      yArray[idx] = p.y;
+      idx++;
     }
   }
 
-  // 排序并创建结果数组
-  const sortedX = Array.from(pointMap.keys()).sort((a, b) => a - b);
-  const resultX = new Float64Array(sortedX.length);
-  const resultY = new Float64Array(sortedX.length);
+  // 截���多余空间
+  const resultX = xArray.slice(0, idx);
+  const resultY = yArray.slice(0, idx);
 
-  for (let i = 0; i < sortedX.length; i++) {
-    resultX[i] = sortedX[i];
-    const y = pointMap.get(sortedX[i]);
-    resultY[i] = y !== undefined ? y : NaN;
+  // 排序（使用原生排序，比手动快排快）
+  const sortedIndices = Array.from(resultX.keys()).sort((a, b) => resultX[a] - resultX[b]);
+  const finalX = new Float64Array(idx);
+  const finalY = new Float64Array(idx);
+
+  for (let i = 0; i < idx; i++) {
+    const j = sortedIndices[i];
+    finalX[i] = resultX[j];
+    finalY[i] = resultY[j];
   }
 
-  return { x: resultX, y: resultY };
+  return { x: finalX, y: finalY };
 }
 
 /**

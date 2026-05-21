@@ -1,8 +1,15 @@
 // src/lib/differentialSolver.ts
 // 线性常系数微分方程符号求解器
 
-/**
- * 智能格式化数字
+// 接近零判断阈值
+const EPS = 1e-10;
+
+/** 判断数值是否接近零 */
+function isNearZero(x: number): boolean {
+  return Math.abs(x) < EPS;
+}
+
+/** 智能格式化数字
  * - 如果小数部分全为0，省略小数部分（1.0000 → 1）
  * - 如果小数部分不全为0，保留有效小数位（1.0001 → 1.0001）
  * - 特殊处理：-1.0000 → -1, 1.0000 → 空字符串（用于系数）
@@ -12,7 +19,7 @@ function formatNum(num: number, forCoeff: boolean = false): string {
   const absRounded = Math.abs(rounded);
 
   // 检查是否接近整数
-  if (Math.abs(absRounded - Math.round(absRounded)) < 1e-10) {
+  if (isNearZero(absRounded - Math.round(absRounded))) {
     const intVal = Math.round(rounded);
     if (forCoeff) {
       if (intVal === 1) return '';

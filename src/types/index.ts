@@ -349,6 +349,7 @@ export interface Implicit3DFunction {
   visible: boolean;
   wireframe: boolean;
   resolution: number;                               // MC 网格分辨率，默认 48
+  useGPURayMarching: boolean;                       // 是否使用 GPU Ray Marching（更快）
   xMin: number; xMax: number;                       // X 定义域
   yMin: number; yMax: number;                       // Y 定义域
   zMin: number; zMax: number;                       // Z 定义域

@@ -32,6 +32,7 @@ export interface ThreeDSlice {
   removeImplicit3DFunction: (id: string) => void;
   toggleImplicit3DVisibility: (id: string) => void;
   toggleImplicit3DWireframe: (id: string) => void;
+  toggleImplicit3DGPUMode: (id: string) => void;
   updateImplicit3DResolution: (id: string, resolution: number) => void;
   updateImplicit3DDomain: (id: string, field: string, value: number) => void;
   updateImplicit3DExpression: (id: string, expression: string) => void;
@@ -108,11 +109,11 @@ export const createThreeDSlice: StateCreator<AppStore, [], [], ThreeDSlice> = (s
     const result = parseImplicit3DExpression(expression);
     if (result instanceof Error) {
       const errorFn: Implicit3DFunction = {
-        id: uuidv4(), expression, compiled: () => NaN, color, visible: true, wireframe: false, resolution: defaultRes, ...IMPLICIT3D_DEFAULT_DOMAIN, error: result.message,
+        id: uuidv4(), expression, compiled: () => NaN, color, visible: true, wireframe: false, resolution: defaultRes, useGPURayMarching: false, ...IMPLICIT3D_DEFAULT_DOMAIN, error: result.message,
       };
       set({ implicit3DFunctions: [...implicit3DFunctions, errorFn] });
     } else {
-      set({ implicit3DFunctions: [...implicit3DFunctions, { ...result, expression, id: uuidv4(), color, visible: true, wireframe: false, resolution: defaultRes, ...IMPLICIT3D_DEFAULT_DOMAIN }] });
+      set({ implicit3DFunctions: [...implicit3DFunctions, { ...result, expression, id: uuidv4(), color, visible: true, wireframe: false, resolution: defaultRes, useGPURayMarching: false, ...IMPLICIT3D_DEFAULT_DOMAIN }] });
     }
   },
 
@@ -124,6 +125,10 @@ export const createThreeDSlice: StateCreator<AppStore, [], [], ThreeDSlice> = (s
 
   toggleImplicit3DWireframe: (id) => set({
     implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, wireframe: !f.wireframe } : f),
+  }),
+
+  toggleImplicit3DGPUMode: (id) => set({
+    implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, useGPURayMarching: !f.useGPURayMarching } : f),
   }),
 
   updateImplicit3DResolution: (id, resolution) => set({
