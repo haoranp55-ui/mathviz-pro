@@ -1,11 +1,11 @@
 // src/components/Equation/EquationSystemList.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { EquationSystemCard } from './EquationSystemCard';
 import { EquationEmptyState } from './EquationEmptyState';
 
-export const EquationSystemList: React.FC = () => {
+export const EquationSystemList: FC = () => {
   const equationSystems = useAppStore((state) => state.equationSystems);
   const clearAllEquationSystems = useAppStore((state) => state.clearAllEquationSystems);
   const [showConfirm, setShowConfirm] = useState(false);

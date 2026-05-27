@@ -100,6 +100,7 @@ export interface HoverPoint {
   x: number;
   y: number;
   functionId: string;
+  color?: string;
 }
 
 export interface InteractionState {
@@ -107,6 +108,8 @@ export interface InteractionState {
   isDragging: boolean;
   dragStart: { x: number; y: number } | null;
 }
+
+export type Interaction = InteractionState;
 
 export interface CanvasSize {
   width: number;
@@ -126,6 +129,14 @@ export const FUNCTION_COLORS = [
 ] as const;
 
 export type FunctionColor = typeof FUNCTION_COLORS[number];
+
+// 全局颜色计数器：基于递增计数器分配颜色，删除不影响其他函数
+let _colorCounter = 0;
+export function nextFunctionColor(): string {
+  const color = FUNCTION_COLORS[_colorCounter % FUNCTION_COLORS.length];
+  _colorCounter++;
+  return color;
+}
 
 // 关键点类型
 export type KeyPointType = 'zero' | 'maximum' | 'minimum' | 'inflection' | 'discontinuity' | 'intersection';
@@ -214,6 +225,8 @@ export interface IntegralConfig {
   color: string;                // 填充颜色
 }
 
+export type Integral = IntegralConfig;
+
 export interface IntegralResult {
   configId: string;
   value: number;                // 定积分数值结果
@@ -245,27 +258,6 @@ export interface DifferentialEquationInput {
   // 状态
   isValid: boolean;
   error?: string;
-}
-
-// 保留旧类型以兼容（后续可删除）
-export interface DifferentialEquation {
-  id: string;
-  expression: string;
-  compiled: (x: number, y: number) => number;
-  color: string;
-  visible: boolean;
-  error?: string;
-  initialX: number;
-  initialY: number;
-  method: 'euler' | 'runge-kutta';
-  stepSize: number;
-  xMin: number;
-  xMax: number;
-}
-
-export interface SolutionCurve {
-  equationId: string;
-  points: SampledPoints;
 }
 
 // ============================================
@@ -302,18 +294,19 @@ export type PlotSystemType = '2d' | '3d' | 'equation';
 
 export interface ThreeDFunction {
   id: string;
-  expression: string;                           // "sin(sqrt(x*x + y*y))"
-  compiled: (x: number, y: number) => number;   // z = f(x, y)
+  expression: string;                                              // "sin(sqrt(x*x + y*y))"
+  compiled: (x: number, y: number, params?: Record<string, number>) => number;   // z = f(x, y, params?)
   color: string;
   visible: boolean;
-  wireframe: boolean;                           // 线框模式
-  resolution: number;                           // 网格分段数，默认 64
-  xMin: number;                                 // X 定义域下限
-  xMax: number;                                 // X 定义域上限
-  yMin: number;                                 // Y 定义域下限
-  yMax: number;                                 // Y 定义域上限
-  zMin?: number;                                // Z 显示范围下限（可选）
-  zMax?: number;                                // Z 显示范围上限（可选）
+  parameters: Parameter[];                                        // 支持参数，如 a, b
+  wireframe: boolean;                                             // 线框模式
+  resolution: number;                                             // 网格分段数，默认 64
+  xMin: number;                                                   // X 定义域下限
+  xMax: number;                                                   // X 定义域上限
+  yMin: number;                                                   // Y 定义域下限
+  yMax: number;                                                   // Y 定义域上限
+  zMin?: number;                                                  // Z 显示范围下限（可选）
+  zMax?: number;                                                  // Z 显示范围上限（可选）
   error?: string;
 }
 
@@ -331,9 +324,9 @@ export const THREE_D_MAX_FUNCTIONS = 6;
 
 // 全局采样精度 → 3D 默认分辨率映射
 export const THREE_D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
-  fast: 32,
-  normal: 64,
-  fine: 128,
+  fast: 48,
+  normal: 96,
+  fine: 160,
   ultra: 256,
 };
 
@@ -344,7 +337,7 @@ export const THREE_D_PRESET_RESOLUTION: Record<SamplePreset, number> = {
 export interface Implicit3DFunction {
   id: string;
   expression: string;                               // "x^2 + y^2 + z^2 - 1 = 0"
-  compiled: (x: number, y: number, z: number) => number;
+  compiled: (x: number, y: number, z: number, params?: Record<string, number>) => number;
   color: string;
   visible: boolean;
   wireframe: boolean;
@@ -353,6 +346,7 @@ export interface Implicit3DFunction {
   xMin: number; xMax: number;                       // X 定义域
   yMin: number; yMax: number;                       // Y 定义域
   zMin: number; zMax: number;                       // Z 定义域
+  parameters: Parameter[];                          // 支持参数，如 a, b, c
   error?: string;
 }
 
@@ -451,3 +445,47 @@ export const MAX_VARIABLES = 5;
 // 支持的变量名
 export const VARIABLE_NAMES = ['x', 'y', 'z', 'u', 'v'] as const;
 export type VariableName = typeof VARIABLE_NAMES[number];
+
+// ============================================
+// 参数动画系统
+// ============================================
+
+/** 动画模式 */
+export type AnimationMode = 'sine' | 'linear' | 'once' | 'none';
+
+/** 动画方向 */
+export type AnimationDirection = 'forward' | 'backward' | 'alternate';
+
+/** 单个参数的动画配置 */
+export interface ParameterAnimation {
+  mode: AnimationMode;           // 动画模式
+  direction: AnimationDirection; // 动画方向
+  speed: number;                 // 速度倍率 (0.1 ~ 10)
+  offset: number;                // 相位偏移 (0 ~ 1)
+  isPlaying: boolean;            // 是否正在播放
+}
+
+/** 全局动画播放器状态 */
+export interface AnimationPlayerState {
+  isPlaying: boolean;            // 全局播放状态
+  globalSpeed: number;             // 全局速度倍率
+  currentTime: number;            // 当前动画时间 (秒)
+  startTime: number;              // 动画开始时间戳
+}
+
+/** 参数动画的默认配置 */
+export const DEFAULT_PARAMETER_ANIMATION: ParameterAnimation = {
+  mode: 'none',
+  direction: 'forward',
+  speed: 1,
+  offset: 0,
+  isPlaying: false,
+};
+
+/** 全局动画播放器默认值 */
+export const DEFAULT_ANIMATION_PLAYER: AnimationPlayerState = {
+  isPlaying: false,
+  globalSpeed: 1,
+  currentTime: 0,
+  startTime: 0,
+};

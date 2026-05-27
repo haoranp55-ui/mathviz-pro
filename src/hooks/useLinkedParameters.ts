@@ -1,6 +1,8 @@
 // src/hooks/useLinkedParameters.ts
 import { useMemo } from 'react';
-import type { ParametricFunction } from '../types';
+import type { ParametricFunction, ThreeDFunction, Implicit3DFunction } from '../types';
+
+type ParameterizedFunction = ParametricFunction | ThreeDFunction | Implicit3DFunction;
 
 export interface LinkedParameterInfo {
   isLinked: boolean;
@@ -12,17 +14,17 @@ export interface LinkedParameterInfo {
 }
 
 export function useLinkedParameters(
-  parametricFunctions: ParametricFunction[]
+  functions: ParameterizedFunction[]
 ): Map<string, LinkedParameterInfo> {
   return useMemo(() => {
     const map = new Map<string, LinkedParameterInfo>();
 
-    for (const fn of parametricFunctions) {
+    for (const fn of functions) {
       for (const param of fn.parameters) {
         const key = `${fn.id}:${param.name}`;
         const linkedWith: LinkedParameterInfo['linkedWith'] = [];
 
-        for (const other of parametricFunctions) {
+        for (const other of functions) {
           if (other.id === fn.id) continue;
           if (other.parameters.some(p => p.name === param.name)) {
             linkedWith.push({
@@ -41,5 +43,5 @@ export function useLinkedParameters(
     }
 
     return map;
-  }, [parametricFunctions]);
+  }, [functions]);
 }

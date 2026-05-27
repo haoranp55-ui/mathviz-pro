@@ -4,20 +4,33 @@ import type { ThreeDFunction, Implicit3DFunction } from '../../types';
 import { computeMeshVerticesAsync, computeImplicit3DAsync } from '../../workers/workerManager';
 import { parse } from 'mathjs';
 import { mathNodeToGLSL } from '../webgl/glslCompiler';
+import { hexToRGB } from '../webgl/webglUtils';
 
 interface MeshEntry {
   mesh: THREE.Mesh;
   meshKey: string;
+  paramKey?: string;
   zMin?: number;
   zMax?: number;
   isRayMarch?: boolean;
+  // 参数变化时暂存的旧 mesh，Worker 完成后清理
+  staleMesh?: THREE.Mesh;
+  // 当前 mesh 是否为滑钮拖动时的低分辨率版本
+  sliderLowRes?: boolean;
 }
 
-// GPU Ray Marching 渲染器类
+// 滑钮拖动时的低分辨率映射：约 1/3 原分辨率，最低 12
+function getSliderResolution(resolution: number): number {
+  return Math.max(12, Math.round(resolution / 3));
+}
+
+// GPU Ray Marching 渲染器类 - 正确实现
 class RayMarchingRenderer {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private meshMap = new Map<string, THREE.Mesh>();
+  // 缓存每个 mesh 的参数名列表，用于判断是否需要重编译 shader
+  private paramNamesMap = new Map<string, string>();
 
   constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera, _renderer: THREE.WebGLRenderer) {
     this.scene = scene;
@@ -26,21 +39,10 @@ class RayMarchingRenderer {
 
   resize(_width: number, _height: number): void {}
 
-  /** 每帧调用，同步相机位置到所有 ray marching mesh 的 uniform */
-  syncCameraPosition(): void {
-    for (const [, mesh] of this.meshMap) {
-      if (!mesh.visible) continue;
-      const mat = mesh.material as THREE.ShaderMaterial;
-      const center = mesh.position;
-      mat.uniforms.u_cameraLocalPos.value.copy(
-        this.camera.position.clone().sub(center),
-      );
-    }
-  }
-
-  // 编译表达式为 GLSL
-  private compileToGLSL(expression: string): string | null {
+  // 正确编译表达式为 GLSL，同时返回参数名列表
+  private compileToGLSL(expression: string): { glsl: string; paramNames: string[] } | null {
     try {
+      // 处理等号：f(x,y,z) = 0 -> f(x,y,z) - 0
       const cleaned = expression.trim().replace(/\bln\b/g, 'log');
       const parts = cleaned.split('=');
       if (parts.length !== 2) return null;
@@ -51,7 +53,7 @@ class RayMarchingRenderer {
       const params = new Set<string>();
       const glsl = mathNodeToGLSL(node, params);
 
-      return glsl;
+      return { glsl, paramNames: Array.from(params) };
     } catch (e) {
       console.error('GLSL编译失败:', e);
       return null;
@@ -59,18 +61,30 @@ class RayMarchingRenderer {
   }
 
   update(fn: Implicit3DFunction): void {
-    const meshKey = `raymarch-${fn.id}-${fn.expression}`;
+    // meshKey 包含参数名列表（不含值），参数名变化才需重编译 shader
+    const paramNamesKey = fn.parameters.map(p => p.name).sort().join(',');
+    const meshKey = `raymarch-${fn.id}-${fn.expression}-${paramNamesKey}`;
     const existing = this.meshMap.get(fn.id);
 
-    // 更新颜色、可见性、相机位置
-    if (existing && (existing as any).meshKey === meshKey) {
-      (existing.material as THREE.ShaderMaterial).uniforms.u_color.value.set(fn.color);
-      existing.visible = fn.visible;
-      // 同步相机位置（关键修复：之前这里直接 return，不更新相机位置）
-      const center = existing.position;
-      (existing.material as THREE.ShaderMaterial).uniforms.u_cameraLocalPos.value.copy(
-        this.camera.position.clone().sub(center),
+    // shader 结构没变 → 只更新 uniform 值（颜色、相机、参数）
+    if (existing && existing.userData.meshKey === meshKey) {
+      const mat = existing.material as THREE.ShaderMaterial;
+      mat.uniforms.u_color.value.set(fn.color);
+      // 每帧更新相机位置到局部坐标系
+      const center = new THREE.Vector3(
+        (fn.xMin + fn.xMax) / 2,
+        (fn.yMin + fn.yMax) / 2,
+        (fn.zMin + fn.zMax) / 2,
       );
+      mat.uniforms.u_cameraLocalPos.value.copy(this.camera.position).sub(center);
+      // 更新参数 uniform 值
+      for (const p of fn.parameters) {
+        const uniformName = `u_${p.name}`;
+        if (mat.uniforms[uniformName]) {
+          mat.uniforms[uniformName].value = p.currentValue;
+        }
+      }
+      existing.visible = fn.visible;
       return;
     }
 
@@ -83,41 +97,32 @@ class RayMarchingRenderer {
 
     if (!fn.visible) {
       this.meshMap.delete(fn.id);
+      this.paramNamesMap.delete(fn.id);
       return;
     }
 
     // 编译表达式
-    const exprGLSL = this.compileToGLSL(fn.expression);
-    if (!exprGLSL) {
+    const compileResult = this.compileToGLSL(fn.expression);
+    if (!compileResult) {
       console.warn('表达式编译失败:', fn.expression);
       return;
     }
+    const { glsl: exprGLSL, paramNames } = compileResult;
 
-    // 计算中心点和域大小
+    // 计算中心点
     const center = new THREE.Vector3(
       (fn.xMin + fn.xMax) / 2,
       (fn.yMin + fn.yMax) / 2,
-      (fn.zMin + fn.zMax) / 2,
-    );
-    const halfSize = new THREE.Vector3(
-      (fn.xMax - fn.xMin) / 2,
-      (fn.yMax - fn.yMin) / 2,
-      (fn.zMax - fn.zMin) / 2,
+      (fn.zMin + fn.zMax) / 2
     );
 
-    // 自适应步长：域越大步长越大，保证 1000 步能覆盖整个域
-    const maxDim = Math.max(fn.xMax - fn.xMin, fn.yMax - fn.yMin, fn.zMax - fn.zMin);
-    const stepSize = Math.max(0.005, maxDim / 500);
+    // 使用统一的颜色解析
+    const [r, g, b] = hexToRGB(fn.color);
 
-    // 解析颜色
-    const color = fn.color;
-    const r = parseInt(color.slice(1, 3), 16) / 255;
-    const g = parseInt(color.slice(3, 5), 16) / 255;
-    const b = parseInt(color.slice(5, 7), 16) / 255;
+    // 参数 uniform 声明
+    const paramDeclarations = paramNames.map(p => `uniform float u_${p};`).join('\n');
 
-    // 相机位置转换到局部坐标系
-    const cameraLocalPos = this.camera.position.clone().sub(center);
-
+    // 使用局部坐标系的 vertex shader
     const vertexShader = `
       varying vec3 vPosition;
       void main() {
@@ -126,10 +131,6 @@ class RayMarchingRenderer {
       }
     `;
 
-    // 关键修复：
-    // 1. F() 中做坐标映射：mathX=localX, mathY=-localZ, mathZ=localY（与 CPU 路径一致）
-    // 2. 加 u_domainOffset 把局部坐标还原为数学坐标（支持非原点对称的域）
-    // 3. 步长自适应域大小
     const fragmentShader = `
       precision highp float;
 
@@ -137,18 +138,14 @@ class RayMarchingRenderer {
       uniform vec3 u_domainMin;
       uniform vec3 u_domainMax;
       uniform vec3 u_cameraLocalPos;
-      uniform vec3 u_domainOffset;
-      uniform float u_stepSize;
+      ${paramDeclarations}
 
       varying vec3 vPosition;
 
       float F(vec3 p) {
-        // 局部坐标 → 数学坐标
-        // CPU 路径映射: mathX=worldX, mathY=-worldZ, mathZ=worldY
-        // 局部坐标 = 世界坐标 - center, 所以 worldCoord = localCoord + center
-        float x = p.x + u_domainOffset.x;
-        float y = -(p.z + u_domainOffset.z);
-        float z = p.y + u_domainOffset.y;
+        float x = p.x;
+        float y = -p.z;
+        float z = p.y;
         return ${exprGLSL};
       }
 
@@ -180,6 +177,7 @@ class RayMarchingRenderer {
 
         float tStart = max(tNear, 0.0);
         float tEnd = tFar;
+        float stepSize = 0.02;
         float t = tStart;
 
         float prevSign = sign(F(ro + rd * t));
@@ -192,7 +190,7 @@ class RayMarchingRenderer {
           float currSign = sign(f);
 
           if (currSign != prevSign && prevSign != 0.0) {
-            float tLow = t - u_stepSize;
+            float tLow = t - stepSize;
             float tHigh = t;
             for (int j = 0; j < 10; j++) {
               float tMid = (tLow + tHigh) * 0.5;
@@ -210,7 +208,7 @@ class RayMarchingRenderer {
           }
 
           prevSign = currSign;
-          t += u_stepSize;
+          t += stepSize;
           if (t > tEnd) break;
         }
 
@@ -227,27 +225,43 @@ class RayMarchingRenderer {
       }
     `;
 
+    // 局部坐标系的范围（以中心为原点）
+    const halfSize = new THREE.Vector3(
+      (fn.xMax - fn.xMin) / 2,
+      (fn.yMax - fn.yMin) / 2,
+      (fn.zMax - fn.zMin) / 2
+    );
+
+    // 相机位置转换到局部坐标系
+    const cameraLocalPos = this.camera.position.clone().sub(center);
+
+    // 构建 uniforms 对象（包含参数）
+    const uniforms: Record<string, { value: number | THREE.Color | THREE.Vector3 }> = {
+      u_color: { value: new THREE.Color(r, g, b) },
+      u_domainMin: { value: new THREE.Vector3(-halfSize.x, -halfSize.y, -halfSize.z) },
+      u_domainMax: { value: new THREE.Vector3(halfSize.x, halfSize.y, halfSize.z) },
+      u_cameraLocalPos: { value: cameraLocalPos },
+    };
+    // 添加参数 uniforms
+    for (const p of fn.parameters) {
+      uniforms[`u_${p.name}`] = { value: p.currentValue };
+    }
+
     const material = new THREE.ShaderMaterial({
       vertexShader,
       fragmentShader,
-      uniforms: {
-        u_color: { value: new THREE.Color(r, g, b) },
-        u_domainMin: { value: new THREE.Vector3(-halfSize.x, -halfSize.y, -halfSize.z) },
-        u_domainMax: { value: new THREE.Vector3(halfSize.x, halfSize.y, halfSize.z) },
-        u_cameraLocalPos: { value: cameraLocalPos },
-        u_domainOffset: { value: center },
-        u_stepSize: { value: stepSize },
-      },
-      side: THREE.DoubleSide,
+      uniforms,
+      side: THREE.BackSide,
     });
 
     const geometry = new THREE.BoxGeometry(fn.xMax - fn.xMin, fn.yMax - fn.yMin, fn.zMax - fn.zMin);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.copy(center);
-    (mesh as any).meshKey = meshKey;
+    mesh.userData.meshKey = meshKey;
 
     this.scene.add(mesh);
     this.meshMap.set(fn.id, mesh);
+    this.paramNamesMap.set(fn.id, paramNamesKey);
   }
 
   remove(id: string): void {
@@ -257,6 +271,7 @@ class RayMarchingRenderer {
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
       this.meshMap.delete(id);
+      this.paramNamesMap.delete(id);
     }
   }
 
@@ -474,6 +489,7 @@ export class ThreeDRenderManager {
     functions: ThreeDFunction[],
     implicitFunctions: Implicit3DFunction[],
     size: { width: number; height: number },
+    isSliderActive: boolean = false,
   ): HTMLCanvasElement {
     if (this.disposed) return this.canvas;
 
@@ -501,7 +517,7 @@ export class ThreeDRenderManager {
       allImplicitIds.add(fn.id);
       if (fn.error) continue;
       if (fn.visible) {
-        this.updateOrCreateImplicitMesh(fn);
+        this.updateOrCreateImplicitMesh(fn, isSliderActive);
       } else {
         const entry = this.implicitMeshes.get(fn.id);
         if (entry) entry.mesh.visible = false;
@@ -511,16 +527,13 @@ export class ThreeDRenderManager {
       if (!allImplicitIds.has(id)) this.removeImplicitMesh(id);
     }
 
-    // 每帧同步 ray marching 相机位置
-    this.rayMarchingRenderer?.syncCameraPosition();
-
     this.renderer.render(this.scene, this.camera);
     return this.canvas;
   }
 
   // ========== 隐函数 ==========
 
-  private updateOrCreateImplicitMesh(fn: Implicit3DFunction): void {
+  private updateOrCreateImplicitMesh(fn: Implicit3DFunction, isSliderActive: boolean = false): void {
     // GPU Ray Marching 模式
     if (fn.useGPURayMarching) {
       // 删除旧的 CPU mesh
@@ -538,65 +551,127 @@ export class ThreeDRenderManager {
     }
 
     // CPU Marching Cubes 模式
+    // meshKey 使用原始分辨率，确保松开后键匹配
     const meshKey = `impl-${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}-${fn.xMin}-${fn.xMax}-${fn.yMin}-${fn.yMax}-${fn.zMin}-${fn.zMax}`;
+    const paramKey = fn.parameters.length > 0
+      ? fn.parameters.map(p => `${p.name}:${p.currentValue.toFixed(4)}`).join(',')
+      : '';
     const existing = this.implicitMeshes.get(fn.id);
 
     // 删除 GPU mesh
     this.rayMarchingRenderer?.remove(fn.id);
 
-    // key 未变 → 只更新颜色和可见性
-    if (existing && existing.meshKey === meshKey) {
+    // 滑钮松开后，需要把低分辨率 mesh 替换为原分辨率
+    if (!isSliderActive && existing?.sliderLowRes) {
+      // 清理低分辨率 mesh 和 staleMesh，强制重走 Worker 路径
+      if (existing.staleMesh) {
+        this.scene.remove(existing.staleMesh);
+        existing.staleMesh.geometry.dispose();
+        (existing.staleMesh.material as THREE.Material).dispose();
+      }
+      this.scene.remove(existing.mesh);
+      existing.mesh.geometry.dispose();
+      (existing.mesh.material as THREE.Material).dispose();
+      this.implicitMeshes.delete(fn.id);
+    } else if (existing && existing.meshKey === meshKey && existing.paramKey === paramKey && !existing.sliderLowRes) {
+      // 完全没变（且非低分辨率）→ 只更新颜色和可见性
       (existing.mesh.material as THREE.MeshPhongMaterial).color.set(fn.color);
       existing.mesh.visible = true;
       return;
     }
 
-    // 已经在计算同一个 key → 跳过
-    if (this.implicitPendingKey.get(fn.id) === meshKey) return;
-    this.implicitPendingKey.set(fn.id, meshKey);
+    // 重新获取 entry（可能被上面的 sliderLowRes 清理删除了）
+    const currentExisting = this.implicitMeshes.get(fn.id);
 
-    // 没有 old mesh → 不可见占位
-    if (!existing) {
-      const dGeo = new THREE.SphereGeometry(0.01);
-      const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
-      const d = new THREE.Mesh(dGeo, dMat);
-      d.visible = false;
-      this.scene.add(d);
-      this.implicitMeshes.set(fn.id, { mesh: d, meshKey });
+    // 已经在计算同一个 key → 跳过
+    const fullKey = `${meshKey}-${paramKey}`;
+    if (this.implicitPendingKey.get(fn.id) === fullKey) return;
+    this.implicitPendingKey.set(fn.id, fullKey);
+
+    // 参数变化时：保留旧 mesh 继续显示，Worker 算完后才替换（避免闪烁）
+    const isParamOnlyChange = currentExisting && currentExisting.meshKey === meshKey && currentExisting.paramKey !== paramKey;
+
+    if (isParamOnlyChange && currentExisting) {
+      // 清理前一个 staleMesh（防止重叠图像泄漏）
+      if (currentExisting.staleMesh) {
+        this.scene.remove(currentExisting.staleMesh);
+        currentExisting.staleMesh.geometry.dispose();
+        (currentExisting.staleMesh.material as THREE.Material).dispose();
+      }
+      // 参数变化：把当前 mesh 标记为 stale，继续显示，等 Worker 完成后再删
+      currentExisting.staleMesh = currentExisting.mesh;
+    } else if (currentExisting) {
+      // 结构变了 → 删旧 mesh + 清理 staleMesh
+      if (currentExisting.staleMesh) {
+        this.scene.remove(currentExisting.staleMesh);
+        currentExisting.staleMesh.geometry.dispose();
+        (currentExisting.staleMesh.material as THREE.Material).dispose();
+      }
+      this.scene.remove(currentExisting.mesh);
+      currentExisting.mesh.geometry.dispose();
+      (currentExisting.mesh.material as THREE.Material).dispose();
     }
+
+    // 滑钮拖动时使用低分辨率，松开后恢复原分辨率
+    const effectiveResolution = isSliderActive ? getSliderResolution(fn.resolution) : fn.resolution;
+    const sliderLowRes = isSliderActive && effectiveResolution !== fn.resolution;
+
+    // 不可见占位
+    const dGeo = new THREE.SphereGeometry(0.01);
+    const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
+    const d = new THREE.Mesh(dGeo, dMat);
+    d.visible = false;
+    this.scene.add(d);
+
+    // 暂存 staleMesh（参数变化时）
+    const staleMesh = isParamOnlyChange && existing ? existing.staleMesh : undefined;
+
+    this.implicitMeshes.set(fn.id, {
+      mesh: d, meshKey, paramKey,
+      staleMesh,
+      sliderLowRes,
+    });
 
     const color = fn.color;
     const wireframe = fn.wireframe;
+    const currentParams: Record<string, number> = {};
+    for (const p of fn.parameters) currentParams[p.name] = p.currentValue;
 
     computeImplicit3DAsync({
       id: fn.id,
       expression: fn.expression,
-      resolution: fn.resolution,
+      resolution: effectiveResolution,
       xMin: fn.xMin, xMax: fn.xMax,
       yMin: fn.yMin, yMax: fn.yMax,
       zMin: fn.zMin, zMax: fn.zMax,
+      parameters: currentParams,
     }).then((result) => {
       this.implicitPendingKey.delete(fn.id);
       if (this.disposed) return;
 
-      // 如果 meshKey 已经又变了（用户继续调域），不替换，让下一轮计算处理
+      // 如果 key 已经又变了，不替换，让下一轮计算处理
       const currentEntry = this.implicitMeshes.get(fn.id);
-      if (currentEntry && currentEntry.meshKey !== meshKey && this.implicitPendingKey.has(fn.id)) return;
+      if (currentEntry && currentEntry.paramKey !== paramKey && this.implicitPendingKey.has(fn.id)) return;
 
-      // 删掉旧 mesh
+      // 删掉占位 mesh 和旧 mesh（参数变化时旧 mesh 还在场景里）
       if (currentEntry) {
         this.scene.remove(currentEntry.mesh);
         currentEntry.mesh.geometry.dispose();
         (currentEntry.mesh.material as THREE.Material).dispose();
       }
+      if (currentEntry?.staleMesh) {
+        this.scene.remove(currentEntry.staleMesh);
+        currentEntry.staleMesh.geometry.dispose();
+        (currentEntry.staleMesh.material as THREE.Material).dispose();
+      }
 
       if (!result.positions.length || !result.indices.length) {
-        const dGeo = new THREE.SphereGeometry(0.01);
-        const dMat = new THREE.MeshPhongMaterial({ color, wireframe, side: THREE.DoubleSide });
-        const d = new THREE.Mesh(dGeo, dMat);
-        d.visible = false;
-        this.scene.add(d);
-        this.implicitMeshes.set(fn.id, { mesh: d, meshKey });
+        const dGeo2 = new THREE.SphereGeometry(0.01);
+        const dMat2 = new THREE.MeshPhongMaterial({ color, wireframe, side: THREE.DoubleSide });
+        const d2 = new THREE.Mesh(dGeo2, dMat2);
+        d2.visible = false;
+        this.scene.add(d2);
+        this.implicitMeshes.set(fn.id, { mesh: d2, meshKey, paramKey, sliderLowRes });
         this.onNeedsRender?.();
         return;
       }
@@ -613,10 +688,23 @@ export class ThreeDRenderManager {
 
       const mesh = new THREE.Mesh(geometry, material);
       this.scene.add(mesh);
-      this.implicitMeshes.set(fn.id, { mesh, meshKey });
+      this.implicitMeshes.set(fn.id, { mesh, meshKey, paramKey, sliderLowRes });
       this.onNeedsRender?.();
     }).catch(() => {
       this.implicitPendingKey.delete(fn.id);
+      // 取消或错误时清理占位 mesh 和 staleMesh
+      const entry = this.implicitMeshes.get(fn.id);
+      if (entry) {
+        this.scene.remove(entry.mesh);
+        entry.mesh.geometry.dispose();
+        (entry.mesh.material as THREE.Material).dispose();
+        if (entry.staleMesh) {
+          this.scene.remove(entry.staleMesh);
+          entry.staleMesh.geometry.dispose();
+          (entry.staleMesh.material as THREE.Material).dispose();
+        }
+        this.implicitMeshes.delete(fn.id);
+      }
     });
   }
 
@@ -647,41 +735,49 @@ export class ThreeDRenderManager {
   }
 
   private updateOrCreateMesh(fn: ThreeDFunction): void {
-    // meshKey 不包含 zMin/zMax——Z 范围用 clipping planes 裁剪，不影响几何体
+    // meshKey: 结构性标识（分辨率/表达式/域变化时才变）
     const meshKey = `${fn.id}-${fn.resolution}-${fn.wireframe}-${fn.expression}-${fn.xMin}-${fn.xMax}-${fn.yMin}-${fn.yMax}`;
-    const existing = this.meshes.get(fn.id);
+    // paramKey: 参数值标识（滑块拖动时变）
+    const paramKey = fn.parameters.length > 0
+      ? fn.parameters.map(p => `${p.name}:${p.currentValue.toFixed(4)}`).join(',')
+      : '';
 
-    // 几何体没变 → 只更新颜色、可见性、Z裁剪
-    if (existing && existing.meshKey === meshKey) {
-      (existing.mesh.material as THREE.MeshPhongMaterial).color.set(fn.color);
-      existing.mesh.visible = true;
-      // Z 范围变化只更新 clipping planes，不触发 Worker 重算
-      const mat = existing.mesh.material as THREE.MeshPhongMaterial;
-      mat.clippingPlanes = this.makeClippingPlanes(fn.zMin, fn.zMax);
-      existing.zMin = fn.zMin;
-      existing.zMax = fn.zMax;
+    const cached = this.meshes.get(fn.id);
+
+    // 结构没变，只参数变了 → in-place 更新顶点位置（跳过Worker）
+    if (cached && cached.meshKey === meshKey && cached.paramKey !== paramKey) {
+      this.updateMeshPositions(fn, cached.mesh);
+      cached.paramKey = paramKey;
+      this.updateZClipping(cached, fn.zMin, fn.zMax);
+      this.onNeedsRender?.();
       return;
     }
 
-    // 几何体变了 → 保持旧 mesh 可见，等 Worker 完成后替换
-    if (existing) {
-      (existing.mesh.material as THREE.MeshPhongMaterial).color.set(fn.color);
-      existing.mesh.visible = true;
+    // 完全没变 → 只更新Z裁剪
+    if (cached && cached.meshKey === meshKey && cached.paramKey === paramKey) {
+      this.updateZClipping(cached, fn.zMin, fn.zMax);
+      return;
+    }
+
+    // 结构变了 → 需要重建几何体（走Worker）
+    if (cached) {
+      this.scene.remove(cached.mesh);
+      cached.mesh.geometry.dispose();
+      (cached.mesh.material as THREE.Material).dispose();
     }
 
     // 已经在计算同一个 key → 跳过
     if (this.explicitPendingKey.get(fn.id) === meshKey) return;
     this.explicitPendingKey.set(fn.id, meshKey);
 
-    if (!existing) {
-      const dGeo = new THREE.SphereGeometry(0.01);
-      const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
-      dMat.clippingPlanes = this.makeClippingPlanes(fn.zMin, fn.zMax);
-      const d = new THREE.Mesh(dGeo, dMat);
-      d.visible = false;
-      this.scene.add(d);
-      this.meshes.set(fn.id, { mesh: d, meshKey, zMin: fn.zMin, zMax: fn.zMax });
-    }
+    // 占位mesh
+    const dGeo = new THREE.SphereGeometry(0.01);
+    const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
+    dMat.clippingPlanes = this.makeClippingPlanes(fn.zMin, fn.zMax);
+    const placeholder = new THREE.Mesh(dGeo, dMat);
+    placeholder.visible = false;
+    this.scene.add(placeholder);
+    this.meshes.set(fn.id, { mesh: placeholder, meshKey, paramKey, zMin: fn.zMin, zMax: fn.zMax });
 
     const res = fn.resolution;
     const xRange = fn.xMax - fn.xMin;
@@ -692,6 +788,8 @@ export class ThreeDRenderManager {
     const wireframe = fn.wireframe;
     const zMin = fn.zMin;
     const zMax = fn.zMax;
+    const currentParams: Record<string, number> = {};
+    for (const p of fn.parameters) currentParams[p.name] = p.currentValue;
 
     computeMeshVerticesAsync({
       id: fn.id,
@@ -699,6 +797,7 @@ export class ThreeDRenderManager {
       resolution: fn.resolution,
       xMin: fn.xMin, xMax: fn.xMax,
       yMin: fn.yMin, yMax: fn.yMax,
+      parameters: currentParams,
     }).then((heights) => {
       this.explicitPendingKey.delete(fn.id);
       if (this.disposed) return;
@@ -706,7 +805,7 @@ export class ThreeDRenderManager {
       const currentEntry = this.meshes.get(fn.id);
       if (currentEntry && currentEntry.meshKey !== meshKey && this.explicitPendingKey.has(fn.id)) return;
 
-      // 删掉旧 mesh
+      // 删掉旧 mesh（包括占位）
       if (currentEntry) {
         this.scene.remove(currentEntry.mesh);
         currentEntry.mesh.geometry.dispose();
@@ -718,7 +817,8 @@ export class ThreeDRenderManager {
 
       const positions = geometry.attributes.position;
       for (let i = 0; i < positions.count; i++) {
-        positions.setY(i, heights[i]);
+        const h = heights[i];
+        positions.setY(i, Number.isFinite(h) ? h : 0);
       }
       geometry.computeVertexNormals();
       positions.needsUpdate = true;
@@ -732,11 +832,47 @@ export class ThreeDRenderManager {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(xCenter, 0, -yCenter);
       this.scene.add(mesh);
-      this.meshes.set(fn.id, { mesh, meshKey, zMin, zMax });
+      this.meshes.set(fn.id, { mesh, meshKey, paramKey, zMin, zMax });
       this.onNeedsRender?.();
     }).catch(() => {
       this.explicitPendingKey.delete(fn.id);
     });
+  }
+
+  private updateMeshPositions(fn: ThreeDFunction, mesh: THREE.Mesh): void {
+    const res = fn.resolution;
+    const positions = mesh.geometry.attributes.position as THREE.BufferAttribute;
+    const xRange = fn.xMax - fn.xMin;
+    const yRange = fn.yMax - fn.yMin;
+    const xCenter = (fn.xMin + fn.xMax) / 2;
+    const yCenter = (fn.yMin + fn.yMax) / 2;
+    const currentParams: Record<string, number> = {};
+    for (const p of fn.parameters) currentParams[p.name] = p.currentValue;
+
+    for (let iy = 0; iy <= res; iy++) {
+      for (let ix = 0; ix <= res; ix++) {
+        const localX = -(xRange / 2) + (ix / res) * xRange;
+        const localZ = (yRange / 2) - (iy / res) * yRange;
+        const mathX = localX + xCenter;
+        const mathY = -localZ + yCenter;
+        const idx = iy * (res + 1) + ix;
+        const z = fn.compiled(mathX, mathY, currentParams);
+        positions.setY(idx, Number.isFinite(z) ? z : 0);
+      }
+    }
+
+    positions.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+    mesh.geometry.computeBoundingSphere();
+  }
+
+  private updateZClipping(entry: MeshEntry, zMin?: number, zMax?: number): void {
+    const mat = entry.mesh.material as THREE.MeshPhongMaterial;
+    const clippingPlanes = this.makeClippingPlanes(zMin, zMax);
+    mat.clippingPlanes = clippingPlanes;
+    mat.clipShadows = clippingPlanes.length > 0;
+    entry.zMin = zMin;
+    entry.zMax = zMax;
   }
 
   private removeMesh(id: string): void {

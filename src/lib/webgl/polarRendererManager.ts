@@ -10,36 +10,7 @@ import {
   PolarRendererWebGL,
   compilePolarToGLSL,
 } from './polarRendererWebGL';
-import { hexToRGB } from './webglUtils';
-
-/**
- * 检查 WebGL2 是否可用（带缓存，避免重复创建上下文）
- */
-let isWebGL2AvailableCache: boolean | null = null;
-
-export function isWebGL2Available(): boolean {
-  if (isWebGL2AvailableCache !== null) {
-    return isWebGL2AvailableCache;
-  }
-
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2');
-    if (gl) {
-      // 正确清理上下文，避免资源泄漏
-      const loseContext = gl.getExtension('WEBGL_lose_context');
-      if (loseContext) {
-        loseContext.loseContext();
-      }
-    }
-    canvas.remove();
-    isWebGL2AvailableCache = gl !== null;
-    return isWebGL2AvailableCache;
-  } catch {
-    isWebGL2AvailableCache = false;
-    return false;
-  }
-}
+import { hexToRGB, isWebGL2Available as checkWebGL2Available } from './webglUtils';
 
 /**
  * 极坐标 WebGL 渲染管理器
@@ -186,7 +157,6 @@ export class PolarWebGLManager {
 
 // 单例实例
 let managerInstance: PolarWebGLManager | null = null;
-let isAvailableChecked = false;
 
 /**
  * 获取极坐标 WebGL 管理器单例
@@ -196,30 +166,19 @@ export function getPolarWebGLManager(): PolarWebGLManager | null {
     return managerInstance;
   }
 
-  if (!isAvailableChecked) {
-    isAvailableChecked = true;
-    if (!isWebGL2Available()) {
-      return null;
-    }
-  } else if (!isWebGL2Available()) {
-    return null;
-  }
+  if (!checkWebGL2Available()) return null;
 
   try {
     managerInstance = new PolarWebGLManager();
   } catch (e) {
     console.error('Polar WebGL manager init failed:', e);
-    return null;
   }
 
   return managerInstance;
 }
 
-/**
- * 检查极坐标 WebGL 是否可用
- */
 export function isPolarWebGLAvailable(): boolean {
-  return isWebGL2Available();
+  return checkWebGL2Available();
 }
 
 /**

@@ -1,5 +1,5 @@
 // src/components/Equation/EquationHelp.tsx
-import React from 'react';
+import type { FC } from 'react';
 import { X } from 'lucide-react';
 
 interface EquationHelpProps {
@@ -8,7 +8,7 @@ interface EquationHelpProps {
   type: 'equation' | 'differential';
 }
 
-export const EquationHelp: React.FC<EquationHelpProps> = ({ isOpen, onClose, type }) => {
+export const EquationHelp: FC<EquationHelpProps> = ({ isOpen, onClose, type }) => {
   if (!isOpen) return null;
 
   return (

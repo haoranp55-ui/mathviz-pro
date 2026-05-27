@@ -2,7 +2,7 @@
 import type { StateCreator } from 'zustand';
 import type { AppStore } from '../storeTypes';
 import type { ParsedFunction, ParametricFunction, MarkedPoint, IntegralConfig } from '../../types';
-import { FUNCTION_COLORS, INTEGRAL_FILL_COLORS } from '../../types';
+import { nextFunctionColor, INTEGRAL_FILL_COLORS } from '../../types';
 import { parseExpression, parseParametricExpression } from '../../lib/parser';
 import { updateParameterValue } from '../../lib/paramParser';
 import { numericalDerivative } from '../../lib/derivative';
@@ -30,7 +30,7 @@ export interface FunctionSlice {
   toggleParametricKeyPoints: (id: string) => void;
   toggleParametricIntegralCurve: (id: string) => void;
   updateParametricCurveBasePoint: (id: string, basePoint: number) => void;
-  updateParametricParameter: (functionId: string, paramName: string, field: 'min' | 'max' | 'step' | 'defaultValue', value: number) => void;
+  updateParametricParameter: (functionId: string, paramName: string, field: 'min' | 'max' | 'step' | 'defaultValue' | 'currentValue', value: number) => void;
   updateParametricExpression: (id: string, expression: string) => void;
 
   addMarkedPoint: (functionId: string, x: number, isParametric: boolean) => void;
@@ -51,8 +51,7 @@ export const createFunctionSlice: StateCreator<AppStore, [], [], FunctionSlice> 
   addFunction: (expression) => {
     const { functions } = get();
     if (functions.length >= 10) return;
-    const colorIndex = functions.length % FUNCTION_COLORS.length;
-    const color = FUNCTION_COLORS[colorIndex];
+    const color = nextFunctionColor();
     const result = parseExpression(expression);
     if (result instanceof Error) {
       const errorFn: ParsedFunction = {
@@ -110,8 +109,7 @@ export const createFunctionSlice: StateCreator<AppStore, [], [], FunctionSlice> 
   addParametricFunction: (expression) => {
     const { parametricFunctions } = get();
     if (parametricFunctions.length >= 3) return;
-    const colorIndex = parametricFunctions.length % FUNCTION_COLORS.length;
-    const color = FUNCTION_COLORS[colorIndex];
+    const color = nextFunctionColor();
     const result = parseParametricExpression(expression);
     if (result instanceof Error) {
       const errorFn: ParametricFunction = {
@@ -171,7 +169,9 @@ export const createFunctionSlice: StateCreator<AppStore, [], [], FunctionSlice> 
           parameters: fn.parameters.map(p => {
             if (p.name !== paramName) return p;
             const updated = { ...p, [field]: value };
-            if (field === 'min' || field === 'max') {
+            if (field === 'currentValue') {
+              updated.currentValue = Math.max(p.min, Math.min(p.max, value));
+            } else if (field === 'min' || field === 'max') {
               updated.currentValue = Math.max(updated.min, Math.min(updated.max, updated.currentValue));
             }
             return updated;

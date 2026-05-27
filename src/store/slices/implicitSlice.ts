@@ -2,7 +2,7 @@
 import type { StateCreator } from 'zustand';
 import type { AppStore } from '../storeTypes';
 import type { ImplicitFunction, PolarFunction } from '../../types';
-import { FUNCTION_COLORS } from '../../types';
+import { nextFunctionColor } from '../../types';
 import { parseImplicitExpression } from '../../lib/implicitParser';
 import { parsePolarExpression } from '../../lib/polarParser';
 import { updateParameterValue } from '../../lib/paramParser';
@@ -18,6 +18,7 @@ export interface ImplicitSlice {
   toggleImplicitKeyPoints: (id: string) => void;
   toggleImplicitGPURendering: (id: string) => void;
   updateImplicitParameter: (functionId: string, paramName: string, value: number) => void;
+  updateImplicitParamConfig: (functionId: string, paramName: string, field: 'min' | 'max' | 'step' | 'defaultValue', value: number) => void;
   updateImplicitExpression: (id: string, expression: string) => void;
 
   addPolarFunction: (expression: string) => void;
@@ -26,6 +27,7 @@ export interface ImplicitSlice {
   togglePolarKeyPoints: (id: string) => void;
   togglePolarGPURendering: (id: string) => void;
   updatePolarParameter: (functionId: string, paramName: string, value: number) => void;
+  updatePolarParamConfig: (functionId: string, paramName: string, field: 'min' | 'max' | 'step' | 'defaultValue', value: number) => void;
   updatePolarThetaRange: (functionId: string, thetaMin: number, thetaMax: number) => void;
   updatePolarExpression: (id: string, expression: string) => void;
 }
@@ -37,8 +39,7 @@ export const createImplicitSlice: StateCreator<AppStore, [], [], ImplicitSlice> 
   addImplicitFunction: (expression) => {
     const { implicitFunctions } = get();
     if (implicitFunctions.length >= 3) return;
-    const colorIndex = implicitFunctions.length % FUNCTION_COLORS.length;
-    const color = FUNCTION_COLORS[colorIndex];
+    const color = nextFunctionColor();
     const result = parseImplicitExpression(expression);
     if (result instanceof Error) {
       const errorFn: ImplicitFunction = {
@@ -79,6 +80,26 @@ export const createImplicitSlice: StateCreator<AppStore, [], [], ImplicitSlice> 
     });
   },
 
+  updateImplicitParamConfig: (_functionId, paramName, field, value) => {
+    set({
+      implicitFunctions: get().implicitFunctions.map(fn => {
+        const hasParam = fn.parameters.some(p => p.name === paramName);
+        if (!hasParam) return fn;
+        return {
+          ...fn,
+          parameters: fn.parameters.map(p => {
+            if (p.name !== paramName) return p;
+            const updated = { ...p, [field]: value };
+            if (field === 'min' || field === 'max') {
+              updated.currentValue = Math.max(updated.min, Math.min(updated.max, updated.currentValue));
+            }
+            return updated;
+          }),
+        };
+      }),
+    });
+  },
+
   updateImplicitExpression: (id, expression) => {
     const { implicitFunctions } = get();
     const result = parseImplicitExpression(expression);
@@ -95,8 +116,7 @@ export const createImplicitSlice: StateCreator<AppStore, [], [], ImplicitSlice> 
   addPolarFunction: (expression) => {
     const { polarFunctions } = get();
     if (polarFunctions.length >= 3) return;
-    const colorIndex = polarFunctions.length % FUNCTION_COLORS.length;
-    const color = FUNCTION_COLORS[colorIndex];
+    const color = nextFunctionColor();
     const result = parsePolarExpression(expression);
     if (result instanceof Error) {
       const errorFn: PolarFunction = {
@@ -133,6 +153,26 @@ export const createImplicitSlice: StateCreator<AppStore, [], [], ImplicitSlice> 
       polarFunctions: get().polarFunctions.map(fn => {
         if (fn.id !== functionId) return fn;
         return { ...fn, parameters: updateParameterValue(fn.parameters, paramName, value) };
+      }),
+    });
+  },
+
+  updatePolarParamConfig: (_functionId, paramName, field, value) => {
+    set({
+      polarFunctions: get().polarFunctions.map(fn => {
+        const hasParam = fn.parameters.some(p => p.name === paramName);
+        if (!hasParam) return fn;
+        return {
+          ...fn,
+          parameters: fn.parameters.map(p => {
+            if (p.name !== paramName) return p;
+            const updated = { ...p, [field]: value };
+            if (field === 'min' || field === 'max') {
+              updated.currentValue = Math.max(updated.min, Math.min(updated.max, updated.currentValue));
+            }
+            return updated;
+          }),
+        };
       }),
     });
   },

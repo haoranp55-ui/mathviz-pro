@@ -1,5 +1,5 @@
 // src/components/Equation/SolutionCard.tsx
-import React, { useCallback } from 'react';
+import { useCallback, useState, type FC } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { FUNCTION_COLORS } from '../../types';
 import type { Solution } from '../../types';
@@ -18,8 +18,8 @@ interface SolutionCardProps {
   index: number;
 }
 
-export const SolutionCard: React.FC<SolutionCardProps> = ({ solution, variables, index }) => {
-  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+export const SolutionCard: FC<SolutionCardProps> = ({ solution, variables, index }) => {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleCopy = useCallback(async (varName: string, value: number, idx: number) => {
     try {

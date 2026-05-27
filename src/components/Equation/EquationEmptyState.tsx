@@ -1,12 +1,12 @@
 // src/components/Equation/EquationEmptyState.tsx
-import React from 'react';
+import type { FC } from 'react';
 import { Sigma, Activity } from 'lucide-react';
 
 interface EquationEmptyStateProps {
   type: 'equation' | 'differential';
 }
 
-export const EquationEmptyState: React.FC<EquationEmptyStateProps> = ({ type }) => {
+export const EquationEmptyState: FC<EquationEmptyStateProps> = ({ type }) => {
   const isEquation = type === 'equation';
   const Icon = isEquation ? Sigma : Activity;
 

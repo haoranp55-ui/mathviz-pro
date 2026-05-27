@@ -5,9 +5,8 @@
  */
 
 import { create, all } from 'mathjs';
-import type { MathNode, FunctionNode } from 'mathjs';
 import type { ViewPort } from '../../types';
-import { mathNodeToGLSL } from './glslCompiler';
+import { compileExpressionOnly } from './glslCompiler';
 
 const math = create(all);
 
@@ -130,8 +129,16 @@ function createProgram(gl: WebGL2RenderingContext, vertexSource: string, fragmen
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     console.error('Program link error:', gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
     return null;
   }
+
+  // 着色器已链接到程序，可以安全删除
+  gl.detachShader(program, vertexShader);
+  gl.detachShader(program, fragmentShader);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
 
   return program;
 }
@@ -147,31 +154,6 @@ export interface PolarGLSLResult {
 }
 
 /**
- * 检测表达式中不支持的函数
- */
-function detectUnsupportedFunctions(node: MathNode): string[] {
-  const UNSUPPORTED = [
-    'factorial', 'gamma', 'erf',
-    'combinations', 'permutations',
-    'acosh', 'asinh', 'atanh',
-    'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',
-  ];
-  const found: string[] = [];
-
-  node.traverse((n: MathNode) => {
-    if (n.type === 'FunctionNode') {
-      const fnNode = n as FunctionNode;
-      const fnName = typeof fnNode.fn === 'string' ? fnNode.fn : fnNode.fn.name;
-      if (UNSUPPORTED.includes(fnName)) {
-        found.push(fnName);
-      }
-    }
-  });
-
-  return found;
-}
-
-/**
  * 将极坐标表达式编译为 GLSL
  * 表达式中的 'x' 会被当作 theta 变量
  */
@@ -183,27 +165,23 @@ export function compilePolarToGLSL(expression: string): PolarGLSLResult {
     // 解析为 AST
     const node = math.parse(cleaned);
 
-    // 检测不支持的函数
-    const unsupportedFunctions = detectUnsupportedFunctions(node);
+    // 使用 glslCompiler 的检测，统一支持函数列表
+    const compileResult = compileExpressionOnly(node);
 
-    if (unsupportedFunctions.length > 0) {
+    if (compileResult.requiresCPU) {
       return {
         glsl: '',
         params: [],
         requiresCPU: true,
-        unsupportedFunctions,
+        unsupportedFunctions: compileResult.unsupportedFunctions,
       };
     }
 
-    // 编译为 GLSL（x 变量会被当作 theta）
-    const params = new Set<string>();
-    const glsl = mathNodeToGLSL(node, params);
-
     // 过滤掉 'x'，因为它是 theta 变量
-    const paramsArray = Array.from(params).filter(p => p !== 'x');
+    const paramsArray = compileResult.params.filter(p => p !== 'x');
 
     return {
-      glsl,
+      glsl: compileResult.expression,
       params: paramsArray,
       requiresCPU: false,
     };
@@ -353,8 +331,8 @@ export class PolarRendererWebGL {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // 绘制线段
-    gl.drawArrays(gl.LINE_STRIP, 0, steps + 1);
+    // 绘制线段（使用 clamped safeSteps，防止缓冲区越界）
+    gl.drawArrays(gl.LINE_STRIP, 0, safeSteps + 1);
 
     gl.bindVertexArray(null);
   }

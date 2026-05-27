@@ -1,7 +1,8 @@
 // src/components/Controls/FunctionInput.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { FunctionHelp } from './FunctionHelp';
+import { Search, X } from 'lucide-react';
 
 const FUNCTION_LIST = [
   { category: '三角函数', items: ['sin(x)', 'cos(x)', 'tan(x)', 'cot(x)', 'sec(x)', 'csc(x)'] },
@@ -15,14 +16,22 @@ const FUNCTION_LIST = [
   { category: '幂运算', items: ['x^n', 'pow(x,y)', 'square(x)', 'cube(x)'] },
 ];
 
-export const FunctionInput: React.FC = () => {
+export const FunctionInput: FC = () => {
   const [expression, setExpression] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const addFunction = useAppStore(state => state.addFunction);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  // 构建扁平化的可导航函数列表
+  const flatFunctionList = filteredFunctions.flatMap(group =>
+    group.items.map(fn => ({ fn, category: group.category }))
+  );
+
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addFunction(expression.trim());
@@ -33,19 +42,86 @@ export const FunctionInput: React.FC = () => {
   const handleSelectFunction = (fn: string) => {
     setExpression(prev => prev + fn);
     setShowPicker(false);
+    setSearchQuery('');
   };
+
+  // 过滤函数列表
+  const filteredFunctions = searchQuery.trim()
+    ? FUNCTION_LIST.map(group => ({
+        ...group,
+        items: group.items.filter(fn =>
+          fn.toLowerCase().includes(searchQuery.toLowerCase())
+        ),
+      })).filter(group => group.items.length > 0)
+    : FUNCTION_LIST;
+
+  // 构建扁平化的可导航函数列表
+  const flatFunctionList = filteredFunctions.flatMap(group =>
+    group.items.map(fn => ({ fn, category: group.category }))
+  );
+
+  // 键盘导航处理
+  const handlePickerKeyDown = (e: React.KeyboardEvent) => {
+    if (!showPicker) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev =>
+          prev < flatFunctionList.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev =>
+          prev > 0 ? prev - 1 : flatFunctionList.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (flatFunctionList[highlightedIndex]) {
+          handleSelectFunction(flatFunctionList[highlightedIndex].fn);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowPicker(false);
+        setSearchQuery('');
+        break;
+    }
+  };
+
+  // 重置高亮索引当过滤结果变化时
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowPicker(false);
+        setSearchQuery('');
       }
     };
     if (showPicker) {
       document.addEventListener('mousedown', handleClickOutside);
+      // 自动聚焦搜索框
+      setTimeout(() => searchInputRef.current?.focus(), 50);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPicker]);
+
+  // 高亮项滚动到可视区域
+  const highlightedRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (highlightedRefs.current[highlightedIndex]) {
+      highlightedRefs.current[highlightedIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [highlightedIndex]);
 
   return (
     <>
@@ -88,29 +164,72 @@ export const FunctionInput: React.FC = () => {
             </button>
 
             {showPicker && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto border border-white/[0.08]">
-                <div className="bg-cyan-500/5 px-3 py-2.5 border-b border-white/[0.06]">
-                  <span className="text-xs text-cyan-300/80 font-medium">选择函数模板</span>
-                </div>
-                {FUNCTION_LIST.map(group => (
-                  <div key={group.category}>
-                    <div className="text-[11px] text-gray-500 px-3 py-1.5 bg-white/[0.02]">
-                      {group.category}
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 p-2">
-                      {group.items.map(fn => (
-                        <button
-                          key={fn}
-                          type="button"
-                          onClick={() => handleSelectFunction(fn)}
-                          className="text-xs text-gray-300 hover:text-white hover:bg-cyan-500/10 px-2 py-1.5 rounded-lg text-left font-mono transition-all"
-                        >
-                          {fn}
-                        </button>
-                      ))}
-                    </div>
+              <div className="absolute top-full left-0 right-0 mt-1.5 glass-strong rounded-xl shadow-2xl z-20 max-h-80 overflow-y-auto border border-white/[0.08]">
+                {/* 搜索框 */}
+                <div className="sticky top-0 z-10 bg-cyan-500/5 px-3 py-2.5 border-b border-white/[0.06]">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={handlePickerKeyDown}
+                      placeholder="搜索函数..."
+                      className="w-full pl-8 pr-8 py-1.5 text-xs input-glass rounded-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchQuery('');
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
+                {/* 函数列表 */}
+                {filteredFunctions.length > 0 ? (
+                  filteredFunctions.map(group => (
+                    <div key={group.category}>
+                      <div className="text-[11px] text-gray-500 px-3 py-1.5 bg-white/[0.02]">
+                        {group.category}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 p-2">
+                        {group.items.map((fn, fnIdx) => {
+                          // 计算全局索引
+                          const globalIdx = filteredFunctions
+                            .slice(0, groupIdx)
+                            .reduce((acc, g) => acc + g.items.length, 0) + fnIdx;
+                          const isHighlighted = globalIdx === highlightedIndex;
+                          return (
+                            <button
+                              key={fn}
+                              ref={el => { highlightedRefs.current[globalIdx] = el; }}
+                              type="button"
+                              onClick={() => handleSelectFunction(fn)}
+                              className={`text-xs px-2 py-1.5 rounded-lg text-left font-mono transition-all ${
+                                isHighlighted
+                                  ? 'text-white bg-cyan-500/20 border border-cyan-500/30'
+                                  : 'text-gray-300 hover:text-white hover:bg-cyan-500/10 border border-transparent'
+                              }`}
+                            >
+                              {fn}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-500 text-xs">
+                    未找到匹配的函数
+                  </div>
+                )}
               </div>
             )}
           </div>

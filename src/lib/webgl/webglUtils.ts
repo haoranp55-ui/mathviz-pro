@@ -65,14 +65,25 @@ export function getWebGL2Context(canvas: HTMLCanvasElement): WebGL2RenderingCont
 }
 
 /**
- * 检查 WebGL 是否可用
+ * 检查 WebGL2 是否可用（带缓存和资源清理）
  */
+let webgl2AvailableCache: boolean | null = null;
+
 export function isWebGL2Available(): boolean {
+  if (webgl2AvailableCache !== null) return webgl2AvailableCache;
+
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2');
-    return gl !== null;
+    if (gl) {
+      const loseContext = gl.getExtension('WEBGL_lose_context');
+      if (loseContext) loseContext.loseContext();
+    }
+    canvas.remove();
+    webgl2AvailableCache = gl !== null;
+    return webgl2AvailableCache;
   } catch {
+    webgl2AvailableCache = false;
     return false;
   }
 }

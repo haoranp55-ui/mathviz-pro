@@ -1,9 +1,10 @@
 // src/components/Layout/StatusBar.tsx
-import React from 'react';
+import type { FC } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { UndoRedoControls } from '../UI/UndoRedoControls';
 import { ZoomIn, MapPin, Layers } from 'lucide-react';
 
-export const StatusBar: React.FC = () => {
+export const StatusBar: FC = () => {
   const viewPort = useAppStore(state => state.viewPort);
   const functions = useAppStore(state => state.functions);
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
@@ -41,6 +42,8 @@ export const StatusBar: React.FC = () => {
         <span>函数</span>
         <span className="text-[#94A3B8] font-mono font-medium">{totalVisible}/{totalFunctions}</span>
       </span>
+
+      <UndoRedoControls />
 
       <div className="ml-auto text-[11px] text-[#334155] font-mono tracking-wider">
         MathViz Pro

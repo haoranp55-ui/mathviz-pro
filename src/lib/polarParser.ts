@@ -1,12 +1,17 @@
 // src/lib/polarParser.ts
-import { create, all } from 'mathjs';
-import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
 import type { PolarFunction } from '../types';
-import { extractParameters, createDefaultParams, validateParamCount } from './paramParser';
+import { extractParameters, createDefaultParams } from './paramParser';
+import {
+  math,
+  collectSymbols,
+  validateFunctions,
+  preprocessExpression,
+  safeEvaluate,
+  testEvaluation,
+} from './parserUtils';
+import { LRUCache, floatMatch } from './cacheUtils';
 
-const math = create(all);
-
-// 极坐标采样缓存
+// 极坐标解析允许的额外变量
 interface PolarSampleCache {
   thetaMin: number;
   thetaMax: number;
@@ -16,128 +21,7 @@ interface PolarSampleCache {
   timestamp: number;
 }
 
-class PolarCacheManager {
-  private cache = new Map<string, PolarSampleCache>();
-  private maxSize = 30;
-
-  get(
-    cacheId: string,
-    thetaMin: number,
-    thetaMax: number,
-    steps: number,
-    params?: Record<string, number>
-  ): { x: number; y: number; r: number; theta: number }[] | null {
-    const cached = this.cache.get(cacheId);
-    if (!cached) return null;
-
-    const tolerance = 1e-9;
-    if (
-      Math.abs(cached.thetaMin - thetaMin) < tolerance &&
-      Math.abs(cached.thetaMax - thetaMax) < tolerance &&
-      cached.steps === steps
-    ) {
-      if (this.paramsMatch(cached.params, params, tolerance)) {
-        cached.timestamp = Date.now();
-        return cached.points;
-      }
-    }
-
-    return null;
-  }
-
-  set(
-    cacheId: string,
-    thetaMin: number,
-    thetaMax: number,
-    steps: number,
-    points: { x: number; y: number; r: number; theta: number }[],
-    params?: Record<string, number>
-  ): void {
-    if (this.cache.size >= this.maxSize) {
-      this.evictOldest();
-    }
-
-    this.cache.set(cacheId, {
-      thetaMin,
-      thetaMax,
-      steps,
-      params,
-      points,
-      timestamp: Date.now(),
-    });
-  }
-
-  private paramsMatch(
-    a?: Record<string, number>,
-    b?: Record<string, number>,
-    tolerance: number = 1e-9
-  ): boolean {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-
-    for (const key of keysA) {
-      if (!(key in b)) return false;
-      if (Math.abs(a[key] - b[key]) > tolerance) return false;
-    }
-    return true;
-  }
-
-  private evictOldest(): void {
-    let oldestKey = '';
-    let oldestTime = Infinity;
-
-    for (const [key, value] of this.cache) {
-      if (value.timestamp < oldestTime) {
-        oldestTime = value.timestamp;
-        oldestKey = key;
-      }
-    }
-
-    if (oldestKey) {
-      this.cache.delete(oldestKey);
-    }
-  }
-
-  clear(cacheId: string): void {
-    this.cache.delete(cacheId);
-  }
-}
-
-const polarCache = new PolarCacheManager();
-
-// 允许的函数
-const ALLOWED_FUNCTIONS = [
-  // 三角函数
-  'sin', 'cos', 'tan', 'asin', 'acos', 'atan',
-  'cot', 'sec', 'csc',
-  'sinh', 'cosh', 'tanh',
-  'coth', 'sech', 'csch',
-  'asinh', 'acosh', 'atanh',
-  'acot', 'acoth', 'asec', 'asech', 'acsc', 'acsch',
-  'atan2',
-
-  // 指数对数
-  'exp', 'log', 'ln', 'log10', 'log2',
-  'expm1', 'log1p',
-  'sqrt', 'cbrt', 'nthRoot',
-  'pow', 'cube', 'square',
-
-  // 取整/符号
-  'abs', 'floor', 'ceil', 'round', 'sign', 'fix',
-
-  // 组合/排列/阶乘
-  'factorial', 'combinations', 'permutations',
-
-  // 特殊函数
-  'gamma', 'erf',
-
-  // 其他
-  'hypot', 'gcd', 'lcm', 'mod',
-];
+const polarCache = new LRUCache<string, PolarSampleCache>(30);
 
 /**
  * 解析极坐标函数表达式
@@ -152,19 +36,11 @@ export function parsePolarExpression(
   maxParams: number = 3
 ): PolarFunction | Error {
   try {
-    // 预处理
-    let cleaned = expression.trim();
+    let cleaned = preprocessExpression(expression);
 
-    // 替换 ln 为 log
-    cleaned = cleaned.replace(/\bln\b/g, 'log');
-
-    // 替换 θ 为 x
-    cleaned = cleaned.replace(/θ/g, 'x');
-
-    // 替换 theta 为 x
+    // 替换 θ/theta/t 为 x
+    cleaned = cleaned.replace(/[θΘ]/g, 'x');
     cleaned = cleaned.replace(/\btheta\b/gi, 'x');
-
-    // 替换 t 为 x（如果 t 是独立变量）
     cleaned = cleaned.replace(/\bt\b/g, 'x');
 
     // 处理 r = 前缀
@@ -172,94 +48,48 @@ export function parsePolarExpression(
       cleaned = cleaned.replace(/^r\s*=\s*/i, '');
     }
 
-    if (!cleaned) {
-      return new Error('表达式不能为空');
-    }
+    if (!cleaned) return new Error('表达式不能为空');
 
-    // 解析表达式
-    let node: MathNode;
+    let node;
     try {
       node = math.parse(cleaned);
     } catch (e) {
       return new Error(`语法错误: ${(e as Error).message}`);
     }
 
-    // 收集使用的函数和变量
-    const usedFunctions = new Set<string>();
-    const usedVariables = new Set<string>();
+    const { functions: usedFunctions, variables: usedVariables } = collectSymbols(node);
 
-    node.traverse((n: MathNode) => {
-      if (n.type === 'FunctionNode') {
-        const fn = (n as FunctionNode).fn;
-        if (typeof fn === 'string') {
-          usedFunctions.add(fn);
-        } else if (fn?.name) {
-          usedFunctions.add(fn.name);
-        }
-      }
-      if (n.type === 'SymbolNode') {
-        usedVariables.add((n as SymbolNode).name);
-      }
-    });
-
-    // 检查函数是否允许
-    for (const fn of usedFunctions) {
-      if (!ALLOWED_FUNCTIONS.includes(fn)) {
-        return new Error(`不支持的函数: ${fn}`);
-      }
-    }
+    const fnError = validateFunctions(usedFunctions);
+    if (fnError) return fnError;
 
     // 提取参数（排除 x，x 是角度变量）
     const variablesArray = Array.from(usedVariables).filter(v => v !== 'x');
-    const validation = validateParamCount(variablesArray, maxParams);
-
-    if (!validation.valid) {
-      return new Error(
-        `参数过多: 最多支持 ${maxParams} 个参数，当前检测到 ${validation.paramCount} 个（${validation.excessParams.join(', ')}）`
-      );
-    }
-
     const parameters = extractParameters(variablesArray, maxParams);
-
-    // 编译为可执行函数
-    const compiled = node.compile();
-
-    // 创建带参数的求值函数（x 作为角度变量）
-    const safeEval = (theta: number, params: Record<string, number> = {}): number => {
-      try {
-        const result = compiled.evaluate({ x: theta, ...params });
-        if (typeof result !== 'number' || !isFinite(result)) {
-          return NaN;
-        }
-        return result;
-      } catch {
-        return NaN;
-      }
-    };
-
-    // 测试求值
     const defaultParams = createDefaultParams(parameters);
-    try {
+
+    const compiled = node.compile();
+    const safeEval = (theta: number, params: Record<string, number> = {}): number =>
+      safeEvaluate(compiled, { x: theta, ...defaultParams, ...params });
+
+    const evalError = testEvaluation(() => {
       safeEval(0, defaultParams);
       safeEval(Math.PI, defaultParams);
       safeEval(Math.PI / 2, defaultParams);
-    } catch (e) {
-      return new Error(`求值错误: ${(e as Error).message}`);
-    }
+    });
+    if (evalError) return evalError;
 
     return {
       id: '',
-      expression: cleaned,
+      expression: expression.trim(),
       compiled: safeEval,
       color: '',
       visible: true,
       parameters,
       thetaMin: 0,
       thetaMax: 2 * Math.PI,
-      thetaSteps: 200,  // 优化：减少默认采样点
-      stepsPerRadian: 32, // 每弧度采样密度
+      thetaSteps: 200,
+      stepsPerRadian: 32,
     };
-
   } catch (e) {
     return new Error(`解析错误: ${(e as Error).message}`);
   }
@@ -267,20 +97,14 @@ export function parsePolarExpression(
 
 /**
  * 极坐标转笛卡尔坐标
- * @param r 极径
- * @param theta 极角（弧度）
- * @returns {x, y} 笛卡尔坐标
  */
 export function polarToCartesian(r: number, theta: number): { x: number; y: number } {
-  return {
-    x: r * Math.cos(theta),
-    y: r * Math.sin(theta),
-  };
+  return { x: r * Math.cos(theta), y: r * Math.sin(theta) };
 }
 
 /**
  * 采样极坐标函数，返回笛卡尔坐标点
- * 优化：自适应采样 + GPU 友好数据结构
+ * 自适应采样：根据弧长变化率分配采样密度
  */
 export function samplePolarFunction(
   fn: (theta: number, params?: Record<string, number>) => number,
@@ -303,26 +127,16 @@ export function samplePolarFunction(
     }
   }
 
-  // 计算每个区间的曲率（用弧长变化率估算）
+  // 计算每个区间的权重
   const intervals: { thetaStart: number; thetaEnd: number; weight: number }[] = [];
-
   for (let i = 0; i < coarsePoints.length - 1; i++) {
     const p0 = coarsePoints[i];
     const p1 = coarsePoints[i + 1];
-
-    // 弧长估算：考虑 r 的变化和位置变化
     const dx = p1.x - p0.x;
     const dy = p1.y - p0.y;
     const arcLength = Math.sqrt(dx * dx + dy * dy);
-
-    // 归一化权重：弧长越大，需要越多采样点
-    // 限制最大权重避免过度采样
     const weight = Math.min(arcLength * 2, 3);
-    intervals.push({
-      thetaStart: p0.theta,
-      thetaEnd: p1.theta,
-      weight: Math.max(0.3, weight)  // 最小 0.3，避免空白
-    });
+    intervals.push({ thetaStart: p0.theta, thetaEnd: p1.theta, weight: Math.max(0.3, weight) });
   }
 
   // 第二遍：根据权重分配采样点
@@ -330,23 +144,19 @@ export function samplePolarFunction(
   let prevTheta = thetaMin;
 
   for (const interval of intervals) {
-    // 根据权重计算该区间的采样数
     const localSteps = Math.max(3, Math.floor(baseSteps / coarseSteps * interval.weight));
     const dTheta = (interval.thetaEnd - prevTheta) / localSteps;
 
     for (let j = 0; j < localSteps; j++) {
       const theta = prevTheta + j * dTheta;
       const r = fn(theta, params);
-
       if (isFinite(r)) {
         const { x, y } = polarToCartesian(r, theta);
         points.push({ x, y, r, theta });
       } else {
-        // 插入断点标记
         points.push({ x: NaN, y: NaN, r: NaN, theta });
       }
     }
-
     prevTheta = interval.thetaEnd;
   }
 
@@ -376,7 +186,6 @@ export function samplePolarFunctionFast(
   for (let i = 0; i <= steps; i++) {
     const theta = thetaMin + i * dTheta;
     const r = fn(theta, params);
-
     if (isFinite(r)) {
       const { x, y } = polarToCartesian(r, theta);
       points.push({ x, y, r, theta });
@@ -389,7 +198,7 @@ export function samplePolarFunctionFast(
 }
 
 /**
- * 带缓存的极坐标采样（用于参数滑钮频繁更新场景）
+ * 带缓存的极坐标采样
  */
 export function cachedSamplePolar(
   fn: (theta: number, params?: Record<string, number>) => number,
@@ -399,24 +208,40 @@ export function cachedSamplePolar(
   thetaMax: number = 2 * Math.PI,
   steps: number = 200
 ): { x: number; y: number; r: number; theta: number }[] {
-  // 尝试从缓存获取
-  const cached = polarCache.get(cacheId, thetaMin, thetaMax, steps, params);
+  const cached = polarCache.get(cacheId);
   if (cached) {
-    return cached;
+    const tolerance = 1e-9;
+    if (
+      floatMatch(cached.thetaMin, thetaMin, tolerance) &&
+      floatMatch(cached.thetaMax, thetaMax, tolerance) &&
+      cached.steps === steps &&
+      paramsMatch(cached.params, params, tolerance)
+    ) {
+      return cached.points;
+    }
   }
 
-  // 未命中缓存，执行采样
   const points = samplePolarFunction(fn, params, thetaMin, thetaMax, steps);
-
-  // 存入缓存
-  polarCache.set(cacheId, thetaMin, thetaMax, steps, points, params);
-
+  polarCache.set(cacheId, { thetaMin, thetaMax, steps, params, points, timestamp: Date.now() });
   return points;
 }
 
-/**
- * 清除指定函数的极坐标采样缓存
- */
-export function clearPolarCache(cacheId: string): void {
-  polarCache.clear(cacheId);
+function paramsMatch(
+  a?: Record<string, number>,
+  b?: Record<string, number>,
+  tolerance: number = 1e-9
+): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key, i) => {
+    if (keysB[i] !== key) return false;
+    return floatMatch(a[key], b[key], tolerance);
+  });
+}
+
+export function clearPolarCache(_cacheId?: string): void {
+  polarCache.clear();
 }

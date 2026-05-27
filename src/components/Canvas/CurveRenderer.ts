@@ -1,437 +1,324 @@
 // src/components/Canvas/CurveRenderer.ts
-import type { SampledPoints, ViewPort, CanvasSize, HoverPoint, AspectRatioMode, IntegralConfig } from '../../types';
-import { createScales } from '../../lib/transformer';
+import type { ViewPort, CanvasSize, AspectRatioMode, SampledPoints, HoverPoint, Integral } from '../../types';
 
-const CURVE_LINE_WIDTH = 2;
-const HOVER_RADIUS = 6;
-
-// 斜率阈值：超过此值视为渐近线，直接画垂直线
+// 渐近线斜率阈值
 const ASYMPTOTE_SLOPE_THRESHOLD = 50000;
 
+interface RenderScale {
+  xScale: (x: number) => number;
+  yScale: (y: number) => number;
+}
+
+function createScales(
+  viewPort: ViewPort,
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
+): RenderScale {
+  const { xMin, xMax, yMin, yMax } = viewPort;
+  const { width, height } = canvasSize;
+
+  if (aspectRatioMode === 'equal') {
+    const dataAspect = (xMax - xMin) / (yMax - yMin);
+    const canvasAspect = width / height;
+
+    if (dataAspect > canvasAspect) {
+      const padding = (height - width / dataAspect) / 2;
+      return {
+        xScale: (x: number) => ((x - xMin) / (xMax - xMin)) * width,
+        yScale: (y: number) => padding + ((yMax - y) / (yMax - yMin)) * (height - 2 * padding),
+      };
+    } else {
+      const padding = (width - height * dataAspect) / 2;
+      return {
+        xScale: (x: number) => padding + ((x - xMin) / (xMax - xMin)) * (width - 2 * padding),
+        yScale: (y: number) => ((yMax - y) / (yMax - yMin)) * height,
+      };
+    }
+  }
+
+  return {
+    xScale: (x: number) => ((x - xMin) / (xMax - xMin)) * width,
+    yScale: (y: number) => ((yMax - y) / (yMax - yMin)) * height,
+  };
+}
+
+interface CurveStyle {
+  color: string;
+  lineWidth: number;
+  dashPattern?: number[];
+  alpha?: number;
+}
+
+/**
+ * 共享的曲线绘制核心：处理渐近线检测和路径断开
+ */
+function drawCurvePath(
+  ctx: CanvasRenderingContext2D,
+  points: SampledPoints,
+  viewPort: ViewPort,
+  canvasSize: CanvasSize,
+  style: CurveStyle,
+  aspectRatioMode: AspectRatioMode = 'normal'
+): void {
+  if (points.x.length < 2) return;
+
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
+
+  ctx.save();
+  ctx.strokeStyle = style.color;
+  ctx.lineWidth = style.lineWidth;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = style.alpha ?? 1;
+  if (style.dashPattern) {
+    ctx.setLineDash(style.dashPattern);
+  }
+
+  const totalPoints = points.x.length;
+  let isDrawing = false;
+
+  ctx.beginPath();
+
+  for (let i = 0; i < totalPoints; i++) {
+    const x = points.x[i];
+    const y = points.y[i];
+
+    // 跳过 NaN/Infinity
+    if (!isFinite(x) || !isFinite(y)) {
+      isDrawing = false;
+      continue;
+    }
+
+    const px = xScale(x);
+    const py = yScale(y);
+
+    if (!isDrawing) {
+      ctx.moveTo(px, py);
+      isDrawing = true;
+      continue;
+    }
+
+    // 渐近线检测：斜率超过阈值则断开路径
+    if (i > 0) {
+      const prevY = points.y[i - 1];
+      const prevX = points.x[i - 1];
+      if (isFinite(prevX) && isFinite(prevY)) {
+        const dy = Math.abs(y - prevY);
+        const dx = Math.abs(x - prevX);
+        if (dx > 0 && dy / dx > ASYMPTOTE_SLOPE_THRESHOLD) {
+          ctx.moveTo(px, py);
+          continue;
+        }
+        // 函数值跳变检测
+        if (dy > 100 && dy / Math.max(Math.abs(y), Math.abs(prevY), 1) > 10) {
+          ctx.moveTo(px, py);
+          continue;
+        }
+      }
+    }
+
+    ctx.lineTo(px, py);
+  }
+
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * 绘制函数曲线
+ */
 export function drawCurve(
   ctx: CanvasRenderingContext2D,
   points: SampledPoints,
   color: string,
   viewPort: ViewPort,
   canvasSize: CanvasSize,
-  aspectRatioMode: AspectRatioMode = 'normal'
+  aspectRatioMode: AspectRatioMode = 'normal',
+  lineWidth: number = 2
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
-  const { x, y } = points;
-  const n = x.length;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = CURVE_LINE_WIDTH;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  let isDrawing = false;
-  let prevPx = 0;
-  let prevPy = 0;
-  let prevYMath = 0; // 前一个点的数学 y 值（用于异号跳变检测）
-
-  ctx.beginPath();
-
-  for (let i = 0; i < n; i++) {
-    const yi = y[i];
-
-    // 跳过无效值
-    if (!isFinite(yi)) {
-      // 不连续点：结束当前路径
-      if (isDrawing) {
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-      }
-      continue;
-    }
-
-    const px = xScale(x[i]);
-    const py = yScale(yi);
-
-    // 只检查 X 方向是否超出画布太多，Y 方向让 Canvas 自己裁剪
-    // 这样可以正确处理函数值超出视口的情况
-    if (px < -1000 || px > canvasSize.width + 1000) {
-      if (isDrawing) {
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-      }
-      continue;
-    }
-
-    // 检测渐近线（两种机制，互补）
-    if (isDrawing) {
-      // 机制1：像素斜率过大（小视口/密采样时有效）
-      const dx = px - prevPx;
-      const dy = py - prevPy;
-      let isAsymptote = false;
-
-      if (Math.abs(dx) > 0.1) {
-        const slope = Math.abs(dy / dx);
-        if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
-          isAsymptote = true;
-        }
-      }
-
-      // 机制2：大值异号跳变（大视口/疏采样时有效，不依赖像素斜率）
-      // tan(x)、1/x 等函数的渐近线两侧：+大值 → -大值
-      // exp(x)、x^2 等同号函数不会被误判
-      const prevSign = Math.sign(prevYMath);
-      const currSign = Math.sign(yi);
-      if (!isAsymptote && prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
-        if (Math.abs(prevYMath) > 50 && Math.abs(yi) > 50) {
-          isAsymptote = true;
-        }
-      }
-
-      if (isAsymptote) {
-        // 断开路径并跳过当前点（渐近线上的极大/极小值不能作为新路径起点）
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-        continue;
-      }
-    }
-
-    if (!isDrawing) {
-      ctx.moveTo(px, py);
-      isDrawing = true;
-    } else {
-      ctx.lineTo(px, py);
-    }
-
-    prevPx = px;
-    prevPy = py;
-    prevYMath = yi;
-  }
-
-  if (isDrawing) {
-    ctx.stroke();
-  }
-
-  ctx.restore();
+  drawCurvePath(ctx, points, viewPort, canvasSize, { color, lineWidth }, aspectRatioMode);
 }
 
-// 绘制导数曲线（虚线样式）
+/**
+ * 绘制导数曲线
+ */
 export function drawDerivativeCurve(
   ctx: CanvasRenderingContext2D,
   points: SampledPoints,
   color: string,
   viewPort: ViewPort,
   canvasSize: CanvasSize,
-  aspectRatioMode: AspectRatioMode = 'normal'
+  aspectRatioMode: AspectRatioMode = 'normal',
+  lineWidth: number = 1.5
 ): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
-  const { x, y } = points;
-  const n = x.length;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.setLineDash([6, 4]); // 虚线样式
-  ctx.globalAlpha = 0.7; // 半透明
-
-  let isDrawing = false;
-  let prevPx = 0;
-  let prevPy = 0;
-  let prevYMath = 0;
-
-  ctx.beginPath();
-
-  for (let i = 0; i < n; i++) {
-    const yi = y[i];
-
-    if (!isFinite(yi)) {
-      if (isDrawing) {
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-      }
-      continue;
-    }
-
-    const px = xScale(x[i]);
-    const py = yScale(yi);
-
-    // 只检查 X 方向，Y 方向让 Canvas 自己裁剪
-    if (px < -1000 || px > canvasSize.width + 1000) {
-      if (isDrawing) {
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-      }
-      continue;
-    }
-
-    // 检测渐近线（与 drawCurve 相同的双机制）
-    if (isDrawing) {
-      const dx = px - prevPx;
-      const dy = py - prevPy;
-      let isAsymptote = false;
-
-      if (Math.abs(dx) > 0.1) {
-        const slope = Math.abs(dy / dx);
-        if (slope > ASYMPTOTE_SLOPE_THRESHOLD) {
-          isAsymptote = true;
-        }
-      }
-
-      // 数学坐标异号跳变检测
-      const prevSign = Math.sign(prevYMath);
-      const currSign = Math.sign(yi);
-      if (!isAsymptote && prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
-        if (Math.abs(prevYMath) > 50 && Math.abs(yi) > 50) {
-          isAsymptote = true;
-        }
-      }
-
-      if (isAsymptote) {
-        ctx.stroke();
-        ctx.beginPath();
-        isDrawing = false;
-        continue;
-      }
-    }
-
-    if (!isDrawing) {
-      ctx.moveTo(px, py);
-      isDrawing = true;
-    } else {
-      ctx.lineTo(px, py);
-    }
-
-    prevPx = px;
-    prevPy = py;
-    prevYMath = yi;
-  }
-
-  if (isDrawing) {
-    ctx.stroke();
-  }
-
-  ctx.restore();
+  drawCurvePath(ctx, points, viewPort, canvasSize, {
+    color,
+    lineWidth,
+    dashPattern: [6, 3],
+    alpha: 0.7,
+  }, aspectRatioMode);
 }
 
-export function drawHoverPoint(
+/**
+ * 绘制关键点标记
+ */
+export function drawKeyPoints(
   ctx: CanvasRenderingContext2D,
-  hoverPoint: HoverPoint,
-  color: string,
+  points: Array<{ x: number; y: number; type: string }>,
   viewPort: ViewPort,
   canvasSize: CanvasSize,
   aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
   const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
 
-  const px = xScale(hoverPoint.x);
-  const py = yScale(hoverPoint.y);
-
-  // 检查是否在画布范围内
-  if (px < 0 || px > canvasSize.width || py < 0 || py > canvasSize.height) {
-    return;
-  }
+  const typeConfig: Record<string, { color: string; label: string }> = {
+    zero: { color: '#10b981', label: '0' },
+    maximum: { color: '#ef4444', label: 'M' },
+    minimum: { color: '#3b82f6', label: 'm' },
+    inflection: { color: '#f59e0b', label: 'I' },
+    discontinuity: { color: '#8b5cf6', label: 'D' },
+  };
 
   ctx.save();
 
-  // 绘制十字准线
-  ctx.strokeStyle = color;
+  for (const point of points) {
+    const config = typeConfig[point.type] || typeConfig.zero;
+    const px = xScale(point.x);
+    const py = yScale(point.y);
+
+    if (px < -20 || px > canvasSize.width + 20 || py < -20 || py > canvasSize.height + 20) {
+      continue;
+    }
+
+    // 外圈
+    ctx.fillStyle = config.color;
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 内圈
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 标签
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = config.color;
+    ctx.fillText(config.label, px, py - 10);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * 绘制悬停点
+ */
+export function drawHoverPoint(
+  ctx: CanvasRenderingContext2D,
+  hoverPoint: HoverPoint | null,
+  color: string,
+  viewPort: ViewPort,
+  canvasSize: CanvasSize,
+  aspectRatioMode: AspectRatioMode = 'normal'
+): void {
+  if (!hoverPoint) return;
+
+  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
+  const px = xScale(hoverPoint.x);
+  const py = yScale(hoverPoint.y);
+
+  ctx.save();
+
+  // 十字线
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
 
-  // 水平线
-  ctx.beginPath();
-  ctx.moveTo(0, py);
-  ctx.lineTo(canvasSize.width, py);
-  ctx.stroke();
-
-  // 垂直线
   ctx.beginPath();
   ctx.moveTo(px, 0);
   ctx.lineTo(px, canvasSize.height);
   ctx.stroke();
 
+  ctx.beginPath();
+  ctx.moveTo(0, py);
+  ctx.lineTo(canvasSize.width, py);
+  ctx.stroke();
+
   ctx.setLineDash([]);
 
-  // 绘制圆点
-  ctx.fillStyle = color;
+  // 点
+  ctx.fillStyle = color || '#3b82f6';
   ctx.beginPath();
-  ctx.arc(px, py, HOVER_RADIUS, 0, Math.PI * 2);
+  ctx.arc(px, py, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  // 绘制白色内圈
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.arc(px, py, HOVER_RADIUS - 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 绘制中心点
-  ctx.fillStyle = color;
+  // 白色内圈
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(px, py, 2, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.restore();
-}
-
-// 绘制坐标提示框
-export function drawCoordinateTooltip(
-  ctx: CanvasRenderingContext2D,
-  hoverPoint: HoverPoint,
-  viewPort: ViewPort,
-  canvasSize: CanvasSize,
-  aspectRatioMode: AspectRatioMode = 'normal'
-): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
-
-  const px = xScale(hoverPoint.x);
-  const py = yScale(hoverPoint.y);
-
+  // 坐标文本
   const text = `(${hoverPoint.x.toFixed(3)}, ${hoverPoint.y.toFixed(3)})`;
-
-  ctx.save();
-  ctx.font = '12px monospace';
-
+  ctx.font = '11px monospace';
   const textWidth = ctx.measureText(text).width;
-  const padding = 8;
-  const boxWidth = textWidth + padding * 2;
-  const boxHeight = 24;
+  const padding = 6;
 
-  // 计算提示框位置（避免超出画布）
-  let boxX = px + 15;
-  let boxY = py - boxHeight / 2;
+  let textX = px + 12;
+  let textY = py - 12;
+  if (textX + textWidth + padding * 2 > canvasSize.width) textX = px - textWidth - padding * 2 - 12;
+  if (textY < 20) textY = py + 20;
 
-  if (boxX + boxWidth > canvasSize.width - 10) {
-    boxX = px - boxWidth - 15;
-  }
-  if (boxY < 10) {
-    boxY = 10;
-  }
-  if (boxY + boxHeight > canvasSize.height - 10) {
-    boxY = canvasSize.height - boxHeight - 10;
-  }
-
-  // 绘制背景
-  ctx.fillStyle = 'rgba(30, 41, 59, 0.95)';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
   ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4);
+  ctx.roundRect(textX - padding, textY - 14, textWidth + padding * 2, 22, 4);
   ctx.fill();
 
-  // 绘制边框
-  ctx.strokeStyle = '#475569';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // 绘制文字
-  ctx.fillStyle = '#F1F5F9';
+  ctx.fillStyle = '#e2e8f0';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  ctx.fillText(text, boxX + padding, boxY + boxHeight / 2);
+  ctx.fillText(text, textX, textY - 3);
 
   ctx.restore();
 }
 
-// 绘制微分方程初始点标记
-export function drawInitialPoint(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  color: string,
-  viewPort: ViewPort,
-  canvasSize: CanvasSize,
-  aspectRatioMode: AspectRatioMode = 'normal'
-): void {
-  const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
-
-  const px = xScale(x);
-  const py = yScale(y);
-
-  // 检查是否在画布范围内
-  if (px < 0 || px > canvasSize.width || py < 0 || py > canvasSize.height) {
-    return;
-  }
-
-  ctx.save();
-
-  // 外圈发光
-  ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-  ctx.beginPath();
-  ctx.arc(px, py, 8, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 内圈白色
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.arc(px, py, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 中心点
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(px, py, 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
+/**
+ * 绘制积分面积
+ */
 export function drawIntegralArea(
   ctx: CanvasRenderingContext2D,
-  compiledFn: (x: number) => number,
-  integral: IntegralConfig,
+  fn: (x: number) => number,
+  integral: Integral,
   viewPort: ViewPort,
   canvasSize: CanvasSize,
   aspectRatioMode: AspectRatioMode = 'normal'
 ): void {
+  const { lowerBound: x1, upperBound: x2, color } = integral;
   const { xScale, yScale } = createScales(viewPort, canvasSize, aspectRatioMode);
-  const { lowerBound, upperBound, color, showAreaFill } = integral;
+  const zeroY = yScale(0);
 
-  if (!showAreaFill || lowerBound === upperBound) return;
-
-  const a = Math.min(lowerBound, upperBound);
-  const b = Math.max(lowerBound, upperBound);
-
-  const sampleCount = 200;
-  const step = (b - a) / sampleCount;
+  // 采样积分区域内的函数值
+  const steps = 200;
+  const dx = (x2 - x1) / steps;
 
   ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = color;
 
-  if (showAreaFill) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(xScale(a), yScale(0));
+  ctx.beginPath();
+  ctx.moveTo(xScale(x1), zeroY);
 
-    for (let i = 0; i <= sampleCount; i++) {
-      const x = a + i * step;
-      const y = compiledFn(x);
-      const px = xScale(x);
-      const py = isFinite(y) ? yScale(y) : yScale(0);
-      ctx.lineTo(px, py);
-    }
-
-    ctx.lineTo(xScale(b), yScale(0));
-    ctx.closePath();
-    ctx.fill();
+  for (let i = 0; i <= steps; i++) {
+    const x = x1 + i * dx;
+    const y = fn(x);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    ctx.lineTo(xScale(x), yScale(y));
   }
 
-  // 绘制边界线
-  ctx.strokeStyle = color.replace('0.25', '0.6');
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-
-  const pxA = xScale(a);
-  const pxB = xScale(b);
-  ctx.beginPath();
-  ctx.moveTo(pxA, 0);
-  ctx.lineTo(pxA, canvasSize.height);
-  ctx.moveTo(pxB, 0);
-  ctx.lineTo(pxB, canvasSize.height);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
+  ctx.lineTo(xScale(x2), zeroY);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }

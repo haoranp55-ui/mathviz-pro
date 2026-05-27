@@ -1,5 +1,5 @@
 // src/components/Equation/EquationSystemInput.tsx
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, type FC, type FormEvent } from 'react';
 import { Plus, Variable } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { VARIABLE_NAMES } from '../../types';
@@ -23,7 +23,7 @@ const EXAMPLES: Record<number, string[][]> = {
   ],
 };
 
-export const EquationSystemInput: React.FC = () => {
+export const EquationSystemInput: FC = () => {
   const [variableCount, setVariableCount] = useState(2);
   const [expressions, setExpressions] = useState<string[]>(['', '']);
 
@@ -45,7 +45,7 @@ export const EquationSystemInput: React.FC = () => {
   };
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    (e: FormEvent) => {
       e.preventDefault();
       const validExpressions = expressions.filter((expr) => expr.trim());
       if (validExpressions.length !== variableCount) return;

@@ -40,26 +40,31 @@ CurveRenderer.ts  →  Canvas 绘制曲线
 ### 核心模块
 
 **状态管理 (useAppStore.ts)**
+
 - `functions: ParsedFunction[]` - 普通函数列表
 - `parametricFunctions: ParametricFunction[]` - 参数化函数列表（最多3个）
 - `viewPort: ViewPort` - 视口范围
 - `samplePreset: SamplePreset` - 采样精度挡位
 
 **SmartRender 渲染引擎 (sampler.ts)**
+
 - `PixelAdaptive` - 像素自适应采样，根据画布大小动态调整
 - `SlopeAdaptive` - 斜率自适应加密，平坦稀疏、陡坡紧密
 - `SmartCache` - LRU 缓存复用，最多50个采样结果
 
 **曲线渲染 (CurveRenderer.ts)**
+
 - `AsymptoteLine` - 渐近线检测，斜率>50000时直接画垂直线
 - 不连续点自动断开路径
 
 **表达式解析 (parser.ts)**
+
 - 基于 mathjs 解析数学表达式
 - 支持 47+ 函数（三角、指数、对数、特殊函数等）
 - 参数化函数支持最多3个参数
 
 **WebGL 隐函数渲染器 (src/lib/webgl/)**
+
 - `implicitRendererWebGL.ts` - WebGL2 像素级隐函数渲染
 - `implicitRendererManager.ts` - 多函数渲染管理
 - `glslCompiler.ts` - mathjs AST → GLSL 编译器
@@ -107,6 +112,7 @@ src/components/
 | 技术决策 | `Decisions/` | 架构选择、技术选型 |
 
 **命名规范**：
+
 - 更新记录：`YYYY-MM-DD-简短标题.md`
 - 经验教训：`NNN-一句话标题.md`（编号递增）
 - 功能设计：`feature-名称.md`
@@ -142,10 +148,12 @@ git push origin v2.3
 ```
 
 **Tag 命名规则**：`v{主版本}.{次版本}`（如 v2.2、v2.3）
+
 - **主版本**：重大架构变更或破坏性改动
 - **次版本**：功能新增、Bug 修复、性能优化
 
 **为什么必须打 tag**：
+
 - Tag 是 GitHub 上查找历史版本的唯一便捷入口
 - 没有 tag 时，只能通过 commit hash 或时间线在大量提交中翻找
 - 每个 tag 对应一个可独立访问的代码快照，便于回溯和对比
@@ -171,12 +179,14 @@ UI 显示提示: "已自动切换到 CPU 渲染"
 ```
 
 **涉及文件**：
+
 - `src/lib/webgl/glslCompiler.ts` - `detectUnsupportedFunctions()` 检测不支持的函数
 - `src/lib/webgl/implicitRendererManager.ts` - 返回 `requiresCPU` 标志
 - `src/components/Canvas/FunctionCanvas.tsx` - 混合渲染逻辑
 - `src/components/Controls/ImplicitList.tsx` - UI 降级提示
 
 **添加新 GLSL 函数**：
+
 1. 在 `glslCompiler.ts` 的 `FUNCTION_MAP` 或 switch-case 中添加
 2. 对于复杂函数，考虑精度和性能影响
 3. 更新 `detectUnsupportedFunctions()` 中的 `UNSUPPORTED_IN_GLSL` 列表
@@ -198,6 +208,7 @@ UI 显示提示: "已自动切换到 CPU 渲染"
 ### 提交规范
 
 **【重要】禁止自动提交到 GitHub**
+
 - 只有主人明确说"提交"、"上传"、"push"等命令时才能提交
 - 平时只做本地修改和验证，等待主人指令
 - 主人要求提交时，必须同时创建版本标签（tag）

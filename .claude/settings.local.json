@@ -1,6 +1,12 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "MiniMax"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

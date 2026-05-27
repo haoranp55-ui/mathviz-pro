@@ -1,5 +1,48 @@
 @import "tailwindcss";
 
+/* ========== CSS 变量系统 ========== */
+
+:root {
+  /* 背景色 */
+  --bg-primary: #0f172a;
+  --bg-panel: #1e293b;
+  --bg-panel-light: #273549;
+  --bg-input: rgba(255, 255, 255, 0.04);
+
+  /* 文字色 - 提升对比度 */
+  --text-primary: #E2E8F0;
+  --text-secondary: #94A3B8;
+  --text-tertiary: #64748B;
+  --text-muted: #475569;
+
+  /* 强调色 */
+  --accent-primary: #0ea5e9;
+  --accent-primary-hover: #38bdf8;
+  --accent-secondary: #64748B;
+
+  /* 边框 */
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.1);
+  --border-focus: #0ea5e9;
+
+  /* 间距 */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* 动画 */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @theme {
   /* 核心画布配色 */
   --color-canvas-bg: #0f172a;
@@ -28,6 +71,8 @@
   --animate-slide-in: slideIn 0.2s ease-out;
 }
 
+/* ========== 动画关键帧 ========== */
+
 @keyframes fadeIn {
   0% { opacity: 0; transform: translateY(-6px); }
   100% { opacity: 1; transform: translateY(0); }
@@ -37,6 +82,50 @@
   0% { opacity: 0; transform: translateX(-6px); }
   100% { opacity: 1; transform: translateX(0); }
 }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes scale-in {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ========== 动画工具类 ========== */
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* ========== 玻璃 & 面板 ========== */
 
 * {
   margin: 0;
@@ -59,7 +148,7 @@ html, body, #root {
 
 .glass {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
 }
 
@@ -76,13 +165,13 @@ html, body, #root {
 
 .panel {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 
 .panel-subtle {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
 }
 
@@ -98,7 +187,7 @@ html, body, #root {
 }
 
 .input-base::placeholder {
-  color: #475569;
+  color: #94A3B8;
 }
 
 .input-base:hover {
@@ -122,7 +211,7 @@ html, body, #root {
 }
 
 .input-glass::placeholder {
-  color: #475569;
+  color: #94A3B8;
 }
 
 .input-glass:hover {
@@ -159,7 +248,7 @@ html, body, #root {
 
 .btn-primary:disabled {
   background: rgba(255, 255, 255, 0.06);
-  color: #475569;
+  color: #64748B;
   cursor: not-allowed;
 }
 

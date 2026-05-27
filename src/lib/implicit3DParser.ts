@@ -1,97 +1,62 @@
 // src/lib/implicit3DParser.ts
-import { create, all } from 'mathjs';
-import type { MathNode, FunctionNode, SymbolNode } from 'mathjs';
+// 3D 隐函数解析器: f(x, y, z) = 0
+import type { Parameter } from '../types';
+import { extractParameters, createDefaultParams, validateParamCount } from './paramParser';
+import {
+  math,
+  collectSymbols,
+  validateFunctions,
+  preprocessExpression,
+  splitEquation,
+  combineEquationSides,
+  safeEvaluate,
+} from './parserUtils';
 
-const math = create(all);
+export interface Implicit3DParseResult {
+  compiled: (x: number, y: number, z: number, params?: Record<string, number>) => number;
+  parameters: Parameter[];
+}
 
-const ALLOWED_FUNCTIONS = [
-  'sin', 'cos', 'tan', 'asin', 'acos', 'atan',
-  'cot', 'sec', 'csc',
-  'sinh', 'cosh', 'tanh',
-  'coth', 'sech', 'csch',
-  'exp', 'log', 'ln', 'log10', 'log2',
-  'sqrt', 'cbrt', 'nthRoot',
-  'pow', 'cube', 'square',
-  'abs', 'floor', 'ceil', 'round', 'sign',
-  'hypot',
-];
-
-const ALLOWED_CONSTANTS = [
-  'pi', 'e', 'PI', 'E',
-  'tau', 'phi',
-];
-
-export function parseImplicit3DExpression(raw: string):
-  | { compiled: (x: number, y: number, z: number) => number }
-  | Error
-{
+export function parseImplicit3D(expression: string): Implicit3DParseResult | Error {
   try {
-    let cleaned = raw.trim();
-    cleaned = cleaned.replace(/\bln\b/g, 'log');
+    const cleaned = preprocessExpression(expression);
+    if (!cleaned) return new Error('表达式不能为空');
 
-    // 处理 "f(x,y,z) = 0" 形式 → 取左侧减右侧
+    let combined: string;
     if (cleaned.includes('=')) {
-      const parts = cleaned.split('=');
-      if (parts.length === 2) {
-        cleaned = `(${parts[0].trim()}) - (${parts[1].trim()})`;
-      }
+      const splitResult = splitEquation(cleaned, '3D隐函数必须包含等号，格式：F(x,y,z) = G(x,y,z)');
+      if (splitResult instanceof Error) return splitResult;
+      combined = combineEquationSides(splitResult.left, splitResult.right);
+    } else {
+      combined = cleaned;
     }
 
-    if (!cleaned) {
-      return new Error('表达式不能为空');
-    }
-
-    let node: MathNode;
+    let node;
     try {
-      node = math.parse(cleaned);
+      node = math.parse(combined);
     } catch (e) {
       return new Error(`语法错误: ${(e as Error).message}`);
     }
 
-    const usedFunctions = new Set<string>();
-    const usedVariables = new Set<string>();
+    const { functions: usedFunctions, variables: usedVariables } = collectSymbols(node);
 
-    node.traverse((n: MathNode) => {
-      if (n.type === 'FunctionNode') {
-        const fn = (n as FunctionNode).fn;
-        if (typeof fn === 'string') usedFunctions.add(fn);
-        else if (fn?.name) usedFunctions.add(fn.name);
-      }
-      if (n.type === 'SymbolNode') {
-        usedVariables.add((n as SymbolNode).name);
-      }
-    });
+    // 验证函数（之前缺失的检查）
+    const fnError = validateFunctions(usedFunctions);
+    if (fnError) return fnError;
 
-    for (const fn of usedFunctions) {
-      if (!ALLOWED_FUNCTIONS.includes(fn)) {
-        return new Error(`不支持的函数: ${fn}`);
-      }
-    }
+    const varList = Array.from(usedVariables);
+    const paramError = validateParamCount(varList, 3, ['x', 'y', 'z']);
+    if (paramError) return new Error(paramError);
 
-    for (const v of usedVariables) {
-      if (v !== 'x' && v !== 'y' && v !== 'z' && !ALLOWED_CONSTANTS.includes(v) && !ALLOWED_FUNCTIONS.includes(v)) {
-        return new Error(`未知变量: ${v}（3D隐函数只支持变量 x, y, z）`);
-      }
-    }
+    const parameters = extractParameters(varList, 3, ['x', 'y', 'z']);
+    const defaultParams = createDefaultParams(parameters);
 
     const compiled = node.compile();
+    const safeEval = (x: number, y: number, z: number, params?: Record<string, number>): number =>
+      safeEvaluate(compiled, { x, y, z, ...(params ?? defaultParams) });
 
-    const safeEval = (x: number, y: number, z: number): number => {
-      try {
-        const result = compiled.evaluate({ x, y, z });
-        if (typeof result !== 'number' || !isFinite(result)) return NaN;
-        return result;
-      } catch {
-        return NaN;
-      }
-    };
-
-    try { safeEval(0, 0, 0); safeEval(1, 1, 1); } catch (e) {
-      return new Error(`求值错误: ${(e as Error).message}`);
-    }
-
-    return { compiled: safeEval };
+    return { compiled: safeEval, parameters };
   } catch (e) {
-    return new Error(`解析错误: ${(e as Error).message}`);
+    return new Error(`解析失败: ${(e as Error).message}`);
   }
 }

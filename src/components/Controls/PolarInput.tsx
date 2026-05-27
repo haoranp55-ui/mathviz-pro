@@ -1,5 +1,5 @@
 // src/components/Controls/PolarInput.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { PolarHelp } from './PolarHelp';
 
@@ -11,7 +11,7 @@ const POLAR_FUNCTION_LIST = [
   { category: '其他曲线', items: ['1/sin(x)', '1/cos(x)', 'abs(sin(x)) + abs(cos(x))'] },
 ];
 
-export const PolarInput: React.FC = () => {
+export const PolarInput: FC = () => {
   const [expression, setExpression] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -19,7 +19,7 @@ export const PolarInput: React.FC = () => {
   const addPolarFunction = useAppStore(state => state.addPolarFunction);
   const polarFunctions = useAppStore(state => state.polarFunctions);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addPolarFunction(expression.trim());

@@ -1,5 +1,5 @@
 // src/components/Controls/ParametricHelp.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 
 interface ParametricHelpProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ const EXAMPLES = [
   { desc: '衰减函数', expr: 'a*exp(-k*x)', params: 'a: 初值, k: 衰减率' },
 ];
 
-export const ParametricHelp: React.FC<ParametricHelpProps> = ({ isOpen, onClose }) => {
+export const ParametricHelp: FC<ParametricHelpProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'examples' | 'config'>('rules');
 
   if (!isOpen) return null;

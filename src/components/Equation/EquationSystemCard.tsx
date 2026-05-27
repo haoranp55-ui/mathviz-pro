@@ -1,5 +1,5 @@
 // src/components/Equation/EquationSystemCard.tsx
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, type FC } from 'react';
 import { Trash2, Play, Minus, Plus, Copy, Check, RotateCcw } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { SolutionCard } from './SolutionCard';
@@ -40,14 +40,12 @@ const statusConfig = {
   },
 };
 
-export const EquationSystemCard: React.FC<EquationSystemCardProps> = ({ system }) => {
-  const {
-    solveEquationSystem,
-    removeEquationSystem,
-    updateEquationSystemSearchRange,
-    updateEquationExpression,
-    clearEquationSystemSolutions,
-  } = useAppStore();
+export const EquationSystemCard: FC<EquationSystemCardProps> = ({ system }) => {
+  const solveEquationSystem = useAppStore(s => s.solveEquationSystem);
+  const removeEquationSystem = useAppStore(s => s.removeEquationSystem);
+  const updateEquationSystemSearchRange = useAppStore(s => s.updateEquationSystemSearchRange);
+  const updateEquationExpression = useAppStore(s => s.updateEquationExpression);
+  const clearEquationSystemSolutions = useAppStore(s => s.clearEquationSystemSolutions);
 
   const [showRange, setShowRange] = useState(false);
   const [editingEquationId, setEditingEquationId] = useState<string | null>(null);

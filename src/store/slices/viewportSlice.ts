@@ -18,6 +18,12 @@ import {
   IMPLICIT3D_PRESET_RESOLUTION,
 } from '../../types';
 
+export interface ToastState {
+  message: string;
+  type: 'success' | 'error';
+  visible: boolean;
+}
+
 export interface ViewportSlice {
   systemType: PlotSystemType;
   sidebarTab: SidebarTab;
@@ -35,6 +41,7 @@ export interface ViewportSlice {
   evaluateX: number;
   canvasRef: HTMLCanvasElement | null;
   isSliderActive: boolean;
+  toast: ToastState | null;
 
   setSystemType: (systemType: PlotSystemType) => void;
   setSidebarTab: (tab: SidebarTab) => void;
@@ -56,6 +63,8 @@ export interface ViewportSlice {
   setCanvasRef: (canvas: HTMLCanvasElement | null) => void;
   exportImage: (filename?: string) => void;
   setSliderActive: (active: boolean) => void;
+  showToast: (message: string, type?: 'success' | 'error') => void;
+  hideToast: () => void;
 }
 
 export const createViewportSlice: StateCreator<AppStore, [], [], ViewportSlice> = (set, get) => ({
@@ -79,6 +88,7 @@ export const createViewportSlice: StateCreator<AppStore, [], [], ViewportSlice> 
   evaluateX: 1,
   canvasRef: null,
   isSliderActive: false,
+  toast: null,
 
   setSystemType: (systemType) => set({ systemType }),
   setSidebarTab: (tab) => set({ sidebarTab: tab }),
@@ -114,11 +124,13 @@ export const createViewportSlice: StateCreator<AppStore, [], [], ViewportSlice> 
   setSelectedFunction: (id) => set({ selectedFunctionId: id }),
   setEvaluateX: (x) => set({ evaluateX: x }),
   setCanvasRef: (canvas) => set({ canvasRef: canvas }),
+  setSliderActive: (active) => set({ isSliderActive: active }),
 
   exportImage: (filename = 'mathviz-export.png') => {
     const { canvasRef } = get();
     if (!canvasRef) {
       console.error('Canvas ref not set');
+      get().showToast('画布未准备好，请重试', 'error');
       return;
     }
     try {
@@ -127,11 +139,19 @@ export const createViewportSlice: StateCreator<AppStore, [], [], ViewportSlice> 
       link.download = filename;
       link.href = dataUrl;
       link.click();
+      get().showToast('图片已导出', 'success');
     } catch (e) {
       console.error('Failed to export image:', e);
-      alert('导出图片失败，请重试');
+      get().showToast('导出图片失败，请重试', 'error');
     }
   },
 
-  setSliderActive: (active) => set({ isSliderActive: active }),
+  showToast: (message, type = 'success') => {
+    set({ toast: { message, type, visible: true } });
+    setTimeout(() => {
+      set({ toast: null });
+    }, 3000);
+  },
+
+  hideToast: () => set({ toast: null }),
 });

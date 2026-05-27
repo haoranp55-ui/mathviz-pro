@@ -1,5 +1,5 @@
 // src/components/Controls/FunctionHelp.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 
 interface FunctionHelpProps {
   isOpen: boolean;
@@ -103,7 +103,7 @@ const EXAMPLES = [
   { desc: '对数函数', expr: 'ln(x)' },
 ];
 
-export const FunctionHelp: React.FC<FunctionHelpProps> = ({ isOpen, onClose }) => {
+export const FunctionHelp: FC<FunctionHelpProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'operators' | 'functions' | 'examples'>('functions');
   const [copied, setCopied] = useState<string | null>(null);
 

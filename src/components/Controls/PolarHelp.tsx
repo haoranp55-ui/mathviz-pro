@@ -1,5 +1,5 @@
 // src/components/Controls/PolarHelp.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 
 interface PolarHelpProps {
   isOpen: boolean;
@@ -45,7 +45,7 @@ const GPU_INFO = [
   { feature: 'θ 范围配置', desc: '点击 ⚙ 按钮调整角度范围', note: '螺线需要多圈' },
 ];
 
-export const PolarHelp: React.FC<PolarHelpProps> = ({ isOpen, onClose }) => {
+export const PolarHelp: FC<PolarHelpProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'examples' | 'config'>('rules');
 
   if (!isOpen) return null;

@@ -1,5 +1,5 @@
 // src/components/Layout/EquationBackground.tsx
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect, type FC } from 'react';
 
 const MATH_SYMBOLS = ['Σ', '∫', '∂', '√', 'π', '∞', '≈', '±', '÷', '×', '∑', '∏', '∆', '∇', '∃', '∀', '∈', '∉', '∩', '∪', '⊂', '⊃', '≤', '≥', '≠', 'α', 'β', 'γ', 'δ', 'θ', 'λ', 'μ', 'σ', 'φ', 'ψ', 'ω', 'ƒ', 'ξ', 'ρ', '∮', '∯', '∰', '∴', '∵', '∼', '≡', '≅', '∝', '∟', '∠', '∡', '∢', '⊥', '∥', '∦', '∴', '∵'];
 
@@ -93,7 +93,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.stroke();
 }
 
-export const EquationBackground: React.FC = () => {
+export const EquationBackground: FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const rafRef = useRef<number>(0);

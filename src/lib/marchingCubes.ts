@@ -50,6 +50,7 @@ export function marchingCubes(
   xRange: [number, number],
   yRange: [number, number],
   zRange: [number, number],
+  cancelled?: () => boolean,
 ): MCResult {
   const xMin = xRange[0], xMax = xRange[1];
   const yMin = yRange[0], yMax = yRange[1];
@@ -100,6 +101,10 @@ export function marchingCubes(
     let m = 1 + (dims0 + 1) * (1 + buf_no * (dims1 + 1));
 
     for (let x1 = 0; x1 < dims1 - 1; x1++, m += 2) {
+      // 每行检查取消，低分辨率时约16行，高分辨率时约80行
+      if (cancelled && (x1 & 3) === 0 && cancelled()) {
+        return { positions: new Float32Array(0), normals: new Float32Array(0), indices: new Uint32Array(0) };
+      }
       for (let x0 = 0; x0 < dims0 - 1; x0++, m++) {
         // 读取8个角值
         let mask = 0;

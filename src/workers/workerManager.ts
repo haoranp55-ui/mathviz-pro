@@ -100,6 +100,7 @@ export interface MeshVertexRequest {
   xMax: number;
   yMin: number;
   yMax: number;
+  parameters: Record<string, number>;
 }
 
 /**
@@ -141,6 +142,15 @@ function getImplicit3DWorker(): Worker {
     );
     implicit3DWorker.onmessage = (e) => {
       const data = e.data;
+      if (data.type === 'cancelled') {
+        // 被取消的计算，reject 其 pending Promise
+        const pending = pendingImplicit3DComputes.get(data.id);
+        if (pending) {
+          pendingImplicit3DComputes.delete(data.id);
+          pending.reject('cancelled');
+        }
+        return;
+      }
       const pending = pendingImplicit3DComputes.get(data.id);
       if (!pending) return;
       pendingImplicit3DComputes.delete(data.id);
@@ -168,6 +178,7 @@ export interface Implicit3DRequest {
   yMax: number;
   zMin: number;
   zMax: number;
+  parameters: Record<string, number>;
 }
 
 /**
@@ -175,11 +186,15 @@ export interface Implicit3DRequest {
  * 返回 positions/normals/indices，可直接用于 BufferGeometry
  */
 export function computeImplicit3DAsync(req: Implicit3DRequest): Promise<Implicit3DResult> {
+  const worker = getImplicit3DWorker();
+
+  // 取消同一 id 的前一次计算
+  worker.postMessage({ type: 'cancel', id: req.id });
+
   return new Promise((resolve, reject) => {
     pendingImplicit3DComputes.set(req.id, { resolve, reject });
-    const worker = getImplicit3DWorker();
     worker.postMessage({
-      type: 'computeImplicit3D',
+      type: 'compute',
       ...req,
     });
   });

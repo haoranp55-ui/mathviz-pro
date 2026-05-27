@@ -1,5 +1,5 @@
 // src/components/Equation/EquationLayout.tsx
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, type FC } from 'react';
 import { Sigma, HelpCircle, Activity } from 'lucide-react';
 import { EquationBackground } from '../Layout/EquationBackground';
 
@@ -17,7 +17,7 @@ import {
 import { solveDifferentialEquation } from '../../lib/differentialSolver';
 import type { DifferentialSolution } from '../../lib/differentialSolver';
 
-export const EquationLayout: React.FC = () => {
+export const EquationLayout: FC = () => {
   const [activeTab, setActiveTab] = useState<'equation' | 'differential'>('equation');
   const [showHelp, setShowHelp] = useState(false);
 

@@ -1,5 +1,5 @@
 // src/components/Equation/DifferentialEquationInput.tsx
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, type FC } from 'react';
 import { Play, Settings2, FileText, FunctionSquare, Timer } from 'lucide-react';
 import { BUILTIN_FUNCTIONS } from '../../lib/differentialParser';
 
@@ -16,7 +16,7 @@ interface DifferentialEquationInputProps {
   onSolve: () => void;
 }
 
-export const DifferentialEquationInput: React.FC<DifferentialEquationInputProps> = ({
+export const DifferentialEquationInput: FC<DifferentialEquationInputProps> = ({
   yCoeffsInput,
   xCoeffsInput,
   xFuncInput,

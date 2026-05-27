@@ -1,5 +1,5 @@
 // src/components/Controls/ThreeDInput.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ThreeDHelp } from './ThreeDHelp';
 
@@ -26,14 +26,14 @@ const FUNCTION_LIST = [
   ]},
 ];
 
-export const ThreeDInput: React.FC = () => {
+export const ThreeDInput: FC = () => {
   const [expression, setExpression] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const addThreeDFunction = useAppStore(state => state.addThreeDFunction);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addThreeDFunction(expression.trim());

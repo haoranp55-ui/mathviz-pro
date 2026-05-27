@@ -1,31 +1,41 @@
 // src/components/Controls/GlobalSettings.tsx
-import React, { useCallback } from 'react';
+import { useCallback, useState, type FC, type KeyboardEvent } from 'react';
+import { Zap, Diamond, Sparkles, Star, RotateCcw, ImageDown } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { SAMPLE_PRESETS } from '../../types';
 import type { SamplePreset } from '../../types';
 
 const PRESET_ORDER: SamplePreset[] = ['fast', 'normal', 'fine', 'ultra'];
 
-const PRESET_CONFIG: Record<SamplePreset, { label: string; icon: string }> = {
-  fast: { label: '快速', icon: '⚡' },
-  normal: { label: '标准', icon: '◆' },
-  fine: { label: '精细', icon: '✦' },
-  ultra: { label: '极致', icon: '✹' },
+const PRESET_CONFIG: Record<SamplePreset, { label: string; Icon: React.ComponentType<{ className?: string }> }> = {
+  fast: { label: '快速', Icon: Zap },
+  normal: { label: '标准', Icon: Diamond },
+  fine: { label: '精细', Icon: Sparkles },
+  ultra: { label: '极致', Icon: Star },
 };
 
-export const GlobalSettings: React.FC = () => {
-  const {
-    viewPort,
-    showGrid,
-    samplePreset,
-    systemType,
-    setViewPort,
-    toggleGrid,
-    setSamplePreset,
-    bumpThreeDVersion,
-    resetView,
-    exportImage,
-  } = useAppStore();
+export const GlobalSettings: FC = () => {
+  const viewPort = useAppStore(s => s.viewPort);
+  const showGrid = useAppStore(s => s.showGrid);
+  const samplePreset = useAppStore(s => s.samplePreset);
+  const systemType = useAppStore(s => s.systemType);
+  const setViewPort = useAppStore(s => s.setViewPort);
+  const toggleGrid = useAppStore(s => s.toggleGrid);
+  const setSamplePreset = useAppStore(s => s.setSamplePreset);
+  const bumpThreeDVersion = useAppStore(s => s.bumpThreeDVersion);
+  const resetView = useAppStore(s => s.resetView);
+  const exportImage = useAppStore(s => s.exportImage);
+
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
+
+  const validateAndSet = useCallback((updates: Partial<typeof viewPort>) => {
+    const next = { ...viewPort, ...updates };
+    const errors: Record<string, boolean> = {};
+    if (next.xMin >= next.xMax) errors.x = true;
+    if (next.yMin >= next.yMax) errors.y = true;
+    setValidationErrors(errors);
+    if (Object.keys(errors).length === 0) setViewPort(updates);
+  }, [viewPort, setViewPort]);
 
   const handleReset = useCallback(async () => {
     if (systemType === '3d') {
@@ -36,6 +46,9 @@ export const GlobalSettings: React.FC = () => {
       resetView();
     }
   }, [systemType, resetView, bumpThreeDVersion]);
+
+  const inputClass = (hasError: boolean) =>
+    `w-16 px-2 py-1.5 input-glass text-xs text-center${hasError ? ' !border-red-500/60 !bg-red-500/10' : ''}`;
 
   return (
     <div className="p-4 border-t border-white/[0.06] space-y-4 relative glass-subtle">
@@ -53,9 +66,9 @@ export const GlobalSettings: React.FC = () => {
             value={viewPort.xMin}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
-              setViewPort({ xMin: Number.isNaN(val) ? viewPort.xMin : val });
+              if (!Number.isNaN(val)) validateAndSet({ xMin: val });
             }}
-            className="w-16 px-2 py-1.5 input-glass text-xs text-center"
+            className={inputClass(!!validationErrors.x)}
           />
           <span className="text-gray-600 text-xs">→</span>
           <input
@@ -63,10 +76,11 @@ export const GlobalSettings: React.FC = () => {
             value={viewPort.xMax}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
-              setViewPort({ xMax: Number.isNaN(val) ? viewPort.xMax : val });
+              if (!Number.isNaN(val)) validateAndSet({ xMax: val });
             }}
-            className="w-16 px-2 py-1.5 input-glass text-xs text-center"
+            className={inputClass(!!validationErrors.x)}
           />
+          {validationErrors.x && <span className="text-[10px] text-red-400">min&lt;max</span>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -76,9 +90,9 @@ export const GlobalSettings: React.FC = () => {
             value={viewPort.yMin}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
-              setViewPort({ yMin: Number.isNaN(val) ? viewPort.yMin : val });
+              if (!Number.isNaN(val)) validateAndSet({ yMin: val });
             }}
-            className="w-16 px-2 py-1.5 input-glass text-xs text-center"
+            className={inputClass(!!validationErrors.y)}
           />
           <span className="text-gray-600 text-xs">→</span>
           <input
@@ -86,10 +100,11 @@ export const GlobalSettings: React.FC = () => {
             value={viewPort.yMax}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
-              setViewPort({ yMax: Number.isNaN(val) ? viewPort.yMax : val });
+              if (!Number.isNaN(val)) validateAndSet({ yMax: val });
             }}
-            className="w-16 px-2 py-1.5 input-glass text-xs text-center"
+            className={inputClass(!!validationErrors.y)}
           />
+          {validationErrors.y && <span className="text-[10px] text-red-400">min&lt;max</span>}
         </div>
       </div>
 
@@ -103,6 +118,7 @@ export const GlobalSettings: React.FC = () => {
           {PRESET_ORDER.map((preset) => {
             const isActive = samplePreset === preset;
             const config = PRESET_CONFIG[preset];
+            const IconComponent = config.Icon;
             return (
               <button
                 key={preset}
@@ -113,7 +129,7 @@ export const GlobalSettings: React.FC = () => {
                     : 'text-gray-400 hover:text-gray-300 hover:bg-white/5'
                 }`}
               >
-                <span>{config.icon}</span>
+                <IconComponent className="w-3.5 h-3.5" />
                 <span>{SAMPLE_PRESETS[preset].label}</span>
               </button>
             );
@@ -128,18 +144,37 @@ export const GlobalSettings: React.FC = () => {
 
       {/* 显示选项 */}
       <div className="param-group space-y-2.5">
-        <div className="flex items-center gap-3 py-1">
-          <input
-            type="checkbox"
-            id="showGrid"
-            checked={showGrid}
-            onChange={toggleGrid}
-            className="custom-checkbox"
-          />
-          <label htmlFor="showGrid" className="text-xs text-gray-300 cursor-pointer flex items-center gap-1.5">
+        <div
+          className="flex items-center gap-3 py-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:rounded-md"
+          onClick={toggleGrid}
+          role="checkbox"
+          aria-checked={showGrid}
+          aria-label="显示网格"
+          tabIndex={0}
+          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+            if (e.key === ' ' || e.key === 'Spacebar') {
+              e.preventDefault();
+              toggleGrid();
+            }
+          }}
+        >
+          <div
+            className={`w-4 h-4 rounded border transition-all duration-150 flex items-center justify-center ${
+              showGrid
+                ? 'bg-cyan-500/30 border-cyan-400/50'
+                : 'bg-white/5 border-white/20'
+            }`}
+          >
+            {showGrid && (
+              <svg className="w-2.5 h-2.5 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </div>
+          <span className="text-xs text-gray-300 flex items-center gap-1.5 select-none">
             <span className="text-cyan-400/50">▦</span>
             显示网格
-          </label>
+          </span>
         </div>
       </div>
 
@@ -149,7 +184,7 @@ export const GlobalSettings: React.FC = () => {
           onClick={handleReset}
           className="w-full py-2.5 text-xs text-gray-300 btn-glass-secondary active:scale-[0.98] flex items-center justify-center gap-2"
         >
-          <span className="text-cyan-400/70">↻</span>
+          <RotateCcw className="w-4 h-4 text-cyan-400/70" />
           重置视图
         </button>
 
@@ -157,10 +192,7 @@ export const GlobalSettings: React.FC = () => {
           onClick={() => exportImage()}
           className="w-full py-2.5 text-xs text-cyan-200 btn-glass active:scale-[0.98] flex items-center justify-center gap-2"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+          <ImageDown className="w-4 h-4" />
           导出图片
         </button>
       </div>

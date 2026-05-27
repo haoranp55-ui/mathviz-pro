@@ -1,5 +1,5 @@
 // src/components/Controls/Implicit3DInput.tsx
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 
 const TEMPLATES = [
@@ -11,11 +11,11 @@ const TEMPLATES = [
   { expr: 'sin(x) + sin(y) + sin(z) = 0', desc: '周期极小曲面' },
 ];
 
-export const Implicit3DInput: React.FC = () => {
+export const Implicit3DInput: FC = () => {
   const [expression, setExpression] = useState('');
   const addImplicit3DFunction = useAppStore(s => s.addImplicit3DFunction);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addImplicit3DFunction(expression.trim());

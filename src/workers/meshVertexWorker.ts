@@ -13,6 +13,7 @@ interface ComputeRequest {
   xMax: number;
   yMin: number;
   yMax: number;
+  parameters: Record<string, number>;
 }
 
 interface ComputeResponse {
@@ -28,7 +29,7 @@ interface ComputeError {
 }
 
 self.onmessage = (e: MessageEvent<ComputeRequest>) => {
-  const { type, id, expression, resolution, xMin, xMax, yMin, yMax } = e.data;
+  const { type, id, expression, resolution, xMin, xMax, yMin, yMax, parameters } = e.data;
 
   if (type !== 'computeVertices') return;
 
@@ -61,7 +62,7 @@ self.onmessage = (e: MessageEvent<ComputeRequest>) => {
         const mathX = localX + xCenter;
         const mathY = -localZ + yCenter;
 
-        let z = compiled(mathX, mathY);
+        let z = compiled(mathX, mathY, parameters);
         if (!Number.isFinite(z)) z = 0;
         heights[idx++] = z;
       }

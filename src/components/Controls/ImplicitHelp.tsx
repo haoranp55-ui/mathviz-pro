@@ -1,5 +1,5 @@
 // src/components/Controls/ImplicitHelp.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 
 interface ImplicitHelpProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ const GPU_INFO = [
   { feature: '自动降级', desc: 'GLSL 不支持的函数自动切换 CPU', note: '如 gamma、erf 等' },
 ];
 
-export const ImplicitHelp: React.FC<ImplicitHelpProps> = ({ isOpen, onClose }) => {
+export const ImplicitHelp: FC<ImplicitHelpProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'examples' | 'gpu'>('rules');
 
   if (!isOpen) return null;

@@ -1,5 +1,6 @@
 // src/hooks/useCanvasInteraction.ts
 import { useCallback, useEffect, useRef } from 'react';
+import type { RefObject, MouseEvent as ReactMouseEvent } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { createScales } from '../lib/transformer';
 import { findHoveredKeyPoint } from '../components/Canvas/KeyPointRenderer';
@@ -36,12 +37,12 @@ function pointToSegmentDistance(
 export { pointToSegmentDistance };
 
 interface UseCanvasInteractionProps {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   canvasSize: CanvasSize;
   request3DRender: () => void;
-  functionPointsRef: React.RefObject<Map<string, { x: Float64Array; y: Float64Array }>>;
-  derivedPointsRef: React.RefObject<Map<string, { x: Float64Array; y: Float64Array }>>;
-  implicitSegmentsRef: React.RefObject<Map<string, ContourSegment[]>>;
+  functionPointsRef: RefObject<Map<string, { x: Float64Array; y: Float64Array }>>;
+  derivedPointsRef: RefObject<Map<string, { x: Float64Array; y: Float64Array }>>;
+  implicitSegmentsRef: RefObject<Map<string, ContourSegment[]>>;
 }
 
 export function useCanvasInteraction({
@@ -56,7 +57,7 @@ export function useCanvasInteraction({
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
   const mouseDownPixelRef = useRef<{ x: number; y: number } | null>(null);
 
-  const handleMouseMove = useCallback(async (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = useCallback(async (e: ReactMouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -175,7 +176,7 @@ export function useCanvasInteraction({
     setHoverPoint(closestPoint ? { x: closestPoint.x, y: closestPoint.y, functionId: closestPoint.functionId } : null);
   }, [canvasRef, canvasSize, request3DRender, functionPointsRef, derivedPointsRef, implicitSegmentsRef]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseDown = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -190,7 +191,7 @@ export function useCanvasInteraction({
     }
   }, [canvasRef]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
     const downPos = mouseDownPixelRef.current;
     lastMousePosRef.current = null;
     const { setDragging, systemType, interaction, functions, parametricFunctions, addMarkedPoint, removeMarkedPoint, viewPort, aspectRatioMode } = useAppStore.getState();

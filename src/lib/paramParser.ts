@@ -1,55 +1,29 @@
 // src/lib/paramParser.ts
 import type { Parameter } from '../types';
-
-// 允许的常量（不应被识别为参数）
-const ALLOWED_CONSTANTS = [
-  'pi', 'e', 'tau', 'phi', 'LN2', 'LN10', 'LOG2E', 'LOG10E', 'SQRT2', 'SQRT1_2',
-  'PI', 'E', 'TAU', 'PHI',
-];
-
-// 允许的函数名（不应被识别为参数）
-const ALLOWED_FUNCTIONS = [
-  'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
-  'asin', 'acos', 'atan', 'acot', 'asec', 'acsc',
-  'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
-  'exp', 'ln', 'log', 'log10', 'log2', 'log1p', 'expm1',
-  'sqrt', 'cbrt', 'nthRoot', 'square', 'cube',
-  'abs', 'sign', 'floor', 'ceil', 'round', 'fix',
-  'factorial', 'gamma', 'erf',
-  'combinations', 'permutations',
-  'pow', 'hypot', 'gcd', 'lcm', 'mod',
-];
+import { ALLOWED_CONSTANTS, ALLOWED_FUNCTIONS } from './parserUtils';
 
 /**
  * 判断是否为参数变量
- * 规则：单字母（大小写区分），排除 x, y 和常量/函数名
+ * 规则：单字母（大小写区分），排除域变量和常量/函数名
+ * @param domainVariables 域变量名列表，默认 ['x', 'y']（3D隐函数传 ['x', 'y', 'z']）
  */
-export function isParameter(varName: string): boolean {
-  // 排除 x, y（坐标变量）
-  if (varName === 'x' || varName === 'y') return false;
-
-  // 排除常量
+export function isParameter(varName: string, domainVariables: string[] = ['x', 'y']): boolean {
+  if (domainVariables.includes(varName)) return false;
   if (ALLOWED_CONSTANTS.includes(varName)) return false;
-
-  // 排除函数名
-  if (ALLOWED_FUNCTIONS.includes(varName.toLowerCase())) return false;
-
-  // 必须是单字母
+  if (ALLOWED_FUNCTIONS.includes(varName)) return false;
   return /^[a-zA-Z]$/.test(varName);
 }
 
 /**
  * 从变量列表中提取参数
- * @param variables 使用到的变量列表
- * @param maxParams 最大参数数量（默认3）
- * @returns 参数定义列表
  */
 export function extractParameters(
   variables: string[],
-  maxParams: number = 3
+  maxParams: number = 3,
+  domainVariables: string[] = ['x', 'y']
 ): Parameter[] {
   const paramNames = variables
-    .filter(isParameter)
+    .filter(v => isParameter(v, domainVariables))
     .slice(0, maxParams);
 
   return paramNames.map(name => ({
@@ -88,17 +62,16 @@ export function updateParameterValue(
 }
 
 /**
- * 验证参数数量
+ * 验证参数数量是否合法
  */
-export function validateParamCount(variables: string[], maxParams: number = 3): {
-  valid: boolean;
-  paramCount: number;
-  excessParams: string[];
-} {
-  const paramNames = variables.filter(isParameter);
-  return {
-    valid: paramNames.length <= maxParams,
-    paramCount: paramNames.length,
-    excessParams: paramNames.slice(maxParams),
-  };
+export function validateParamCount(
+  variables: string[],
+  maxParams: number = 3,
+  domainVariables: string[] = ['x', 'y']
+): string | null {
+  const paramNames = variables.filter(v => isParameter(v, domainVariables));
+  if (paramNames.length > maxParams) {
+    return `参数过多（最多${maxParams}个），多余参数: ${paramNames.slice(maxParams).join(', ')}`;
+  }
+  return null;
 }

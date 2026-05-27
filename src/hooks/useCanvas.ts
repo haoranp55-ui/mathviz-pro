@@ -1,10 +1,11 @@
 // src/hooks/useCanvas.ts
 import { useRef, useEffect, useCallback, useState } from 'react';
+import type { RefObject } from 'react';
 import type { CanvasSize } from '../types';
 
 export type CanvasHookResult = {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  containerRef: RefObject<HTMLDivElement | null>;
   canvasSize: CanvasSize;
   getContext: () => CanvasRenderingContext2D | null;
   clearCanvas: () => void;

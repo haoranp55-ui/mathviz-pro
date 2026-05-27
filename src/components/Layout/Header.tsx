@@ -1,10 +1,10 @@
 // src/components/Layout/Header.tsx
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 import { FunctionHelp } from '../Controls/FunctionHelp';
 import { useAppStore } from '../../store/useAppStore';
 import { LineChart, Box, HelpCircle, ExternalLink, Sigma } from 'lucide-react';
 
-export const Header: React.FC = () => {
+export const Header: FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const systemType = useAppStore(s => s.systemType);
   const setSystemType = useAppStore(s => s.setSystemType);
@@ -67,7 +67,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHelp(true)}
-            className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/[0.08] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:border-cyan-500/30 transition-all"
+            className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/[0.08] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 hover:shadow-[0_0_12px_rgba(14,165,233,0.15)]"
             title="函数帮助"
             aria-label="帮助"
           >
@@ -78,7 +78,7 @@ export const Header: React.FC = () => {
             href="https://github.com/haoranp55-ui/mathviz-pro"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/[0.08] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:border-cyan-500/30 transition-all"
+            className="w-9 h-9 rounded-xl bg-[#0f172a] border border-white/[0.08] flex items-center justify-center text-[#64748B] hover:text-[#E2E8F0] hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all duration-200 hover:shadow-[0_0_12px_rgba(14,165,233,0.15)]"
             title="GitHub 仓库"
             aria-label="GitHub"
           >

@@ -1,5 +1,5 @@
 // src/components/Controls/ThreeDHelp.tsx
-import React from 'react';
+import type { FC } from 'react';
 import { createPortal } from 'react-dom';
 
 interface Props {
@@ -27,7 +27,7 @@ const EXAMPLES = [
   ]},
 ];
 
-export const ThreeDHelp: React.FC<Props> = ({ isOpen, onClose }) => {
+export const ThreeDHelp: FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return createPortal(

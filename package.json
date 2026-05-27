@@ -13,12 +13,13 @@
   "dependencies": {
     "d3-scale": "^4.0.2",
     "interval-arithmetic": "^1.1.3",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^1.16.0",
     "mathjs": "^15.2.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "three": "^0.174.0",
+    "three": "^0.184.0",
     "uuid": "^14.0.0",
+    "zundo": "^2.3.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -28,10 +29,9 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "^0.174.0",
+    "@types/three": "^0.184.1",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "@webgpu/types": "^0.1.69",
     "autoprefixer": "^10.5.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -41,7 +41,7 @@
     "tailwindcss": "^4.2.4",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
   }
 }

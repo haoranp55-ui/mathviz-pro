@@ -1,5 +1,5 @@
 // src/components/Controls/ParametricInput.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ParametricHelp } from './ParametricHelp';
 
@@ -14,7 +14,7 @@ const PARAMETRIC_FUNCTION_LIST = [
   { category: '组合函数', items: ['a*x + b*sin(x)', 'a*sin(b*x) + c', 'a*exp(-b*x)*sin(k*x)'] },
 ];
 
-export const ParametricInput: React.FC = () => {
+export const ParametricInput: FC = () => {
   const [expression, setExpression] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -22,7 +22,7 @@ export const ParametricInput: React.FC = () => {
   const addParametricFunction = useAppStore(state => state.addParametricFunction);
   const parametricFunctions = useAppStore(state => state.parametricFunctions);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addParametricFunction(expression.trim());

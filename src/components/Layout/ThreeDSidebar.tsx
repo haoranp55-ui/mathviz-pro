@@ -1,7 +1,7 @@
 // src/components/Layout/ThreeDSidebar.tsx
 // 3D 模式侧边栏（从 MainLayout 抽取，用于 React.lazy 懒加载）
-import React from 'react';
-import { Box } from 'lucide-react';
+import type { FC } from 'react';
+import { Box, BoxSelect } from 'lucide-react';
 import { ThreeDInput } from '../Controls/ThreeDInput';
 import { ThreeDList } from '../Controls/ThreeDList';
 import { Implicit3DInput } from '../Controls/Implicit3DInput';
@@ -9,53 +9,60 @@ import { Implicit3DList } from '../Controls/Implicit3DList';
 import { getThreeDRenderManager } from '../../lib/threeD/threeDRenderManager';
 import { useAppStore } from '../../store/useAppStore';
 
-export const ThreeDSidebar: React.FC = () => {
+interface TabDef {
+  key: 'explicit' | 'implicit';
+  label: string;
+  icon: React.ReactNode;
+}
+
+const TABS: TabDef[] = [
+  { key: 'explicit', label: '显函数', icon: <Box className="w-3.5 h-3.5" /> },
+  { key: 'implicit', label: '隐函数', icon: <BoxSelect className="w-3.5 h-3.5" /> },
+];
+
+export const ThreeDSidebar: FC = () => {
   const threeDTab = useAppStore(state => state.threeDTab);
   const setThreeDTab = useAppStore(state => state.setThreeDTab);
 
   return (
     <>
-      {/* 3D 侧边栏头部 */}
-      <div className="flex flex-col border-b border-white/[0.06] bg-white/[0.02]">
-        <div className="flex items-center px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2">
-            <Box className="w-4 h-4 text-cyan-400/70" />
-            <span className="text-sm font-medium text-gray-300">3D 曲面</span>
-          </div>
-          <span className="ml-auto text-xs text-gray-500 font-mono">
-            {threeDTab === 'explicit' ? 'z=f(x,y)' : 'f(x,y,z)=0'}
-          </span>
-        </div>
-        {/* 子Tab */}
-        <div className="flex border-t border-white/[0.04] bg-white/[0.01]">
-          <button
-            onClick={() => setThreeDTab('explicit')}
-            className={`flex-1 py-2.5 text-xs font-medium transition-all duration-200 relative ${
-              threeDTab === 'explicit'
-                ? 'text-cyan-400'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {threeDTab === 'explicit' && (
-              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-cyan-500/70 rounded-full" />
-            )}
-            显函数 z=f(x,y)
-          </button>
-          <button
-            onClick={() => setThreeDTab('implicit')}
-            className={`flex-1 py-2.5 text-xs font-medium transition-all duration-200 relative ${
-              threeDTab === 'implicit'
-                ? 'text-cyan-400'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {threeDTab === 'implicit' && (
-              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-cyan-500/70 rounded-full" />
-            )}
-            隐函数 f(x,y,z)=0
-          </button>
-        </div>
+      {/* 3D 侧边栏头部 — 与 SidebarTabs.tsx 风格一致 */}
+      <div className="flex border-b border-white/[0.06] bg-white/[0.02] relative" role="tablist">
+        {TABS.map(tab => {
+          const isActive = threeDTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setThreeDTab(tab.key)}
+              className="flex-1 py-3 text-xs font-medium transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500/40 relative overflow-hidden"
+            >
+              {/* 背景高亮 - 带动画 */}
+              <div
+                className={`absolute inset-0 bg-cyan-500/[0.06] transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+              />
+
+              {/* 内容 */}
+              <div className="flex items-center justify-center gap-1 relative z-10">
+                <span className={`transition-all duration-300 ${isActive ? 'text-cyan-400 scale-110' : 'text-gray-500'}`}>
+                  {tab.icon}
+                </span>
+                <span className={`transition-colors duration-300 ${isActive ? 'text-gray-100' : 'text-gray-400'}`}>
+                  {tab.label}
+                </span>
+              </div>
+
+              {/* 底部指示器 - 带动画 */}
+              <div
+                className={`absolute bottom-0 left-3 right-3 h-[2px] bg-cyan-500/80 rounded-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${isActive ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'}`}
+              />
+            </button>
+          );
+        })}
       </div>
+
+      {/* 内容区域 */}
       <div className="flex-1 overflow-hidden relative">
         {threeDTab === 'explicit' ? (
           <>

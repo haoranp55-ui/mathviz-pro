@@ -5,6 +5,7 @@
 
 import type { ViewPort } from '../../types';
 import { compileExpressionOnly } from './glslCompiler';
+import { isWebGL2Available as checkWebGL2Available, hexToRGB } from './webglUtils';
 import type { MathNode } from 'mathjs';
 
 // 顶点着色器
@@ -267,18 +268,8 @@ export class ImplicitRendererWebGL {
       gl.uniform4f(uniforms.renderRegion, 0, 0, this.canvas.width, this.canvas.height);
     }
 
-    // 解析颜色（支持 #RRGGBB 和 #RGB）
-    let r = 1, g = 1, b = 1;
-    const hex = color.replace('#', '');
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16) / 255;
-      g = parseInt(hex[1] + hex[1], 16) / 255;
-      b = parseInt(hex[2] + hex[2], 16) / 255;
-    } else if (hex.length >= 6) {
-      r = parseInt(hex.substring(0, 2), 16) / 255;
-      g = parseInt(hex.substring(2, 4), 16) / 255;
-      b = parseInt(hex.substring(4, 6), 16) / 255;
-    }
+    // 使用统一的颜色解析
+    const [r, g, b] = hexToRGB(color);
     gl.uniform3f(uniforms.color, r, g, b);
 
     for (const [name, loc] of uniforms.params) {
@@ -310,14 +301,9 @@ export class ImplicitRendererWebGL {
 }
 
 let renderer: ImplicitRendererWebGL | null = null;
-let isAvailableCache: boolean | null = null;
 
 export function getWebGLRenderer(): ImplicitRendererWebGL | null {
-  if (!isAvailableCache && renderer === null) {
-    isAvailableCache = checkWebGL2Available();
-  }
-
-  if (!isAvailableCache) return null;
+  if (!checkWebGL2Available()) return null;
 
   if (!renderer) {
     try {
@@ -329,27 +315,4 @@ export function getWebGLRenderer(): ImplicitRendererWebGL | null {
   return renderer;
 }
 
-function checkWebGL2Available(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2');
-    if (gl) {
-      // 正确清理上下文
-      const loseContext = gl.getExtension('WEBGL_lose_context');
-      if (loseContext) {
-        loseContext.loseContext();
-      }
-    }
-    canvas.remove();
-    return gl !== null;
-  } catch {
-    return false;
-  }
-}
-
-export function isWebGL2Available(): boolean {
-  if (isAvailableCache === null) {
-    isAvailableCache = checkWebGL2Available();
-  }
-  return isAvailableCache;
-}
+export { checkWebGL2Available as isWebGL2Available };

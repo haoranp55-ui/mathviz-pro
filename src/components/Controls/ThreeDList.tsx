@@ -1,67 +1,27 @@
 // src/components/Controls/ThreeDList.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import type { FC } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { THREE_D_RESOLUTION_PRESETS } from '../../types';
 import { EmptyState } from '../UI/EmptyState';
+import { ParameterSlider } from './ParameterSlider';
+import { DomainInput } from './DomainInput';
+import { useLinkedParameters } from '../../hooks/useLinkedParameters';
+import { useInlineEdit } from '../../hooks/useInlineEdit';
 
-/** 定义域数字输入：focus 时用局部状态，blur 时提交，NaN 永远不进 store */
-const DomainInput: React.FC<{
-  value: number | undefined;
-  onChange: (v: number | undefined) => void;
-  placeholder?: string;
-  className?: string;
-}> = ({ value, onChange, placeholder, className }) => {
-  const [editing, setEditing] = useState(false);
-  const [local, setLocal] = useState('');
+export const ThreeDList: FC = () => {
+  const threeDFunctions = useAppStore(s => s.threeDFunctions);
+  const removeThreeDFunction = useAppStore(s => s.removeThreeDFunction);
+  const toggleThreeDVisibility = useAppStore(s => s.toggleThreeDVisibility);
+  const toggleWireframe = useAppStore(s => s.toggleWireframe);
+  const updateThreeDResolution = useAppStore(s => s.updateThreeDResolution);
+  const updateThreeDExpression = useAppStore(s => s.updateThreeDExpression);
+  const updateThreeDDomain = useAppStore(s => s.updateThreeDDomain);
+  const updateThreeDZRange = useAppStore(s => s.updateThreeDZRange);
+  const updateThreeDParameter = useAppStore(s => s.updateThreeDParameter);
+  const updateThreeDParamConfig = useAppStore(s => s.updateThreeDParamConfig);
 
-  const commit = () => {
-    setEditing(false);
-    if (local.trim() === '') {
-      if (value !== undefined) onChange(undefined);
-    } else {
-      const v = parseFloat(local);
-      if (Number.isFinite(v) && v !== value) onChange(v);
-    }
-  };
-
-  const displayValue = value !== undefined ? value : '';
-  return (
-    <input
-      type="number"
-      value={editing ? local : displayValue}
-      placeholder={placeholder}
-      onFocus={() => { setEditing(true); setLocal(displayValue === '' ? '' : String(displayValue)); }}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => { if (e.key === 'Enter') commit(); }}
-      className={className}
-      step="any"
-    />
-  );
-};
-
-export const ThreeDList: React.FC = () => {
-  const {
-    threeDFunctions,
-    removeThreeDFunction,
-    toggleThreeDVisibility,
-    toggleWireframe,
-    updateThreeDResolution,
-    updateThreeDExpression,
-    updateThreeDDomain,
-    updateThreeDZRange,
-  } = useAppStore();
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editExpression, setEditExpression] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingId && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingId]);
+  const linkedParams = useLinkedParameters(threeDFunctions);
+  const { editExpression, setEditExpression, inputRef, startEditing, saveEdit, isEditing } = useInlineEdit();
 
   if (threeDFunctions.length === 0) {
     return (
@@ -71,29 +31,6 @@ export const ThreeDList: React.FC = () => {
       />
     );
   }
-
-  const startEditing = (fn: { id: string; expression: string }) => {
-    setEditingId(fn.id);
-    setEditExpression(fn.expression);
-  };
-
-  const saveEdit = () => {
-    if (editingId && editExpression.trim()) {
-      updateThreeDExpression(editingId, editExpression.trim());
-    }
-    setEditingId(null);
-    setEditExpression('');
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditExpression('');
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') saveEdit();
-    else if (e.key === 'Escape') cancelEdit();
-  };
 
   return (
     <div className="flex-1 overflow-y-auto p-3">
@@ -122,14 +59,14 @@ export const ThreeDList: React.FC = () => {
               />
 
               <div className="flex-1 min-w-0">
-                {editingId === fn.id ? (
+                {isEditing(fn.id) ? (
                   <input
                     ref={inputRef}
                     type="text"
                     value={editExpression}
                     onChange={(e) => setEditExpression(e.target.value)}
-                    onBlur={saveEdit}
-                    onKeyDown={handleKeyDown}
+                    onBlur={() => saveEdit(updateThreeDExpression)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(updateThreeDExpression); }}
                     className="w-full px-2 py-1 input-glass text-xs font-mono"
                   />
                 ) : (
@@ -239,6 +176,22 @@ export const ThreeDList: React.FC = () => {
                 <span className="text-gray-500 text-[9px] ml-1">留空不裁剪</span>
               </div>
             </div>
+
+            {/* 参数滑块 */}
+            {fn.parameters.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {fn.parameters.map((param) => (
+                  <ParameterSlider
+                    key={param.name}
+                    parameter={param}
+                    functionId={fn.id}
+                    onChange={(value) => updateThreeDParameter(fn.id, param.name, value)}
+                    onConfigChange={updateThreeDParamConfig}
+                    linkedInfo={linkedParams.get(`${fn.id}:${param.name}`)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

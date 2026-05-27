@@ -1,5 +1,5 @@
 // src/components/Controls/ImplicitInput.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, type FC, type FormEvent } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ImplicitHelp } from './ImplicitHelp';
 
@@ -10,7 +10,7 @@ const IMPLICIT_FUNCTION_LIST = [
   { category: '其他曲线', items: ['y^2 = x^3 - x', 'x^3 + y^3 = 1', 'sin(x)*cos(y) = 0.5'] },
 ];
 
-export const ImplicitInput: React.FC = () => {
+export const ImplicitInput: FC = () => {
   const [expression, setExpression] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -18,7 +18,7 @@ export const ImplicitInput: React.FC = () => {
   const addImplicitFunction = useAppStore(state => state.addImplicitFunction);
   const implicitFunctions = useAppStore(state => state.implicitFunctions);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (expression.trim()) {
       addImplicitFunction(expression.trim());

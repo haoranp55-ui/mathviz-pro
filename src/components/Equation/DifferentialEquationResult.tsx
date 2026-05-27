@@ -1,9 +1,9 @@
 // src/components/Equation/DifferentialEquationResult.tsx
-import React from 'react';
+import type { FC, ReactNode } from 'react';
 import type { DifferentialSolution } from '../../lib/differentialSolver';
 
 interface TimelineStepProps {
-  title: React.ReactNode;
+  title: ReactNode;
   description?: string;
   expression: string;
   colorClass: string;
@@ -12,7 +12,7 @@ interface TimelineStepProps {
   isLast?: boolean;
 }
 
-const TimelineStep: React.FC<TimelineStepProps> = ({
+const TimelineStep: FC<TimelineStepProps> = ({
   title,
   description,
   expression,
@@ -45,7 +45,7 @@ interface DifferentialEquationResultProps {
   displayMode: 'approach1' | 'approach2';
 }
 
-export const DifferentialEquationResult: React.FC<DifferentialEquationResultProps> = ({
+export const DifferentialEquationResult: FC<DifferentialEquationResultProps> = ({
   result,
   displayMode,
 }) => {

@@ -1,5 +1,5 @@
 // src/components/Layout/MainLayout.tsx
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy, type FC } from 'react';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
 import { FunctionCanvas } from '../Canvas/FunctionCanvas';
@@ -31,13 +31,13 @@ const PolarSidebar = lazy(() =>
 );
 
 // 侧边栏内容加载占位
-const SidebarFallback: React.FC = () => (
+const SidebarFallback: FC = () => (
   <div className="flex-1 flex items-center justify-center">
     <div className="w-5 h-5 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
   </div>
 );
 
-export const MainLayout: React.FC = () => {
+export const MainLayout: FC = () => {
   const sidebarTab = useAppStore(state => state.sidebarTab);
   const systemType = useAppStore(state => state.systemType);
 

@@ -47,10 +47,9 @@ const FUNCTION_MAP: Record<string, string> = {
   'min': 'min',
   'max': 'max',
 
-  // 需要特殊处理的函数（标记为空字符串）
-  'sec': '',
-  'csc': '',
-  'cot': '',
+  // 需要特殊处理的函数（switch 中内联展开，不在 FUNCTION_MAP 中查找）
+  // 'sec', 'csc', 'cot', 'nthRoot', 'cbrt', 'square', 'cube',
+  // 'log1p', 'expm1', 'hypot', 'atan2' 均在 mathNodeToGLSL 的 switch 中处理
   'factorial': '',
   'gamma': '',
   'erf': '',

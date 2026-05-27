@@ -1,72 +1,31 @@
 // src/components/Controls/Implicit3DList.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import type { FC } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { IMPLICIT3D_MC_PRESETS } from '../../types';
 import { EmptyState } from '../UI/EmptyState';
+import { ParameterSlider } from './ParameterSlider';
+import { DomainInput } from './DomainInput';
+import { useLinkedParameters } from '../../hooks/useLinkedParameters';
+import { useInlineEdit } from '../../hooks/useInlineEdit';
 
-/** 定义域数字输入：focus 时用局部状态，blur 时提交，NaN 永远不进 store */
-const DomainInput: React.FC<{
-  value: number;
-  onChange: (v: number) => void;
-  className?: string;
-}> = ({ value, onChange, className }) => {
-  const [editing, setEditing] = useState(false);
-  const [local, setLocal] = useState('');
+export const Implicit3DList: FC = () => {
+  const implicit3DFunctions = useAppStore(s => s.implicit3DFunctions);
+  const removeImplicit3DFunction = useAppStore(s => s.removeImplicit3DFunction);
+  const toggleImplicit3DVisibility = useAppStore(s => s.toggleImplicit3DVisibility);
+  const toggleImplicit3DWireframe = useAppStore(s => s.toggleImplicit3DWireframe);
+  const toggleImplicit3DGPUMode = useAppStore(s => s.toggleImplicit3DGPUMode);
+  const updateImplicit3DResolution = useAppStore(s => s.updateImplicit3DResolution);
+  const updateImplicit3DExpression = useAppStore(s => s.updateImplicit3DExpression);
+  const updateImplicit3DDomain = useAppStore(s => s.updateImplicit3DDomain);
+  const updateImplicit3DParameter = useAppStore(s => s.updateImplicit3DParameter);
+  const updateImplicit3DParamConfig = useAppStore(s => s.updateImplicit3DParamConfig);
 
-  const commit = () => {
-    setEditing(false);
-    const v = parseFloat(local);
-    if (Number.isFinite(v) && v !== value) onChange(v);
-  };
-
-  return (
-    <input
-      type="number"
-      value={editing ? local : value}
-      onFocus={() => { setEditing(true); setLocal(String(value)); }}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => { if (e.key === 'Enter') commit(); }}
-      className={className}
-      step="any"
-    />
-  );
-};
-
-export const Implicit3DList: React.FC = () => {
-  const {
-    implicit3DFunctions,
-    removeImplicit3DFunction,
-    toggleImplicit3DVisibility,
-    toggleImplicit3DWireframe,
-    toggleImplicit3DGPUMode,
-    updateImplicit3DResolution,
-    updateImplicit3DExpression,
-    updateImplicit3DDomain,
-  } = useAppStore();
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editExpression, setEditExpression] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingId && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingId]);
+  const linkedParams = useLinkedParameters(implicit3DFunctions);
+  const { editExpression, setEditExpression, inputRef, startEditing, saveEdit, isEditing } = useInlineEdit();
 
   if (implicit3DFunctions.length === 0) {
     return <EmptyState title="暂无隐函数" subtitle="输入 f(x,y,z)=0 表达式" />;
   }
-
-  const saveEdit = () => {
-    if (editingId && editExpression.trim()) {
-      updateImplicit3DExpression(editingId, editExpression.trim());
-    }
-    setEditingId(null);
-    setEditExpression('');
-  };
 
   return (
     <div className="flex-1 overflow-y-auto p-3">
@@ -90,14 +49,15 @@ export const Implicit3DList: React.FC = () => {
               />
 
               <div className="flex-1 min-w-0">
-                {editingId === fn.id ? (
+                {isEditing(fn.id) ? (
                   <input ref={inputRef} value={editExpression}
                     onChange={e => setEditExpression(e.target.value)}
-                    onBlur={saveEdit} onKeyDown={e => { if (e.key === 'Enter') saveEdit(); else if (e.key === 'Escape') { setEditingId(null); setEditExpression(''); } }}
+                    onBlur={() => saveEdit(updateImplicit3DExpression)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(updateImplicit3DExpression); }}
                     className="w-full px-2 py-1 input-glass text-xs font-mono"
                   />
                 ) : (
-                  <button onClick={() => { setEditingId(fn.id); setEditExpression(fn.expression); }}
+                  <button onClick={() => startEditing(fn)}
                     className="w-full text-left text-sm text-gray-200 font-mono truncate hover:text-white transition-colors"
                   >{fn.expression}</button>
                 )}
@@ -152,25 +112,25 @@ export const Implicit3DList: React.FC = () => {
                 <span className="text-gray-500 w-3 font-mono">X</span>
                 <DomainInput
                   value={fn.xMin}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'xMin', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'xMin', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
                 <span className="text-gray-600">—</span>
                 <DomainInput
                   value={fn.xMax}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'xMax', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'xMax', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
                 <span className="text-gray-500 w-3 font-mono ml-1">Y</span>
                 <DomainInput
                   value={fn.yMin}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'yMin', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'yMin', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
                 <span className="text-gray-600">—</span>
                 <DomainInput
                   value={fn.yMax}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'yMax', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'yMax', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
               </div>
@@ -178,17 +138,33 @@ export const Implicit3DList: React.FC = () => {
                 <span className="text-gray-500 w-3 font-mono">Z</span>
                 <DomainInput
                   value={fn.zMin}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'zMin', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'zMin', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
                 <span className="text-gray-600">—</span>
                 <DomainInput
                   value={fn.zMax}
-                  onChange={v => updateImplicit3DDomain(fn.id, 'zMax', v)}
+                  onChange={v => { if (v !== undefined) updateImplicit3DDomain(fn.id, 'zMax', v); }}
                   className="w-12 px-1 py-0.5 input-glass text-[10px] text-center font-mono"
                 />
               </div>
             </div>
+
+            {/* 参数滑块 */}
+            {fn.parameters.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {fn.parameters.map((param) => (
+                  <ParameterSlider
+                    key={param.name}
+                    parameter={param}
+                    functionId={fn.id}
+                    onChange={(value) => updateImplicit3DParameter(fn.id, param.name, value)}
+                    onConfigChange={updateImplicit3DParamConfig}
+                    linkedInfo={linkedParams.get(`${fn.id}:${param.name}`)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
