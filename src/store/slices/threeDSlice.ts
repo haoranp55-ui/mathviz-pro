@@ -210,6 +210,7 @@ export const createThreeDSlice: StateCreator<AppStore, [], [], ThreeDSlice> = (s
     set({
       implicit3DFunctions: get().implicit3DFunctions.map(f => f.id === id ? { ...f, [field]: value } : f),
     });
+    get().bumpThreeDVersion();
   },
 
   updateImplicit3DExpression: (id, expression) => {

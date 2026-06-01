@@ -760,24 +760,15 @@ export class ThreeDRenderManager {
     }
 
     // 结构变了 → 需要重建几何体（走Worker）
-    if (cached) {
-      this.scene.remove(cached.mesh);
-      cached.mesh.geometry.dispose();
-      (cached.mesh.material as THREE.Material).dispose();
-    }
+    // 但不要立即删除旧 mesh，保留它直到 Worker 完成
+    // 这样在 Worker 计算期间，旧 mesh 仍然可见
 
     // 已经在计算同一个 key → 跳过
     if (this.explicitPendingKey.get(fn.id) === meshKey) return;
     this.explicitPendingKey.set(fn.id, meshKey);
 
-    // 占位mesh
-    const dGeo = new THREE.SphereGeometry(0.01);
-    const dMat = new THREE.MeshPhongMaterial({ color: fn.color, wireframe: fn.wireframe, side: THREE.DoubleSide });
-    dMat.clippingPlanes = this.makeClippingPlanes(fn.zMin, fn.zMax);
-    const placeholder = new THREE.Mesh(dGeo, dMat);
-    placeholder.visible = false;
-    this.scene.add(placeholder);
-    this.meshes.set(fn.id, { mesh: placeholder, meshKey, paramKey, zMin: fn.zMin, zMax: fn.zMax });
+    // 如果有旧 mesh，保留它继续显示，不删除
+    // Worker 完成后会替换它
 
     const res = fn.resolution;
     const xRange = fn.xMax - fn.xMin;
@@ -803,7 +794,6 @@ export class ThreeDRenderManager {
       if (this.disposed) return;
 
       const currentEntry = this.meshes.get(fn.id);
-      if (currentEntry && currentEntry.meshKey !== meshKey && this.explicitPendingKey.has(fn.id)) return;
 
       // 删掉旧 mesh（包括占位）
       if (currentEntry) {
@@ -816,9 +806,18 @@ export class ThreeDRenderManager {
       geometry.rotateX(-Math.PI / 2);
 
       const positions = geometry.attributes.position;
-      for (let i = 0; i < positions.count; i++) {
-        const h = heights[i];
-        positions.setY(i, Number.isFinite(h) ? h : 0);
+      for (let iy = 0; iy <= res; iy++) {
+        for (let ix = 0; ix <= res; ix++) {
+          const idx = iy * (res + 1) + ix;
+          const h = heights[idx];
+          // 计算世界坐标（使用 Worker 开始之前捕获的定义域值）
+          const mathX = (fn.xMin) + (ix / res) * xRange;
+          const mathY = (fn.yMin) + (iy / res) * yRange;
+          // 设置顶点位置（mesh 在原点，所以世界坐标就是局部坐标）
+          positions.setX(idx, mathX);
+          positions.setY(idx, Number.isFinite(h) ? h : 0);
+          positions.setZ(idx, -mathY);
+        }
       }
       geometry.computeVertexNormals();
       positions.needsUpdate = true;
@@ -830,7 +829,8 @@ export class ThreeDRenderManager {
       });
 
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(xCenter, 0, -yCenter);
+      // mesh 始终放在原点，通过顶点位置来定义形状
+      mesh.position.set(0, 0, 0);
       this.scene.add(mesh);
       this.meshes.set(fn.id, { mesh, meshKey, paramKey, zMin, zMax });
       this.onNeedsRender?.();
@@ -844,20 +844,20 @@ export class ThreeDRenderManager {
     const positions = mesh.geometry.attributes.position as THREE.BufferAttribute;
     const xRange = fn.xMax - fn.xMin;
     const yRange = fn.yMax - fn.yMin;
-    const xCenter = (fn.xMin + fn.xMax) / 2;
-    const yCenter = (fn.yMin + fn.yMax) / 2;
     const currentParams: Record<string, number> = {};
     for (const p of fn.parameters) currentParams[p.name] = p.currentValue;
 
     for (let iy = 0; iy <= res; iy++) {
       for (let ix = 0; ix <= res; ix++) {
-        const localX = -(xRange / 2) + (ix / res) * xRange;
-        const localZ = (yRange / 2) - (iy / res) * yRange;
-        const mathX = localX + xCenter;
-        const mathY = -localZ + yCenter;
+        // 计算世界坐标
+        const mathX = fn.xMin + (ix / res) * xRange;
+        const mathY = fn.yMin + (iy / res) * yRange;
         const idx = iy * (res + 1) + ix;
         const z = fn.compiled(mathX, mathY, currentParams);
+        // 设置顶点位置（mesh 在原点，所以世界坐标就是局部坐标）
+        positions.setX(idx, mathX);
         positions.setY(idx, Number.isFinite(z) ? z : 0);
+        positions.setZ(idx, -mathY);
       }
     }
 

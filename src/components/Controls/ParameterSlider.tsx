@@ -27,6 +27,10 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
   const rafRef = useRef<number | null>(null);
   const pendingValueRef = useRef<number>(parameter.currentValue);
   const [showConfig, setShowConfig] = useState(false);
+
+  // 本地编辑状态，支持输入中间值（如单独的负号 "-"）
+  const [editingField, setEditingField] = useState<'min' | 'max' | 'step' | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   const setSliderActive = useAppStore((state) => state.setSliderActive);
 
   // Animation state
@@ -187,13 +191,6 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
     };
   }, [setSliderActive]);
 
-  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (!isNaN(value) && value >= parameter.min && value <= parameter.max) {
-      onChange(value);
-    }
-  }, [onChange, parameter.min, parameter.max]);
-
   const handleConfigChange = useCallback((field: 'min' | 'max' | 'step', e: ChangeEvent<HTMLInputElement>) => {
     if (!onConfigChange || !functionId) return;
     const value = parseFloat(e.target.value);
@@ -201,6 +198,29 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
       onConfigChange(functionId, parameter.name, field, value);
     }
   }, [onConfigChange, functionId, parameter.name]);
+
+  // 本地编辑状态处理：focus 时进入编辑模式，blur 时提交
+  const handleConfigFocus = useCallback((field: 'min' | 'max' | 'step') => {
+    setEditingField(field);
+    setEditingValue(String(parameter[field]));
+  }, [parameter]);
+
+  const handleConfigBlur = useCallback(() => {
+    if (editingField && onConfigChange && functionId) {
+      const value = parseFloat(editingValue);
+      if (Number.isFinite(value)) {
+        onConfigChange(functionId, parameter.name, editingField, value);
+      }
+    }
+    setEditingField(null);
+    setEditingValue('');
+  }, [editingField, editingValue, onConfigChange, functionId, parameter.name]);
+
+  const handleConfigKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleConfigBlur();
+    }
+  }, [handleConfigBlur]);
 
   const canAnimate = parameter.min !== parameter.max;
 
@@ -215,10 +235,10 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
   };
 
   return (
-    <div>
+    <div className="bg-white/[0.03] rounded-lg p-2 border border-white/[0.04]">
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-mono text-[#94A3B8]">{parameter.name}</span>
+          <span className="text-[12px] font-mono text-slate-400">{parameter.name}</span>
           {linkedInfo?.isLinked && (
             <span
               className="inline-flex items-center gap-0.5"
@@ -254,15 +274,7 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
             </button>
           )}
         </div>
-        <input
-          type="number"
-          value={parameter.currentValue.toFixed(2)}
-          onChange={handleInputChange}
-          className="w-16 px-1.5 py-0.5 input-base text-center text-xs"
-          step={parameter.step}
-          min={parameter.min}
-          max={parameter.max}
-        />
+        <span className="text-[11px] text-cyan-400 font-mono w-14 text-right">{parameter.currentValue.toFixed(2)}</span>
       </div>
 
       {showConfig && (
@@ -273,8 +285,11 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
               <span>最小:</span>
               <input
                 type="number"
-                value={parameter.min}
-                onChange={(e) => handleConfigChange('min', e)}
+                value={editingField === 'min' ? editingValue : parameter.min}
+                onChange={(e) => { setEditingValue(e.target.value); }}
+                onFocus={() => handleConfigFocus('min')}
+                onBlur={handleConfigBlur}
+                onKeyDown={handleConfigKeyDown}
                 className="w-12 px-1 py-0.5 input-base text-xs"
               />
             </label>
@@ -282,8 +297,11 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
               <span>最大:</span>
               <input
                 type="number"
-                value={parameter.max}
-                onChange={(e) => handleConfigChange('max', e)}
+                value={editingField === 'max' ? editingValue : parameter.max}
+                onChange={(e) => { setEditingValue(e.target.value); }}
+                onFocus={() => handleConfigFocus('max')}
+                onBlur={handleConfigBlur}
+                onKeyDown={handleConfigKeyDown}
                 className="w-12 px-1 py-0.5 input-base text-xs"
               />
             </label>
@@ -291,8 +309,11 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
               <span>步长:</span>
               <input
                 type="number"
-                value={parameter.step}
-                onChange={(e) => handleConfigChange('step', e)}
+                value={editingField === 'step' ? editingValue : parameter.step}
+                onChange={(e) => { setEditingValue(e.target.value); }}
+                onFocus={() => handleConfigFocus('step')}
+                onBlur={handleConfigBlur}
+                onKeyDown={handleConfigKeyDown}
                 className="w-12 px-1 py-0.5 input-base text-xs"
                 step="any"
               />
@@ -379,7 +400,7 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
       )}
 
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-[#475569] w-8 text-right font-mono">{parameter.min}</span>
+        <span className="text-[11px] text-slate-400 font-mono w-8 text-right">{parameter.min}</span>
         <input
           type="range"
           min={parameter.min}
@@ -391,9 +412,10 @@ export const ParameterSlider: FC<ParameterSliderProps> = ({
           onMouseUp={handleMouseUp}
           onTouchStart={handleMouseDown}
           onTouchEnd={handleMouseUp}
-          className={`flex-1 ${isPlaying ? 'animating-slider' : ''}`}
+          className={`flex-1 slider-cyan ${isPlaying ? 'animating-slider' : ''}`}
+          style={{ '--slider-fill': `${((parameter.currentValue - parameter.min) / (parameter.max - parameter.min)) * 100}%` } as React.CSSProperties}
         />
-        <span className="text-[11px] text-[#475569] w-8 font-mono">{parameter.max}</span>
+        <span className="text-[11px] text-slate-400 font-mono w-8">{parameter.max}</span>
       </div>
     </div>
   );
